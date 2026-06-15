@@ -1,0 +1,29 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime outputs and local stores
+outputs/
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Test and tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Editor/workspace metadata
+docs/.obsidian/

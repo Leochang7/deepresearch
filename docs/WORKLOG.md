@@ -1,0 +1,13 @@
+# Worklog
+
+只记录最近关键工作记录、验证结果和阻塞点。不要记录模型临时思考过程。
+
+## Recent
+
+- 2026-06-15: 建立项目规划文档，明确 PRD、MVP、实现规划、技术栈和 Retriever 设计。
+- 2026-06-15: 确认 AGENTS.md 规则：AI 优先、中文为主、使用 uv、禁止 Agent 框架作为核心编排层、默认测试离线可跑、维护 TASKS/WORKLOG。
+- 2026-06-15: 固化模型与检索策略：MiMo v2.5 Pro 作为默认模型，DeepSeek fallback，Qwen3-Embedding-4B 1024 维，bge-reranker-v2-m32 reranker，支持真实 Web 搜索与 MiMo 原生搜索。
+- 2026-06-15: 固化剩余实现细节：MiMo 使用 OpenAI-compatible chat completions 且 header 为 `api-key`，真实搜索使用 Tavily，MVP 使用 `httpx + trafilatura` 抓取正文，chunk 为 1200/200，去重为 `source_url + content_hash`。
+- 2026-06-15: 重写 `docs/TASKS.md` 为可执行 MVP backlog，按 M0-M9 里程碑拆分任务，每个任务包含文件范围、完成标准和验证命令。
+- 2026-06-15: 将 unborn 分支从 `master` 重命名为 `main`，并确定第一次 commit 后创建 `develop` 作为日常开发分支。
+- 2026-06-15: 准备首次提交：补充 `.gitignore` 本地配置与运行产物规则，切换到 `develop` 作为日常开发分支。
