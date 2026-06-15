@@ -52,27 +52,27 @@
 
 ### M2 配置、Schema 与 Trace
 
-- [ ] T020 实现配置加载
+- [x] T020 实现配置加载
   - Files: `src/deepresearch/config.py`, `tests/test_config.py`
   - Done when: 支持 `--config`、`DEEPRESEARCH_CONFIG_PATH`、当前目录、用户目录、系统目录和内置默认值；配置值优先级为 CLI > env > file > default。
   - Verify: `uv run pytest tests/test_config.py`
 
-- [ ] T021 定义核心 schema
+- [x] T021 定义核心 schema
   - Files: `src/deepresearch/schemas/*.py`, `tests/schemas/`
   - Done when: `TaskNode`、`ResearchPlan`、`RetrievedDocument`、`EvidenceItem`、`ResearchReport`、`EvaluationResult` schema 可校验。
   - Verify: `uv run pytest tests/schemas`
 
-- [ ] T022 实现 TaskState 和状态流转校验
+- [x] T022 实现 TaskState 和状态流转校验
   - Files: `src/deepresearch/core/state.py`, `tests/core/test_state.py`
   - Done when: 9 状态枚举和合法流转表实现；非法流转抛出明确异常。
   - Verify: `uv run pytest tests/core/test_state.py`
 
-- [ ] T023 实现 JSON fallback
+- [x] T023 实现 JSON fallback
   - Files: `src/deepresearch/core/json_repair.py`, `tests/core/test_json_repair.py`
   - Done when: 支持 strict JSON、Markdown json code block、首个对象/数组截取、去尾逗号、中文引号替换、缺失字段默认值。
   - Verify: `uv run pytest tests/core/test_json_repair.py`
 
-- [ ] T024 实现 TraceLogger
+- [x] T024 实现 TraceLogger
   - Files: `src/deepresearch/core/trace.py`, `tests/core/test_trace.py`
   - Done when: trace 以 JSONL 追加写入，支持 task、retriever、milvus、llm、red-blue、evaluation 事件类型。
   - Verify: `uv run pytest tests/core/test_trace.py`
