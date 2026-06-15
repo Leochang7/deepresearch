@@ -205,6 +205,94 @@ MCP 是工具接入协议，适合连接外部知识源和工具，不作为 MVP
 - `max_chunks_per_task = 80`
 - `max_llm_calls_per_run = 80`
 
+## 6.1 Post-MVP：RRF 融合
+
+Post-MVP 第一项检索质量增强是 RRF（Reciprocal Rank Fusion）。RRF 适合本项目，因为 Tavily、MiMo Search、LocalDataset、Milvus recall 的分数尺度不同，直接比较 raw score 不可靠。RRF 只依赖 rank，工程上更稳。
+
+标准公式：
+
+```text
+score(d) = sum(1 / (rrf_k + rank_i(d)))
+```
+
+默认参数：
+
+- `rrf_k = 60`
+- `max_fused_results = 20`
+
+第一版做 document-level RRF：
+
+```text
+multi-query search results -> RRF -> fetch top docs -> chunk
+```
+
+输入：
+
+- Tavily 每个 query 的搜索结果。
+- MiMoSearch 每个 query 的搜索结果。
+- LocalDatasetRetriever 的 ranked results。
+
+输出：
+
+- 去重后的 `RetrievedDocument` 列表。
+
+去重 key：
+
+- `canonical_url` 优先。
+- 无 URL 时使用 `title + content_hash`。
+
+第二版做 chunk-level RRF：
+
+```text
+Milvus vector recall + keyword/BM25 recall + source-priority chunks -> RRF -> reranker
+```
+
+chunk 去重 key：
+
+- `source_url + content_hash`
+
+暂不做动态权重。需要对比实验时再扩展 weighted RRF：
+
+```text
+weighted_score(d) = sum(weight_i / (rrf_k + rank_i(d)))
+```
+
+## 6.2 Post-MVP：MMR 去冗余与覆盖面控制
+
+MMR（Maximal Marginal Relevance）不是 RRF 的替代，而是 RRF 后面的 context selection 策略。
+
+- RRF 负责把多 query、多 retriever、多 recall source 的候选结果融合成统一 ranked list。
+- MMR 负责从候选 chunks 中选择既相关又不重复的一组上下文，避免多个 chunk 都在讲同一个事实。
+
+第一版只在 chunk 级别做 MMR：
+
+```text
+document-level RRF -> fetch -> chunk -> chunk-level RRF/rerank -> MMR -> context pack
+```
+
+默认参数：
+
+- `mmr_lambda = 0.7`
+- `max_context_chunks = 12`
+- chunk 相似度使用 embedding cosine similarity
+
+MMR scoring：
+
+```text
+score(candidate) =
+  mmr_lambda * relevance(candidate)
+  - (1 - mmr_lambda) * max_similarity(candidate, selected_chunks)
+```
+
+`relevance(candidate)` 第一版优先使用 reranker score；没有 reranker score 时使用 Milvus/vector score 或 RRF score 归一化结果。
+
+MMR 的目标指标：
+
+- 降低最终 context 中的重复 chunk 比例。
+- 提升不同 source 覆盖率。
+- 提升 synthesis 可用 evidence 数量。
+- 不显著降低最终答案事实准确率。
+
 ## 7. Trace 记录
 
 每次检索记录：

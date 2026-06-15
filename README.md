@@ -142,6 +142,7 @@ Planner → DAG Executor → Research Agent → Retriever → Memory → Synthes
 
 - [PRD：产品需求文档](docs/PRD.md)
 - [MVP 范围与后续路线](docs/MVP_AND_ROADMAP.md)
+- [Post-MVP Roadmap](docs/POST_MVP_ROADMAP.md)
 - [技术栈与工程选型](docs/TECH_STACK.md)
 - [检索与资料获取设计](docs/RETRIEVAL_DESIGN.md)
 - [配置设计](docs/CONFIGURATION.md)

@@ -8,6 +8,7 @@
 - 2026-06-15: 完成真实 Tavily + Milvus Standalone 验收：endpoint 实际返回 `Qwen3-Embedding-4B` 2560 维，可用 reranker 为 `bge-reranker-v2-m3`；使用 2560 维 collection 后 run `369ea50b8852` 任务成功率 1.0、引用覆盖率 0.8571、报告完整度 1.0。
 - 2026-06-15: 修复真实报告 References 只输出来源标题、不输出 URL 的问题；Synthesizer evidence context 和最终 References 现在都会保留 `source_url`。
 - 2026-06-15: 清理 Milvus Lite / 本地 `.db` 测试残留，MilvusStore 默认只按 Docker Milvus Standalone URI 连接。
+- 2026-06-15: 补充 Post-MVP Roadmap 和任务 backlog：优先 `doctor`，随后做 RRF、引用质量、真实 replan、trace inspect、Memory schema version 和小型 benchmark。
 
 - 2026-06-15: 建立项目规划文档，明确 PRD、MVP、实现规划、技术栈和 Retriever 设计。
 - 2026-06-15: 确认 AGENTS.md 规则：AI 优先、中文为主、使用 uv、禁止 Agent 框架作为核心编排层、默认测试离线可跑、维护 TASKS/WORKLOG。

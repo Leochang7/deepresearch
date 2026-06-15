@@ -76,7 +76,32 @@ uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋
 
 ## 5. MVP 之后的路线
 
-### Phase 1：增强执行可靠性
+MVP 已跑通后，后续路线调整为“先稳定真实环境，再提升检索和报告质量，最后做 benchmark”。详细拆解见 [Post-MVP Roadmap](POST_MVP_ROADMAP.md)。
+
+### Phase 0：真实环境自检与工程可靠性
+
+- 增加 `deepresearch doctor` 命令，检查 API key、endpoint、模型列表、embedding 维度、reranker 模型、Milvus 连接和 collection schema。
+- 增加真实模式 integration/e2e 测试入口，使用 `integration`、`network`、`milvus`、`llm` marker，不进入默认离线测试。
+- 修复 PyMilvus ORM API deprecation，迁移到 `MilvusClient`。
+- 真实模式全部任务失败时保持非 0 退出，避免假成功。
+
+### Phase 1：检索质量增强
+
+- 增加 document-level RRF，用于融合多 query、多 retriever 候选文档。
+- 默认 `rrf_k = 60`，`max_fused_results = 20`。
+- 先融合 Tavily、MiMo Search、LocalDataset 的 ranked results，再 fetch top docs。
+- 后续增加 chunk-level RRF，用于融合 Milvus vector recall、关键词/BM25 recall 和 source-priority chunks。
+- RRF 后增加 chunk-level MMR，用于从候选 chunks 中选择相关且不重复的上下文，默认 `mmr_lambda = 0.7`、`max_context_chunks = 12`。
+
+### Phase 2：引用与证据质量
+
+- References 去重并输出 `title + url + retrieved_at`。
+- Red Agent 专门检查引用是否真的支持 claim。
+- Evidence quote 必须原文命中，claim 与 quote 做语义一致性校验。
+- 低置信 evidence 不进入最终 synthesis。
+- 增加 report profile：`factual_answer`、`comparison`、`timeline`、`tech_research`、`risk_analysis`。
+
+### Phase 3：增强执行可靠性与 replan 闭环
 
 - 完善 9 状态状态机。
 - 增加任务级重试策略。
@@ -87,7 +112,7 @@ uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋
   - 从 Markdown 代码块提取 JSON。
   - 基于 schema 的字段修复。
 
-### Phase 2：增强记忆与上下文压缩
+### Phase 4：增强记忆与上下文压缩
 
 - L1：embedding 粗过滤。
 - L2：Milvus 标量过滤 + TextRank 或 MMR 做片段筛选。
@@ -95,9 +120,11 @@ uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋
 - 写前去重。
 - 基础矛盾检测。
 - 记忆按 run、task、source、claim 分层组织。
+- Memory schema version 记录 embedding model、dim、collection schema version。
+- 启动时校验当前配置与 collection metadata 是否匹配。
 - 从 Milvus Standalone 演进到 Milvus Distributed 或托管 Milvus。
 
-### Phase 2.5：增强资料获取能力
+### Phase 5：增强资料获取能力
 
 - 增加 `BrowserRetriever`，支持网页正文抓取、正文清洗、缓存和去重。
 - 增加 `MCPRetriever`，用于接入 GitHub、论文库、数据库、文件系统等外部工具。
@@ -105,7 +132,7 @@ uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋
 - 增加通用 `ModelNativeSearchRetriever`，用于接入其他模型厂商原生搜索能力，作为 fallback 或对比实验。
 - 为每个 Retriever 增加统一 trace，记录 query、来源、耗时、返回数量和失败原因。
 
-### Phase 3：增强 Red-Blue 对抗
+### Phase 6：增强 Red-Blue 对抗
 
 - Red Agent 输出结构化问题清单。
 - Blue Agent 根据问题类型选择修复动作。
@@ -113,7 +140,7 @@ uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋
 - 增加评分收敛检测。
 - 增加震荡检测，避免来回修改同一问题。
 
-### Phase 4：完善评测体系
+### Phase 7：完善评测体系
 
 - 自建 ResearchBench。
 - 引入 HotpotQA 风格多跳问题。
@@ -123,8 +150,10 @@ uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋
 - Cohen's d 效应量。
 - 一键实验脚本。
 
-### Phase 5：产品化与展示
+### Phase 8：产品化与展示
 
+- 增加 `inspect --timeline`、`inspect --tasks`、`inspect --evidence`。
+- 增加 `docs/MVP_ACCEPTANCE.md` 固化真实验收结果。
 - 增加 Web UI 或 Gradio/Streamlit demo。
 - 增加任务图可视化。
 - 增加报告版本对比。

@@ -290,3 +290,114 @@
 ## Blocked
 
 - [ ] 暂无。
+
+## Post-MVP Backlog
+
+### PM0 真实环境自检与工程可靠性
+
+- [ ] PM001 实现 `deepresearch doctor`
+  - Files: `src/deepresearch/cli.py`, `src/deepresearch/doctor.py`, `tests/test_doctor.py`
+  - Done when: 可检查必需环境变量、MiMo/Tavily/embedding/reranker endpoint、模型列表、embedding 维度、reranker 模型、Milvus Standalone 连接和 collection schema；不打印密钥值。
+  - Verify: `uv run pytest tests/test_doctor.py`
+
+- [ ] PM002 增加真实模式 integration/e2e 测试入口
+  - Files: `tests/integration/`, `pyproject.toml`, `docs/CONFIGURATION.md`
+  - Done when: Tavily、MiMo、embedding、reranker、Milvus Standalone smoke tests 使用 `integration/network/milvus/llm` marker；默认 `uv run pytest` 仍离线可跑。
+  - Verify: `uv run pytest`, `uv run pytest -m integration`
+
+- [ ] PM003 迁移 Milvus ORM API 到 `MilvusClient`
+  - Files: `src/deepresearch/memory/milvus_store.py`, `tests/memory/`
+  - Done when: 真实运行不再输出 PyMilvus ORM deprecation warning，collection init/upsert/search/snapshot 行为保持一致。
+  - Verify: `uv run pytest tests/memory`
+
+### PM1 检索质量增强
+
+- [ ] PM010 实现 document-level RRF
+  - Files: `src/deepresearch/retrieval/fusion.py`, `tests/retrieval/test_fusion.py`
+  - Done when: 支持多个 ranked `RetrievedDocument` 列表融合，默认 `rrf_k=60`、`max_fused_results=20`，按 canonical URL 或 `title + content_hash` 去重。
+  - Verify: `uv run pytest tests/retrieval/test_fusion.py`
+
+- [ ] PM011 将 RRF 接入多 query 搜索结果
+  - Files: `src/deepresearch/retrieval/tavily_search.py`, `src/deepresearch/retrieval/mimo_search.py`, `src/deepresearch/agents/researcher.py`
+  - Done when: 多 query 返回的候选文档先 RRF 融合，再进入 fetch/chunk；trace 记录融合前后数量。
+  - Verify: `uv run pytest tests/agents/test_researcher.py tests/retrieval`
+
+- [ ] PM012 实现 chunk-level RRF 设计与第一版
+  - Files: `src/deepresearch/retrieval/fusion.py`, `src/deepresearch/agents/researcher.py`, tests
+  - Done when: Milvus vector recall 与关键词/BM25 recall 可融合后再 rerank。
+  - Verify: `uv run pytest tests/agents/test_researcher.py`
+
+- [ ] PM013 实现 chunk-level MMR context selection
+  - Files: `src/deepresearch/retrieval/fusion.py`, `src/deepresearch/agents/researcher.py`, `tests/retrieval/test_fusion.py`
+  - Done when: RRF/rerank 后的候选 chunks 支持按 `mmr_lambda=0.7` 做相关性与多样性选择，默认最多保留 12 个 context chunks。
+  - Verify: `uv run pytest tests/retrieval/test_fusion.py tests/agents/test_researcher.py`
+
+### PM2 引用与证据质量
+
+- [ ] PM020 增强 References 输出
+  - Files: `src/deepresearch/agents/synthesizer.py`, `tests/agents/test_synthesizer.py`
+  - Done when: References 去重，输出 `title + url + retrieved_at`，缺失 URL 时明确标记 local source。
+  - Verify: `uv run pytest tests/agents/test_synthesizer.py`
+
+- [ ] PM021 Red Agent 增加引用支持度检查
+  - Files: `src/deepresearch/agents/red_agent.py`, `src/deepresearch/prompts/red_agent.md`, tests
+  - Done when: Red Agent 能输出“引用不能支持 claim”的结构化 issue。
+  - Verify: `uv run pytest tests/agents/test_red_agent.py`
+
+- [ ] PM022 增加 evidence 质量门控
+  - Files: `src/deepresearch/agents/researcher.py`, `src/deepresearch/schemas/evidence.py`, tests
+  - Done when: quote 必须原文命中，低置信 evidence 不进入 synthesis，claim/quote 语义一致性检查有可替换接口。
+  - Verify: `uv run pytest tests/agents/test_researcher.py`
+
+- [ ] PM023 增加 report profile
+  - Files: `src/deepresearch/agents/synthesizer.py`, `src/deepresearch/prompts/synthesizer.md`, config/docs/tests
+  - Done when: 支持 `factual_answer`、`comparison`、`timeline`、`tech_research`、`risk_analysis` 报告模板。
+  - Verify: `uv run pytest tests/agents/test_synthesizer.py`
+
+### PM3 Replan 与预算控制
+
+- [ ] PM030 实现真实 replan 闭环
+  - Files: `src/deepresearch/core/executor.py`, `src/deepresearch/agents/planner.py`, tests
+  - Done when: task 失败、evidence 为 0、同层失败率过高时可生成替代 task 并继续执行，trace 记录 replan 来源。
+  - Verify: `uv run pytest tests/core/test_replan.py tests/core/test_executor.py`
+
+- [ ] PM031 增加 run budget 统计
+  - Files: `src/deepresearch/core/run_manager.py`, `src/deepresearch/core/trace.py`, schemas/tests
+  - Done when: run 记录 LLM calls、search calls、fetched docs、chunks、embedding batches、rerank calls、elapsed time。
+  - Verify: `uv run pytest tests/core/test_run_manager.py`
+
+### PM4 Trace 与展示
+
+- [ ] PM040 增强 `inspect --timeline`
+  - Files: `src/deepresearch/cli.py`, tests/docs
+  - Done when: CLI 可按 task 输出阶段耗时、失败原因、query/doc/chunk/evidence 数量。
+  - Verify: `uv run pytest tests/test_cli.py`
+
+- [ ] PM041 增加 MVP 验收文档
+  - Files: `docs/MVP_ACCEPTANCE.md`, `README.md`
+  - Done when: 记录真实 smoke run 配置、指标、产物路径、已知限制和复现命令。
+  - Verify: 文档人工检查。
+
+### PM5 Memory 与数据治理
+
+- [ ] PM050 增加 Memory schema version
+  - Files: `src/deepresearch/memory/milvus_store.py`, config/docs/tests
+  - Done when: collection metadata 记录 embedding model、dim、schema version，启动时校验配置匹配。
+  - Verify: `uv run pytest tests/memory`
+
+- [ ] PM051 增加轻量冲突检测
+  - Files: `src/deepresearch/memory/conflict.py`, tests
+  - Done when: 支持同实体不同日期/数值、相反结论词、同 source_url 不同 claim 的启发式检测。
+  - Verify: `uv run pytest tests/memory/test_conflict.py`
+
+### PM6 评测与实验
+
+- [ ] PM060 固化真实 smoke question set
+  - Files: `examples/questions.txt`, `tests/e2e/`, `docs/MVP_ACCEPTANCE.md`
+  - Done when: 有 3-5 个固定真实问题和对应指标记录。
+  - Verify: `uv run pytest tests/e2e`
+
+- [ ] PM061 设计 ResearchBench mini
+  - Files: `src/deepresearch/evaluation/benchmark.py`, `docs/`
+  - Done when: 支持少量多领域问题、规则指标汇总和 JSONL 输出。
+  - Verify: `uv run pytest tests/evaluation`
