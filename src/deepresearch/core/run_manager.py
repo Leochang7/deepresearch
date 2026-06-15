@@ -122,6 +122,13 @@ class RunManager:
                 max_queries=self._config.retrieval.max_queries_per_task,
                 max_documents=self._config.retrieval.max_docs_per_task,
                 max_chunks=self._config.retrieval.max_chunks_per_task,
+                vector_top_k=self._config.retrieval.top_k_vector,
+                rerank_top_k=self._config.retrieval.top_k_reranked,
+                rrf_k=self._config.fusion.rrf_k,
+                max_fused_docs=self._config.fusion.max_fused_docs,
+                max_fused_chunks=self._config.fusion.max_fused_chunks,
+                mmr_lambda=self._config.fusion.mmr_lambda,
+                max_mmr_results=self._config.fusion.max_mmr_results,
                 fetch_concurrency=min(
                     self._config.retrieval.max_docs_per_task,
                     10,

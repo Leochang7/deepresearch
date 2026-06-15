@@ -72,6 +72,7 @@ async def test_search_builds_scalar_filters(store_and_client):
                     "confidence": 0.8,
                     "created_at": "2026-06-15T00:00:00Z",
                     "metadata_json": '{"a": 1}',
+                    "embedding": [0.1] * 1024,
                 },
             }
         ]
@@ -95,6 +96,52 @@ async def test_search_builds_scalar_filters(store_and_client):
     assert results[0].entry.title == "Title"
     assert results[0].entry.source_url == "https://example.com"
     assert results[0].entry.metadata == {"a": 1}
+    assert len(results[0].entry.embedding) == 1024
+
+
+@pytest.mark.asyncio
+async def test_keyword_search_queries_independent_candidates(store_and_client):
+    store, client = store_and_client
+    client.query.return_value = [
+        {
+            "id": "keyword-hit",
+            "run_id": "r1",
+            "task_id": "t1",
+            "title": "Chinese source",
+            "source_url": "",
+            "content": "多智能体系统能够执行复杂研究任务",
+            "source_type": "chunk",
+            "confidence": 1.0,
+            "created_at": "",
+            "metadata_json": "{}",
+            "embedding": [0.2] * 1024,
+        },
+        {
+            "id": "other",
+            "run_id": "r1",
+            "task_id": "t1",
+            "title": "Other",
+            "source_url": "",
+            "content": "unrelated",
+            "source_type": "chunk",
+            "confidence": 1.0,
+            "created_at": "",
+            "metadata_json": "{}",
+            "embedding": [0.3] * 1024,
+        },
+    ]
+
+    results = await store.keyword_search(
+        "多智能体研究",
+        run_id="r1",
+        task_id="t1",
+        source_type="chunk",
+        top_k=5,
+    )
+
+    client.query.assert_called_once()
+    assert [result.entry.id for result in results] == ["keyword-hit"]
+    assert len(results[0].entry.embedding) == 1024
 
 
 @pytest.mark.asyncio

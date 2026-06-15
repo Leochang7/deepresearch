@@ -63,6 +63,16 @@ def _agent(
     )
 
 
+class TrackingMemoryStore(MockMemoryStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.keyword_queries: list[str] = []
+
+    async def keyword_search(self, query: str, **kwargs):
+        self.keyword_queries.append(query)
+        return await super().keyword_search(query, **kwargs)
+
+
 @pytest.mark.asyncio
 async def test_execute_runs_full_pipeline_and_stores_vectors():
     agent, memory, fetcher = _agent()
@@ -269,3 +279,49 @@ async def test_low_confidence_evidence_filtered():
 
     assert result["evidence_count"] == 0
     assert result["information_insufficient"] is True
+
+
+@pytest.mark.asyncio
+async def test_retriever_called_per_query():
+    llm_responses = [
+        json.dumps({"queries": ["q1", "q2", "q3", "q4", "q5"]}),
+        json.dumps({"evidence": []}),
+    ]
+    retriever = MockRetriever([_document()])
+    fetcher = AsyncMock()
+    fetcher.fetch.return_value = FetchResult(
+        url="https://example.com/source",
+        title="Fetched",
+        content="Some content for testing.",
+        success=True,
+    )
+    agent = ResearchAgent(
+        MockLLM(llm_responses),
+        retriever,
+        MockMemoryStore(),
+        MockEmbeddingClient(),
+        MockRerankerClient(),
+        fetcher=fetcher,
+    )
+
+    await agent.execute(
+        TaskNode(task_id="t1", description="test", goal="test"),
+        run_id="run-1",
+    )
+
+    assert len(retriever.calls) == 5
+    called_queries = {call["queries"][0] for call in retriever.calls}
+    assert called_queries == {"q1", "q2", "q3", "q4", "q5"}
+
+
+@pytest.mark.asyncio
+async def test_researcher_uses_independent_keyword_recall():
+    memory = TrackingMemoryStore()
+    agent, _, _ = _agent(memory=memory)
+
+    await agent.execute(
+        TaskNode(task_id="t1", description="多智能体研究", goal="检索研究证据"),
+        run_id="run-1",
+    )
+
+    assert memory.keyword_queries == ["检索研究证据"]

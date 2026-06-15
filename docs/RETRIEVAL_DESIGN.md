@@ -244,7 +244,7 @@ multi-query search results -> RRF -> fetch top docs -> chunk
 第二版做 chunk-level RRF：
 
 ```text
-Milvus vector recall + keyword/BM25 recall + source-priority chunks -> RRF -> reranker
+Milvus multi-query vector recall + independent keyword recall -> RRF -> reranker
 ```
 
 chunk 去重 key：
@@ -284,7 +284,9 @@ score(candidate) =
   - (1 - mmr_lambda) * max_similarity(candidate, selected_chunks)
 ```
 
-`relevance(candidate)` 第一版优先使用 reranker score；没有 reranker score 时使用 Milvus/vector score 或 RRF score 归一化结果。
+`relevance(candidate)` 第一版优先使用 reranker score；没有 reranker score 时使用 query/chunk embedding cosine similarity，最后回退到 RRF score。
+
+关键词 recall 第一版不依赖 vector recall 候选集：MemoryStore 按 run/task/source_type 独立读取候选，使用英文/数字词项和中文单字、双字 token 做词法覆盖率排序。后续可替换为 Milvus BM25/full-text search adapter。
 
 MMR 的目标指标：
 

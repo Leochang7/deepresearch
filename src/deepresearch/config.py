@@ -96,6 +96,14 @@ class DedupConfig(BaseModel):
     strategy: str = "source_url_content_hash"
 
 
+class FusionConfig(BaseModel):
+    rrf_k: int = Field(default=60, ge=0)
+    max_fused_docs: int = Field(default=20, ge=1)
+    max_fused_chunks: int = Field(default=30, ge=1)
+    mmr_lambda: float = Field(default=0.7, ge=0.0, le=1.0)
+    max_mmr_results: int = Field(default=12, ge=1)
+
+
 class ExecutorConfig(BaseModel):
     max_concurrency: int = 4
     max_task_retries: int = 2
@@ -148,6 +156,11 @@ _ENV_MAP: dict[str, tuple[str, str]] = {
         "evidence_quality",
         "min_token_overlap",
     ),
+    "DEEPRESEARCH_RRF_K": ("fusion", "rrf_k"),
+    "DEEPRESEARCH_MAX_FUSED_DOCS": ("fusion", "max_fused_docs"),
+    "DEEPRESEARCH_MAX_FUSED_CHUNKS": ("fusion", "max_fused_chunks"),
+    "DEEPRESEARCH_MMR_LAMBDA": ("fusion", "mmr_lambda"),
+    "DEEPRESEARCH_MAX_MMR_RESULTS": ("fusion", "max_mmr_results"),
 }
 
 
@@ -162,6 +175,7 @@ class DeepResearchConfig(BaseModel):
     fetch: FetchConfig = Field(default_factory=FetchConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     dedup: DedupConfig = Field(default_factory=DedupConfig)
+    fusion: FusionConfig = Field(default_factory=FusionConfig)
     executor: ExecutorConfig = Field(default_factory=ExecutorConfig)
     red_blue: RedBlueConfig = Field(default_factory=RedBlueConfig)
     synthesizer: SynthesizerConfig = Field(default_factory=SynthesizerConfig)

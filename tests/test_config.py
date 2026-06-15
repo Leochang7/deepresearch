@@ -28,6 +28,7 @@ class TestDeepResearchConfig:
         assert hasattr(cfg, "red_blue")
         assert hasattr(cfg, "synthesizer")
         assert hasattr(cfg, "evidence_quality")
+        assert hasattr(cfg, "fusion")
 
 
 class TestConfigFromFile:
@@ -99,6 +100,21 @@ class TestEnvVarOverride:
         assert cfg.synthesizer.report_profile == "timeline"
         assert cfg.evidence_quality.min_confidence == 0.55
         assert cfg.evidence_quality.min_token_overlap == 0.25
+
+    def test_fusion_env_overrides(self, monkeypatch):
+        monkeypatch.setenv("DEEPRESEARCH_RRF_K", "42")
+        monkeypatch.setenv("DEEPRESEARCH_MAX_FUSED_DOCS", "15")
+        monkeypatch.setenv("DEEPRESEARCH_MAX_FUSED_CHUNKS", "25")
+        monkeypatch.setenv("DEEPRESEARCH_MMR_LAMBDA", "0.6")
+        monkeypatch.setenv("DEEPRESEARCH_MAX_MMR_RESULTS", "10")
+
+        cfg = DeepResearchConfig.from_env()
+
+        assert cfg.fusion.rrf_k == 42
+        assert cfg.fusion.max_fused_docs == 15
+        assert cfg.fusion.max_fused_chunks == 25
+        assert cfg.fusion.mmr_lambda == 0.6
+        assert cfg.fusion.max_mmr_results == 10
 
 
 class TestLoadConfig:

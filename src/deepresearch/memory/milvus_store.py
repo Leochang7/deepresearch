@@ -6,7 +6,12 @@ from typing import Any
 
 from pymilvus import CollectionSchema, DataType, FieldSchema, MilvusClient
 
-from deepresearch.memory.store import MemoryEntry, MemoryStore, SearchResult
+from deepresearch.memory.store import (
+    MemoryEntry,
+    MemoryStore,
+    SearchResult,
+    lexical_score,
+)
 
 _DIM = 1024
 _METRIC = "COSINE"
@@ -174,6 +179,7 @@ class MilvusStore(MemoryStore):
                 "confidence",
                 "created_at",
                 "metadata_json",
+                "embedding",
             ],
         )
 
@@ -191,12 +197,80 @@ class MilvusStore(MemoryStore):
                     source_type=entity.get("source_type", ""),
                     confidence=entity.get("confidence", 0.0),
                     created_at=entity.get("created_at", ""),
+                    embedding=entity.get("embedding", []),
                     metadata=_loads_metadata(entity.get("metadata_json", "")),
                 )
                 search_results.append(
                     SearchResult(entry=entry, score=hit.get("distance", 0.0))
                 )
         return search_results
+
+    async def keyword_search(
+        self,
+        query: str,
+        *,
+        run_id: str = "",
+        task_id: str = "",
+        source_type: str = "",
+        min_confidence: float | None = None,
+        top_k: int = 10,
+    ) -> list[SearchResult]:
+        self._ensure_connected()
+        assert self._client is not None
+
+        col_name = self._col_name(source_type)
+        self._client.load_collection(collection_name=col_name)
+        filter_parts: list[str] = []
+        if run_id:
+            filter_parts.append(f'run_id == "{run_id}"')
+        if task_id:
+            filter_parts.append(f'task_id == "{task_id}"')
+        if source_type:
+            filter_parts.append(f'source_type == "{source_type}"')
+        if min_confidence is not None:
+            filter_parts.append(f"confidence >= {min_confidence}")
+        filter_expr = " and ".join(filter_parts)
+
+        rows = self._client.query(
+            collection_name=col_name,
+            filter=filter_expr,
+            limit=max(top_k * 20, 200),
+            output_fields=[
+                "id",
+                "run_id",
+                "task_id",
+                "title",
+                "source_url",
+                "content",
+                "source_type",
+                "confidence",
+                "created_at",
+                "metadata_json",
+                "embedding",
+            ],
+        )
+        results = [
+            SearchResult(
+                entry=MemoryEntry(
+                    id=row.get("id", ""),
+                    run_id=row.get("run_id", ""),
+                    task_id=row.get("task_id", ""),
+                    title=row.get("title", ""),
+                    source_url=row.get("source_url", ""),
+                    content=row.get("content", ""),
+                    embedding=row.get("embedding", []),
+                    source_type=row.get("source_type", ""),
+                    confidence=row.get("confidence", 0.0),
+                    created_at=row.get("created_at", ""),
+                    metadata=_loads_metadata(row.get("metadata_json", "")),
+                ),
+                score=lexical_score(query, row.get("content", "")),
+            )
+            for row in rows
+        ]
+        results = [result for result in results if result.score > 0]
+        results.sort(key=lambda result: result.score, reverse=True)
+        return results[:top_k]
 
     async def delete(self, ids: list[str]) -> None:
         if not ids:

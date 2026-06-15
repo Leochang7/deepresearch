@@ -118,6 +118,13 @@ report_profile = "tech_research"
 [evidence_quality]
 min_confidence = 0.3
 min_token_overlap = 0.1
+
+[fusion]
+rrf_k = 60
+max_fused_docs = 20
+max_fused_chunks = 30
+mmr_lambda = 0.7
+max_mmr_results = 12
 ```
 
 ## 3. 环境变量
@@ -140,6 +147,11 @@ DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m3
 DEEPRESEARCH_REPORT_PROFILE=tech_research
 DEEPRESEARCH_EVIDENCE_MIN_CONFIDENCE=0.3
 DEEPRESEARCH_EVIDENCE_MIN_TOKEN_OVERLAP=0.1
+DEEPRESEARCH_RRF_K=60
+DEEPRESEARCH_MAX_FUSED_DOCS=20
+DEEPRESEARCH_MAX_FUSED_CHUNKS=30
+DEEPRESEARCH_MMR_LAMBDA=0.7
+DEEPRESEARCH_MAX_MMR_RESULTS=12
 DEEPRESEARCH_MILVUS_URI=http://localhost:19530
 DEEPRESEARCH_MILVUS_CHUNKS_COLLECTION=deepresearch_chunks
 DEEPRESEARCH_MILVUS_MEMORIES_COLLECTION=deepresearch_memories

@@ -21,6 +21,12 @@ from deepresearch.retrieval.base import Retriever
 from deepresearch.retrieval.chunking import chunk_text
 from deepresearch.retrieval.dedup import dedup_documents
 from deepresearch.retrieval.fetcher import WebFetcher
+from deepresearch.retrieval.fusion import (
+    RankedChunk,
+    mmr_select,
+    rrf_fuse,
+    rrf_fuse_chunks,
+)
 from deepresearch.schemas.evidence import EvidenceItem, RetrievedDocument
 from deepresearch.schemas.task import TaskNode
 
@@ -52,6 +58,13 @@ class ResearchAgent:
         max_queries: int = 5,
         max_documents: int = 20,
         max_chunks: int = 80,
+        vector_top_k: int = 30,
+        rerank_top_k: int = 8,
+        rrf_k: int = 60,
+        max_fused_docs: int = 20,
+        max_fused_chunks: int = 30,
+        mmr_lambda: float = 0.7,
+        max_mmr_results: int = 12,
         fetch_concurrency: int = 5,
         progress: Callable[[str, dict[str, Any]], None] | None = None,
     ) -> None:
@@ -65,6 +78,13 @@ class ResearchAgent:
         self._max_queries = max_queries
         self._max_documents = max_documents
         self._max_chunks = max_chunks
+        self._vector_top_k = vector_top_k
+        self._rerank_top_k = rerank_top_k
+        self._rrf_k = rrf_k
+        self._max_fused_docs = max_fused_docs
+        self._max_fused_chunks = max_fused_chunks
+        self._mmr_lambda = mmr_lambda
+        self._max_mmr_results = max_mmr_results
         self._fetch_concurrency = fetch_concurrency
         self._progress = progress
         self._system_prompt = (
@@ -74,13 +94,30 @@ class ResearchAgent:
     async def execute(self, task: TaskNode, *, run_id: str = "") -> dict:
         queries = await self._generate_queries(task)
         self._report_progress("queries_generated", {"query_count": len(queries)})
-        retrieved = await self._retriever.retrieve(
-            queries,
-            run_id=run_id,
-            task_id=task.task_id,
-            top_k=self._max_documents,
+        per_query_results = await asyncio.gather(
+            *(
+                self._retriever.retrieve(
+                    [q],
+                    run_id=run_id,
+                    task_id=task.task_id,
+                    top_k=self._max_documents,
+                )
+                for q in queries
+            )
         )
-        retrieved = dedup_documents(retrieved)[: self._max_documents]
+        pre_count = sum(len(r) for r in per_query_results)
+        retrieved = rrf_fuse(
+            per_query_results,
+            rrf_k=self._rrf_k,
+            max_results=min(self._max_fused_docs, self._max_documents),
+        )
+        self._report_progress(
+            "retrieval_fused",
+            {
+                "pre_fusion_count": pre_count,
+                "post_fusion_count": len(retrieved),
+            },
+        )
         self._report_progress("retrieval_completed", {"document_count": len(retrieved)})
         documents = await self._fetch_documents(retrieved)
         self._report_progress("fetch_completed", {"document_count": len(documents)})
@@ -102,44 +139,121 @@ class ResearchAgent:
         await self._store_chunks(task, run_id, chunks, chunk_embeddings)
 
         query_text = task.goal or task.description
-        query_embedding = (await self._embedding.embed([query_text])).embeddings[0]
-        recalled = await self._memory.search(
-            query_embedding,
+        query_texts = [query_text] + [q for q in queries[:3] if q != query_text]
+        query_embeddings = (await self._embedding.embed(query_texts)).embeddings
+        recall_lists = await asyncio.gather(
+            *(
+                self._memory.search(
+                    emb,
+                    run_id=run_id,
+                    task_id=task.task_id,
+                    source_type="chunk",
+                    top_k=self._vector_top_k,
+                )
+                for emb in query_embeddings
+            )
+        )
+        keyword_results = await self._memory.keyword_search(
+            query_text,
             run_id=run_id,
             task_id=task.task_id,
             source_type="chunk",
-            top_k=30,
+            top_k=self._max_fused_chunks,
         )
-        self._report_progress(
-            "memory_search_completed", {"result_count": len(recalled)}
-        )
-        recalled_chunks = [
-            SourceChunk(
-                chunk_id=result.entry.id,
-                document_id=str(result.entry.metadata.get("document_id", "")),
-                title=result.entry.title,
-                source_url=result.entry.source_url,
-                content=result.entry.content,
-                source_type=str(result.entry.metadata.get("source_type", "unknown")),
-                retrieved_at=str(result.entry.metadata.get("retrieved_at", "")),
+
+        ranked_lists: list[list[RankedChunk]] = []
+        for results in recall_lists:
+            ranked_lists.append(
+                [
+                    RankedChunk(
+                        chunk_id=r.entry.id,
+                        content=r.entry.content,
+                        title=r.entry.title,
+                        source_url=r.entry.source_url,
+                        score=r.score,
+                        embedding=r.entry.embedding,
+                        metadata=dict(r.entry.metadata),
+                    )
+                    for r in results
+                ]
             )
-            for result in recalled
+        keyword_ranked = [
+            RankedChunk(
+                chunk_id=r.entry.id,
+                content=r.entry.content,
+                title=r.entry.title,
+                source_url=r.entry.source_url,
+                score=r.score,
+                embedding=r.entry.embedding,
+                metadata=dict(r.entry.metadata),
+            )
+            for r in keyword_results
         ]
+        if keyword_ranked:
+            ranked_lists.append(keyword_ranked)
+        fused_chunks = rrf_fuse_chunks(
+            ranked_lists,
+            rrf_k=self._rrf_k,
+            max_results=self._max_fused_chunks,
+        )
+        recalled_texts = [rc.content for rc in fused_chunks]
+        self._report_progress(
+            "chunk_rrf_fused",
+            {
+                "pre_fusion_count": sum(len(results) for results in recall_lists)
+                + len(keyword_results),
+                "post_fusion_count": len(fused_chunks),
+                "query_count": len(query_texts),
+                "keyword_count": len(keyword_results),
+            },
+        )
 
         reranked = await self._reranker.rerank(
             query_text,
-            [chunk.content for chunk in recalled_chunks],
-            top_k=8,
+            recalled_texts,
+            top_k=self._rerank_top_k,
         )
         self._report_progress(
             "rerank_completed", {"result_count": len(reranked.results)}
         )
-        evidence_chunks = [
-            recalled_chunks[result.index]
+        reranked_chunks = [
+            RankedChunk(
+                chunk_id=fused_chunks[result.index].chunk_id,
+                content=fused_chunks[result.index].content,
+                title=fused_chunks[result.index].title,
+                source_url=fused_chunks[result.index].source_url,
+                score=result.score,
+                embedding=fused_chunks[result.index].embedding,
+                metadata={
+                    **fused_chunks[result.index].metadata,
+                    "reranker_score": result.score,
+                },
+            )
             for result in reranked.results
-            if 0 <= result.index < len(recalled_chunks)
+            if 0 <= result.index < len(fused_chunks)
         ]
-        evidence = await self._extract_evidence(task, evidence_chunks)
+        evidence_chunks = mmr_select(
+            reranked_chunks,
+            query_embeddings[0],
+            mmr_lambda=self._mmr_lambda,
+            max_results=self._max_mmr_results,
+        )
+        self._report_progress("mmr_selected", {"selected_count": len(evidence_chunks)})
+        evidence = await self._extract_evidence(
+            task,
+            [
+                SourceChunk(
+                    chunk_id=rc.chunk_id,
+                    document_id=str(rc.metadata.get("document_id", "")),
+                    title=rc.title,
+                    source_url=rc.source_url,
+                    content=rc.content,
+                    source_type=str(rc.metadata.get("source_type", "unknown")),
+                    retrieved_at=str(rc.metadata.get("retrieved_at", "")),
+                )
+                for rc in evidence_chunks
+            ],
+        )
         await self._store_evidence(task, run_id, evidence)
         self._report_progress(
             "evidence_extraction_completed", {"evidence_count": len(evidence)}

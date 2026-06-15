@@ -148,4 +148,36 @@ class TestMockMemoryStore:
         await store.upsert([MemoryEntry(id="e1", run_id="r1", content="a")])
         results = await store.search([0.1] * 1024)
         assert isinstance(results[0], SearchResult)
+
+    @pytest.mark.asyncio
+    async def test_keyword_search_supports_chinese_and_is_independent(self, store):
+        await store.upsert(
+            [
+                MemoryEntry(
+                    id="e1",
+                    run_id="r1",
+                    task_id="t1",
+                    source_type="chunk",
+                    content="多智能体系统能够协作完成复杂研究任务",
+                    embedding=[0.0] * 1024,
+                ),
+                MemoryEntry(
+                    id="e2",
+                    run_id="r1",
+                    task_id="t1",
+                    source_type="chunk",
+                    content="unrelated content",
+                    embedding=[1.0] + [0.0] * 1023,
+                ),
+            ]
+        )
+
+        results = await store.keyword_search(
+            "多智能体研究",
+            run_id="r1",
+            task_id="t1",
+            source_type="chunk",
+        )
+
+        assert [result.entry.id for result in results] == ["e1"]
         assert isinstance(results[0].score, float)

@@ -312,22 +312,22 @@
 
 ### PM1 检索质量增强
 
-- [ ] PM010 实现 document-level RRF
+- [x] PM010 实现 document-level RRF
   - Files: `src/deepresearch/retrieval/fusion.py`, `tests/retrieval/test_fusion.py`
   - Done when: 支持多个 ranked `RetrievedDocument` 列表融合，默认 `rrf_k=60`、`max_fused_results=20`，按 canonical URL 或 `title + content_hash` 去重。
   - Verify: `uv run pytest tests/retrieval/test_fusion.py`
 
-- [ ] PM011 将 RRF 接入多 query 搜索结果
-  - Files: `src/deepresearch/retrieval/tavily_search.py`, `src/deepresearch/retrieval/mimo_search.py`, `src/deepresearch/agents/researcher.py`
+- [x] PM011 将 RRF 接入多 query 搜索结果
+  - Files: `src/deepresearch/retrieval/fusion.py`, `src/deepresearch/agents/researcher.py`
   - Done when: 多 query 返回的候选文档先 RRF 融合，再进入 fetch/chunk；trace 记录融合前后数量。
   - Verify: `uv run pytest tests/agents/test_researcher.py tests/retrieval`
 
-- [ ] PM012 实现 chunk-level RRF 设计与第一版
-  - Files: `src/deepresearch/retrieval/fusion.py`, `src/deepresearch/agents/researcher.py`, tests
-  - Done when: Milvus vector recall 与关键词/BM25 recall 可融合后再 rerank。
+- [x] PM012 实现 chunk-level RRF 设计与第一版
+  - Files: `src/deepresearch/retrieval/fusion.py`, `src/deepresearch/agents/researcher.py`, `src/deepresearch/memory/store.py`, `src/deepresearch/memory/milvus_store.py`, tests
+  - Done when: Milvus 多 query vector recall 与独立关键词 recall 可融合后再 rerank。
   - Verify: `uv run pytest tests/agents/test_researcher.py`
 
-- [ ] PM013 实现 chunk-level MMR context selection
+- [x] PM013 实现 chunk-level MMR context selection
   - Files: `src/deepresearch/retrieval/fusion.py`, `src/deepresearch/agents/researcher.py`, `tests/retrieval/test_fusion.py`
   - Done when: RRF/rerank 后的候选 chunks 支持按 `mmr_lambda=0.7` 做相关性与多样性选择，默认最多保留 12 个 context chunks。
   - Verify: `uv run pytest tests/retrieval/test_fusion.py tests/agents/test_researcher.py`

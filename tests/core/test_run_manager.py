@@ -1,4 +1,5 @@
 import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -110,3 +111,43 @@ async def test_global_timeout_still_writes_partial_outputs(tmp_path):
     assert (result.output_dir / "evaluation.json").exists()
     assert (result.output_dir / "memory_snapshot.jsonl").exists()
     assert any(task.status.value == "CANCELLED" for task in result.plan_tasks)
+
+
+@pytest.mark.asyncio
+async def test_run_manager_passes_fusion_config_to_researcher(tmp_path):
+    config = DeepResearchConfig()
+    config.fusion.rrf_k = 42
+    config.fusion.max_fused_docs = 15
+    config.fusion.max_fused_chunks = 25
+    config.fusion.mmr_lambda = 0.6
+    config.fusion.max_mmr_results = 10
+
+    with patch("deepresearch.core.run_manager.ResearchAgent") as researcher_cls:
+        researcher_cls.return_value.execute = AsyncMock(
+            return_value={
+                "task_id": "t1",
+                "queries": [],
+                "evidence": [],
+                "evidence_count": 0,
+                "information_insufficient": True,
+                "chunk_count": 0,
+                "document_count": 0,
+            }
+        )
+        manager = RunManager(
+            config,
+            MockLLM(),
+            MockRetriever(),
+            MockMemoryStore(),
+            MockEmbeddingClient(),
+            MockRerankerClient(),
+        )
+
+        await manager.run("test question", output_dir=tmp_path / "run")
+
+    kwargs = researcher_cls.call_args.kwargs
+    assert kwargs["rrf_k"] == 42
+    assert kwargs["max_fused_docs"] == 15
+    assert kwargs["max_fused_chunks"] == 25
+    assert kwargs["mmr_lambda"] == 0.6
+    assert kwargs["max_mmr_results"] == 10
