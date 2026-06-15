@@ -111,10 +111,10 @@ _BLUE_RESPONSE = json.dumps(
                 "content": "Industry reports indicate growing adoption of LLM agents in enterprise settings.",
                 "evidence_id": "E1",
             }
-        ],
-        "revised_score": 0.82,
+        ]
     }
 )
+
 
 class MockLLM(LLMClient):
     def __init__(

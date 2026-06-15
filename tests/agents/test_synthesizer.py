@@ -56,7 +56,9 @@ async def test_unknown_citation_is_removed_and_added_to_limitations():
         "r1", "question", [_task()], [_evidence()]
     )
 
-    analysis = next(section for section in report.sections if section.title == "Analysis")
+    analysis = next(
+        section for section in report.sections if section.title == "Analysis"
+    )
     assert "Known claim [E1]." in analysis.content
     assert "E999" not in analysis.content
     assert any("Unsupported claim" in item for item in report.limitations)
@@ -71,7 +73,9 @@ async def test_uncited_claim_is_moved_to_limitations():
         "r1", "question", [_task()], [_evidence()]
     )
 
-    analysis = next(section for section in report.sections if section.title == "Analysis")
+    analysis = next(
+        section for section in report.sections if section.title == "Analysis"
+    )
     assert analysis.content == "Supported [E1]."
     assert any(
         item == "Uncited claim in Analysis: Unsupported factual claim."

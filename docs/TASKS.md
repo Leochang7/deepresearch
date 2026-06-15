@@ -214,22 +214,22 @@
 
 ### M8 Red-Blue 与 Evaluator
 
-- [ ] T080 实现 Red Agent
+- [x] T080 实现 Red Agent
   - Files: `src/deepresearch/agents/red_agent.py`, `src/deepresearch/prompts/red_agent.md`, `tests/agents/test_red_agent.py`
   - Done when: 输出事实性、逻辑一致性、引用质量、过度推断等结构化 issues。
   - Verify: `uv run pytest tests/agents/test_red_agent.py`
 
-- [ ] T081 实现 Blue Agent
+- [x] T081 实现 Blue Agent
   - Files: `src/deepresearch/agents/blue_agent.py`, `src/deepresearch/prompts/blue_agent.md`, `tests/agents/test_blue_agent.py`
   - Done when: 支持 ADD、DELETE、MODIFY、VERIFY 修复动作。
   - Verify: `uv run pytest tests/agents/test_blue_agent.py`
 
-- [ ] T082 实现 Judge 和 Red-Blue 终止条件
+- [x] T082 实现 Judge 和 Red-Blue 终止条件
   - Files: `src/deepresearch/agents/judge.py`, `tests/agents/test_judge.py`
   - Done when: 支持 max_rounds=3、target_score=0.85、min_score_delta=0.03、oscillation_window=2。
   - Verify: `uv run pytest tests/agents/test_judge.py`
 
-- [ ] T083 实现规则 Evaluator
+- [x] T083 实现规则 Evaluator
   - Files: `src/deepresearch/evaluation/metrics.py`, `tests/evaluation/test_metrics.py`
   - Done when: 输出 task_success_rate、citation_coverage、empty_citation_rate、report_section_completeness、red_issue_count、blue_fix_count。
   - Verify: `uv run pytest tests/evaluation/test_metrics.py`

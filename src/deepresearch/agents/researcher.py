@@ -65,9 +65,9 @@ class ResearchAgent:
         if not chunks:
             return self._build_result(task, queries, [], 0, len(documents))
 
-        chunk_embeddings = (await self._embedding.embed(
-            [chunk.content for chunk in chunks]
-        )).embeddings
+        chunk_embeddings = (
+            await self._embedding.embed([chunk.content for chunk in chunks])
+        ).embeddings
         if len(chunk_embeddings) != len(chunks):
             raise ValueError("Embedding response count does not match chunk count")
 

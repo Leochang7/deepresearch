@@ -74,9 +74,7 @@ class Synthesizer:
             summary=self._summary_from_section(summary_section),
             sections=sections,
             limitations=list(dict.fromkeys(limitations)),
-            references=[
-                f"[{item.evidence_id}] {item.citation}" for item in evidence
-            ],
+            references=[f"[{item.evidence_id}] {item.citation}" for item in evidence],
         )
 
     def _build_task_summaries(self, tasks: list[TaskNode]) -> str:
@@ -97,7 +95,7 @@ class Synthesizer:
     def _build_evidence_text(evidence: list[EvidenceItem]) -> str:
         return "\n\n".join(
             (
-                f'[{item.evidence_id}] {item.claim}\n'
+                f"[{item.evidence_id}] {item.claim}\n"
                 f'  Quote: "{item.quote}"\n'
                 f"  Source: {item.citation} (confidence={item.confidence})"
             )
@@ -170,9 +168,7 @@ class Synthesizer:
                     )
                     continue
                 if not valid_ids:
-                    limitations.append(
-                        f"Uncited claim in {section.title}: {stripped}"
-                    )
+                    limitations.append(f"Uncited claim in {section.title}: {stripped}")
                     continue
 
                 kept_lines.append(line)

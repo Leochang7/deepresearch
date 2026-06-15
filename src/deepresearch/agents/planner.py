@@ -32,9 +32,7 @@ class PlannerAgent:
         except (TypeError, ValueError, CycleError):
             return self._fallback_plan(question)
 
-    def _build_validated_plan(
-        self, question: str, data: dict | None
-    ) -> ResearchPlan:
+    def _build_validated_plan(self, question: str, data: dict | None) -> ResearchPlan:
         if not isinstance(data, dict):
             raise TypeError("Planner response must be a JSON object")
         raw_tasks = data.get("tasks")
