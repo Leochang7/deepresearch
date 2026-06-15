@@ -11,6 +11,9 @@ class EvaluationResult(BaseModel):
     report_section_completeness: float = 0.0
     red_issue_count: int = 0
     blue_fix_count: int = 0
+    factual_hit_rate: float = 0.0
+    hallucination_flag: bool = False
+    hallucination_details: list[str] = Field(default_factory=list)
     judge_scores: dict[str, float] = Field(default_factory=dict)
     created_at: str = ""
     metadata: dict = Field(default_factory=dict)

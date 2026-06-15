@@ -407,17 +407,17 @@
   - Done when: `uv run deepresearch benchmark --dataset examples/bench/researchbench_mini.jsonl --mode mock` 可离线跑完并输出 `results.jsonl` 与 `summary.json`；真实模式可选上报 Langfuse。
   - Verify: `uv run pytest tests/evaluation tests/test_cli.py`
 
-- [ ] PM063 增加本地事实覆盖与幻觉风险指标
+- [x] PM063 增加本地事实覆盖与幻觉风险指标
   - Files: `src/deepresearch/evaluation/metrics.py`, `tests/evaluation/`
   - Done when: 支持 `factual_hit_rate` 和 `hallucination_flag`，可基于 expected facts 与引用约束计算。
   - Verify: `uv run pytest tests/evaluation`
 
-- [ ] PM064 增加 LLM-as-Judge 5 维评分 schema
+- [x] PM064 增加 LLM-as-Judge 5 维评分 schema
   - Files: `src/deepresearch/evaluation/judge_eval.py`, `src/deepresearch/prompts/`, tests
   - Done when: 输出 factuality、citation_support、completeness、reasoning_consistency、readability 五维分数，并可写入 Langfuse scores。
   - Verify: `uv run pytest tests/evaluation`
 
-- [ ] PM065 扩展完整 benchmark 与统计分析
+- [x] PM065 扩展完整 benchmark 与统计分析
   - Files: `examples/bench/`, `src/deepresearch/evaluation/`, docs
   - Done when: 在 pipeline 稳定后扩展到 ResearchBench 11 领域/35 题、HotpotQA 深度研究变体、Bootstrap 95% CI、Cohen's d 和多后端实验脚本。
   - Verify: `uv run pytest tests/evaluation`; real experiments use explicit integration/e2e commands

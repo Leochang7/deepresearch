@@ -171,3 +171,75 @@ class TestEvaluator:
         result = evaluate("r1", tasks, report, [])
         assert result.citation_coverage == 0.0
         assert result.empty_citation_rate == 1.0
+
+    def test_factual_hit_rate_all_found(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="Summary with claim 1 and claim 2 and source1",
+            sections=[
+                ReportSection(
+                    title="Analysis", content="Background with claim 1 and source2 [E1]"
+                ),
+            ],
+        )
+        facts = ["claim 1", "claim 2", "source1"]
+        result = evaluate("r1", tasks, report, evidence, expected_facts=facts)
+        assert result.factual_hit_rate == 1.0
+
+    def test_factual_hit_rate_partial(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="Summary with claim 1 [E1]",
+            sections=[],
+        )
+        facts = ["claim 1", "nonexistent fact xyz", "another missing fact"]
+        result = evaluate("r1", tasks, report, evidence, expected_facts=facts)
+        assert 0.3 <= result.factual_hit_rate <= 0.4
+
+    def test_hallucination_flag_when_many_uncited(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="Summary",
+            sections=[
+                ReportSection(title="Background", content="Uncited claim here."),
+                ReportSection(title="Analysis", content="Another uncited claim."),
+                ReportSection(title="Executive Summary", content="Summary text [E1]"),
+            ],
+        )
+        result = evaluate("r1", tasks, report, evidence)
+        assert result.hallucination_flag is True
+        assert len(result.hallucination_details) > 0
+
+    def test_hallucination_flag_false_when_well_cited(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="Summary [E1]",
+            sections=[
+                ReportSection(title="Background", content="Background [E1]"),
+                ReportSection(title="Analysis", content="Analysis [E2]"),
+            ],
+        )
+        result = evaluate("r1", tasks, report, evidence)
+        assert result.hallucination_flag is False
+        assert result.hallucination_details == []
+
+    def test_required_citations_can_trigger_hallucination_flag(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="Summary [E1]",
+            sections=[ReportSection(title="Analysis", content="Analysis [E1]")],
+        )
+        result = evaluate(
+            "r1",
+            tasks,
+            report,
+            evidence,
+            required_citations=2,
+        )
+        assert result.hallucination_flag is True
+        assert "required at least 2" in result.hallucination_details[-1]

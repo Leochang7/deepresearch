@@ -15,6 +15,8 @@ def evaluate(
     evidence: list[EvidenceItem],
     red_issues: list[dict] | None = None,
     blue_actions: list[dict] | None = None,
+    expected_facts: list[str] | None = None,
+    required_citations: int = 0,
 ) -> EvaluationResult:
     active_tasks = [task for task in tasks if task.status != TaskState.REPLANNING]
     total_tasks = len(active_tasks)
@@ -61,6 +63,26 @@ def evaluate(
         expected_sections
     )
 
+    factual_hit_rate = 0.0
+    if expected_facts:
+        body_lower = body_text.lower()
+        hits = sum(1 for fact in expected_facts if _fact_in_text(fact, body_lower))
+        factual_hit_rate = hits / len(expected_facts)
+
+    valid_body_citations = len(cited_ids & evidence_ids)
+    hallucination_flag = empty_citation_rate > 0.5
+    hallucination_details: list[str] = []
+    if hallucination_flag:
+        hallucination_details.append(
+            f"{empty_citation_rate:.0%} of substantive sections lack citations"
+        )
+    if required_citations > 0 and valid_body_citations < required_citations:
+        hallucination_flag = True
+        hallucination_details.append(
+            f"Only {valid_body_citations} valid body citations; "
+            f"required at least {required_citations}"
+        )
+
     return EvaluationResult(
         run_id=run_id,
         task_success_rate=round(task_success_rate, 4),
@@ -69,6 +91,9 @@ def evaluate(
         report_section_completeness=round(report_section_completeness, 4),
         red_issue_count=len(red_issues) if red_issues else 0,
         blue_fix_count=len(blue_actions) if blue_actions else 0,
+        factual_hit_rate=round(factual_hit_rate, 4),
+        hallucination_flag=hallucination_flag,
+        hallucination_details=hallucination_details,
     )
 
 
@@ -78,3 +103,11 @@ def _report_body_text(report: ResearchReport) -> str:
         if section.title.strip().lower() != "references":
             parts.append(section.content)
     return "\n".join(parts)
+
+
+def _fact_in_text(fact: str, text_lower: str) -> bool:
+    tokens = [t for t in fact.lower().split() if len(t) > 2]
+    if not tokens:
+        return False
+    hits = sum(1 for t in tokens if t in text_lower)
+    return hits / len(tokens) >= 0.6
