@@ -39,8 +39,6 @@ class MilvusStore(MemoryStore):
         self._connected = False
 
     def connect(self) -> None:
-        if "://" not in self._uri:
-            Path(self._uri).expanduser().parent.mkdir(parents=True, exist_ok=True)
         connections.connect(alias="default", uri=self._uri)
         self._connected = True
         self._ensure_collection(self._chunks_name)

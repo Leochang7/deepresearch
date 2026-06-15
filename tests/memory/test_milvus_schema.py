@@ -21,11 +21,11 @@ def test_connect_creates_expected_collections_and_fields():
     ):
         utility.has_collection.return_value = False
 
-        store = MilvusStore(uri="./data/test.db")
+        store = MilvusStore()
         store.connect()
 
         connections.connect.assert_called_once_with(
-            alias="default", uri="./data/test.db"
+            alias="default", uri="http://localhost:19530"
         )
 
     assert [name for name, _ in created_schemas] == [

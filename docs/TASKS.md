@@ -268,11 +268,16 @@
   - Done when: Evidence 中存在 `source_url` 时 References 输出 `标题 - URL`，传给 Synthesizer 的 evidence context 显式包含 Source URL。
   - Verify: `uv run pytest tests/agents/test_synthesizer.py tests/core/test_run_manager.py tests/e2e/test_mock_run.py tests/evaluation/test_metrics.py`
 
+- [x] T096 清理 Milvus Lite / 本地文件型 Milvus 测试残留
+  - Files: `src/deepresearch/memory/milvus_store.py`, `tests/memory/test_milvus_store.py`, `tests/memory/test_milvus_schema.py`
+  - Done when: MilvusStore 默认只按 Standalone URI 连接，不再测试本地 `.db` 父目录创建逻辑。
+  - Verify: `uv run pytest tests/memory/test_milvus_store.py tests/memory/test_milvus_schema.py`
+
 ## Done Summary
 
 - [x] 确定 MVP 直接使用 Docker Milvus Standalone。
 - [x] 确定默认模型统一使用 MiMo v2.5 Pro，DeepSeek 作为 fallback。
-- [x] 确定 embedding 使用 Qwen3-Embedding-4B 1024 维，reranker 使用 bge-reranker-v2-m32。
+- [x] 确定真实验收环境 embedding 使用 Qwen3-Embedding-4B 2560 维，reranker 使用 bge-reranker-v2-m3。
 - [x] 确定真实 Web 搜索使用 Tavily，MVP 做轻量正文抓取。
 - [x] 确定 chunk 参数为 1200 chars + 200 overlap，成本上限为每任务 5 query/20 doc/80 chunk。
 - [x] 确定不使用 Agent 框架作为核心编排层。
