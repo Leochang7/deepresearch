@@ -1,14 +1,8 @@
 # Worklog
 
-只记录最近关键工作记录、验证结果和阻塞点。不要记录模型临时思考过程。
+只记录最近关键工作记录、验证结果和阻塞点，插到最后。不要记录模型临时思考过程。
 
 ## Recent
-
-- 2026-06-15: 首次真实 Tavily 端到端验收暴露两个问题：Research task 因串行检索/抓取连续触发 180 秒超时，Windows 环境不适合本地文件型 Milvus；决定 MVP 直接使用 Docker Milvus Standalone，并开始修复并发边界、配置限额和阶段 trace。
-- 2026-06-15: 完成真实 Tavily + Milvus Standalone 验收：endpoint 实际返回 `Qwen3-Embedding-4B` 2560 维，可用 reranker 为 `bge-reranker-v2-m3`；使用 2560 维 collection 后 run `369ea50b8852` 任务成功率 1.0、引用覆盖率 0.8571、报告完整度 1.0。
-- 2026-06-15: 修复真实报告 References 只输出来源标题、不输出 URL 的问题；Synthesizer evidence context 和最终 References 现在都会保留 `source_url`。
-- 2026-06-15: 清理 Milvus Lite / 本地 `.db` 测试残留，MilvusStore 默认只按 Docker Milvus Standalone URI 连接。
-- 2026-06-15: 补充 Post-MVP Roadmap 和任务 backlog：优先 `doctor`，随后做 RRF、引用质量、真实 replan、trace inspect、Memory schema version 和小型 benchmark。
 
 - 2026-06-15: 建立项目规划文档，明确 PRD、MVP、实现规划、技术栈和 Retriever 设计。
 - 2026-06-15: 确认 AGENTS.md 规则：AI 优先、中文为主、使用 uv、禁止 Agent 框架作为核心编排层、默认测试离线可跑、维护 TASKS/WORKLOG。
@@ -29,3 +23,9 @@
 - 2026-06-15: 完成 M7 Agents 与报告生成（T070-T072）：PlannerAgent 对空计划、重复 ID、未知依赖和循环依赖执行 DAG 校验与 fallback；ResearchAgent 完成 3-5 query→retrieve→正文 fetch→chunk/dedup→embedding→Milvus 写入/召回→rerank top 8→evidence 抽取全链路，使用 source_id 和原文 quote 校验保证证据可追溯，并输出 evidence_count/information_insufficient 对接 replan；Synthesizer 校验完整 E-id、拒绝未知引用并将无证据 claim 移入 Limitations。MockLLM 改为语义路由并保留自定义响应队列，消除 Agent 调用顺序耦合。共 247 个测试通过。
 - 2026-06-15: 完成 M8 Red-Blue 与 Evaluator（T080-T083）：RedAgent 使用强类型 issue 和 0-1 score 校验；BlueAgent 将 ADD/DELETE/MODIFY/VERIFY 安全应用到报告副本，ADD/MODIFY 强制绑定现有 evidence，DELETE 要求精确文本，VERIFY 写入 Limitations；Judge 驱动 Red→Blue→Red 闭环，以复审 Red score 判断 target/max rounds/连续低增益/重复 issue 震荡；Evaluator 仅使用正文计算 citation coverage，References 不再污染指标，并适配独立 summary/limitations/references 字段计算完整度。共 269 个测试通过。
 - 2026-06-15: 完成 M9 CLI、RunManager 与 Smoke Demo（T090-T093）：RunManager 贯通 run_id、Researcher、Memory、Synthesizer、Red-Blue-Judge 和 Evaluator，支持全局超时后 partial synthesis，并输出 report.md、trace.jsonl、memory_snapshot.jsonl、evaluation.json；CLI 提供显式 mock/real 装配，真实模式按配置初始化 MiMo/DeepSeek、Tavily/MiMo/local retriever、OpenAI-compatible embedding/reranker 和 Milvus，缺少凭据时快速失败；init 创建 TOML，index-corpus 实际执行 chunk、embedding 和 Milvus 写入；mock smoke 验证报告引用、指标、memory 和全链路 trace。MVP 全部里程碑完成。共 285 个测试通过。
+- 2026-06-15: 首次真实 Tavily 端到端验收暴露两个问题：Research task 因串行检索/抓取连续触发 180 秒超时，Windows 环境不适合本地文件型 Milvus；决定 MVP 直接使用 Docker Milvus Standalone，并开始修复并发边界、配置限额和阶段 trace。
+- 2026-06-15: 完成真实 Tavily + Milvus Standalone 验收：endpoint 实际返回 `Qwen3-Embedding-4B` 2560 维，可用 reranker 为 `bge-reranker-v2-m3`；使用 2560 维 collection 后 run `369ea50b8852` 任务成功率 1.0、引用覆盖率 0.8571、报告完整度 1.0。
+- 2026-06-15: 修复真实报告 References 只输出来源标题、不输出 URL 的问题；Synthesizer evidence context 和最终 References 现在都会保留 `source_url`。
+- 2026-06-15: 清理 Milvus Lite / 本地 `.db` 测试残留，MilvusStore 默认只按 Docker Milvus Standalone URI 连接。
+- 2026-06-15: 补充 Post-MVP Roadmap 和任务 backlog：优先 `doctor`，随后做 RRF、引用质量、真实 replan、trace inspect、Memory schema version 和小型 benchmark。
+- 2026-06-15: 完成 PM0 真实环境自检与工程可靠性（PM001-PM003）：`deepresearch doctor --real` 可检查 MiMo、Tavily、embedding、reranker 和 Milvus Standalone schema；新增 `httpx[socks]` 支持 SOCKS 代理；integration smoke 需显式 `DEEPRESEARCH_RUN_REAL_INTEGRATION=1`；MilvusStore 迁移到 MilvusClient 并在 connect 阶段校验 embedding 维度。共 308 个测试通过、1 个真实集成测试默认跳过。

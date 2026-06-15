@@ -356,3 +356,29 @@ def config_cmd(
     typer.echo(f"Reranker model: {cfg.reranker.model}")
     typer.echo(f"Milvus URI: {cfg.milvus.uri}")
     typer.echo(f"Max concurrency: {cfg.executor.max_concurrency}")
+
+
+@app.command()
+def doctor(
+    config_path: str | None = typer.Option(None, "--config", "-c"),
+    real: bool = typer.Option(
+        False,
+        "--real",
+        help="Run real endpoint and Milvus checks instead of offline config checks only.",
+    ),
+) -> None:
+    """Check environment and dependencies for real-mode readiness."""
+    from deepresearch.doctor import run_doctor
+
+    cfg = load_config(config_path=config_path)
+    report = run_doctor(cfg, real=real)
+
+    for check in report.checks:
+        icon = "OK" if check.ok else "FAIL"
+        prefix = f"[{icon}]"
+        typer.echo(f"{prefix} {check.message}")
+
+    if not report.all_ok:
+        typer.echo(f"\n{len(report.errors)} check(s) failed.")
+        raise typer.Exit(1)
+    typer.echo("\nAll checks passed.")

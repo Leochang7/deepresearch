@@ -4,20 +4,13 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pymilvus import (
-    Collection,
-    CollectionSchema,
-    DataType,
-    FieldSchema,
-    connections,
-    utility,
-)
+from pymilvus import CollectionSchema, DataType, FieldSchema, MilvusClient
 
 from deepresearch.memory.store import MemoryEntry, MemoryStore, SearchResult
 
 _DIM = 1024
 _METRIC = "COSINE"
-_INDEX = "HNSW"
+_INDEX_TYPE = "HNSW"
 
 _CHUNKS_COLLECTION = "deepresearch_chunks"
 _MEMORIES_COLLECTION = "deepresearch_memories"
@@ -36,20 +29,22 @@ class MilvusStore(MemoryStore):
         self._chunks_name = chunks_collection
         self._memories_name = memories_collection
         self._dim = dim
-        self._connected = False
+        self._client: MilvusClient | None = None
 
     def connect(self) -> None:
-        connections.connect(alias="default", uri=self._uri)
-        self._connected = True
+        self._client = MilvusClient(uri=self._uri)
         self._ensure_collection(self._chunks_name)
         self._ensure_collection(self._memories_name)
 
     def close(self) -> None:
-        connections.disconnect("default")
-        self._connected = False
+        if self._client:
+            self._client.close()
+            self._client = None
 
     def _ensure_collection(self, name: str) -> None:
-        if utility.has_collection(name):
+        assert self._client is not None
+        if self._client.has_collection(name):
+            self._validate_collection_schema(name)
             return
 
         fields = [
@@ -72,71 +67,68 @@ class MilvusStore(MemoryStore):
             ),
         ]
         schema = CollectionSchema(fields=fields, description=f"DeepResearch {name}")
-        col = Collection(name=name, schema=schema)
-        col.create_index(
+        self._client.create_collection(
+            collection_name=name,
+            schema=schema,
+        )
+        index_params = self._client.prepare_index_params()
+        index_params.add_index(
             field_name="embedding",
-            index_params={
-                "index_type": _INDEX,
-                "metric_type": _METRIC,
-                "params": {"M": 16, "efConstruction": 256},
-            },
+            index_type=_INDEX_TYPE,
+            metric_type=_METRIC,
+            params={"M": 16, "efConstruction": 256},
+        )
+        self._client.create_index(
+            collection_name=name,
+            index_params=index_params,
         )
 
+    def _validate_collection_schema(self, name: str) -> None:
+        assert self._client is not None
+        schema = self._client.describe_collection(name)
+        dim = _embedding_dim_from_schema(schema)
+        if dim is not None and dim != self._dim:
+            raise ValueError(
+                f"Milvus collection {name} embedding dim mismatch: "
+                f"expected {self._dim}, got {dim}"
+            )
+
     def _ensure_connected(self) -> None:
-        if not self._connected:
+        if self._client is None:
             self.connect()
 
-    def _get_collection(self, source_type: str) -> Collection:
-        self._ensure_connected()
-        if source_type == "chunk":
-            return Collection(self._chunks_name)
-        return Collection(self._memories_name)
+    def _col_name(self, source_type: str) -> str:
+        return self._chunks_name if source_type == "chunk" else self._memories_name
 
     async def upsert(self, entries: list[MemoryEntry]) -> None:
         if not entries:
             return
         self._ensure_connected()
+        assert self._client is not None
 
         by_collection: dict[str, list[MemoryEntry]] = {}
         for entry in entries:
-            col_name = (
-                self._chunks_name
-                if entry.source_type == "chunk"
-                else self._memories_name
-            )
+            col_name = self._col_name(entry.source_type)
             by_collection.setdefault(col_name, []).append(entry)
 
         for col_name, col_entries in by_collection.items():
-            col = Collection(col_name)
-            ids = [e.id for e in col_entries]
-            run_ids = [e.run_id for e in col_entries]
-            task_ids = [e.task_id for e in col_entries]
-            titles = [e.title for e in col_entries]
-            source_urls = [e.source_url for e in col_entries]
-            contents = [e.content for e in col_entries]
-            source_types = [e.source_type for e in col_entries]
-            confidences = [e.confidence for e in col_entries]
-            created_ats = [e.created_at for e in col_entries]
-            metadata_jsons = [
-                json.dumps(e.metadata, ensure_ascii=False) for e in col_entries
+            rows = [
+                {
+                    "id": e.id,
+                    "run_id": e.run_id,
+                    "task_id": e.task_id,
+                    "title": e.title,
+                    "source_url": e.source_url,
+                    "content": e.content,
+                    "source_type": e.source_type,
+                    "confidence": e.confidence,
+                    "created_at": e.created_at,
+                    "metadata_json": json.dumps(e.metadata, ensure_ascii=False),
+                    "embedding": e.embedding,
+                }
+                for e in col_entries
             ]
-            embeddings = [e.embedding for e in col_entries]
-
-            col.upsert(
-                [
-                    ids,
-                    run_ids,
-                    task_ids,
-                    titles,
-                    source_urls,
-                    contents,
-                    source_types,
-                    confidences,
-                    created_ats,
-                    metadata_jsons,
-                    embeddings,
-                ]
-            )
+            self._client.upsert(collection_name=col_name, data=rows)
 
     async def search(
         self,
@@ -149,9 +141,10 @@ class MilvusStore(MemoryStore):
         top_k: int = 10,
     ) -> list[SearchResult]:
         self._ensure_connected()
-        col_name = self._chunks_name if source_type == "chunk" else self._memories_name
-        col = Collection(col_name)
-        col.load()
+        assert self._client is not None
+
+        col_name = self._col_name(source_type)
+        self._client.load_collection(collection_name=col_name)
 
         filter_parts: list[str] = []
         if run_id:
@@ -162,14 +155,15 @@ class MilvusStore(MemoryStore):
             filter_parts.append(f'source_type == "{source_type}"')
         if min_confidence is not None:
             filter_parts.append(f"confidence >= {min_confidence}")
-        expr = " and ".join(filter_parts) if filter_parts else ""
+        filter_expr = " and ".join(filter_parts) if filter_parts else None
 
-        results = col.search(
+        results = self._client.search(
+            collection_name=col_name,
             data=[query_embedding],
             anns_field="embedding",
-            param={"metric_type": _METRIC, "params": {"ef": 128}},
+            search_params={"metric_type": _METRIC, "params": {"ef": 128}},
             limit=top_k,
-            expr=expr or None,
+            filter=filter_expr,
             output_fields=[
                 "run_id",
                 "task_id",
@@ -184,40 +178,46 @@ class MilvusStore(MemoryStore):
         )
 
         search_results: list[SearchResult] = []
-        for hit in results[0]:
-            entry = MemoryEntry(
-                id=hit.id,
-                run_id=hit.entity.get("run_id", ""),
-                task_id=hit.entity.get("task_id", ""),
-                title=hit.entity.get("title", ""),
-                source_url=hit.entity.get("source_url", ""),
-                content=hit.entity.get("content", ""),
-                source_type=hit.entity.get("source_type", ""),
-                confidence=hit.entity.get("confidence", 0.0),
-                created_at=hit.entity.get("created_at", ""),
-                metadata=_loads_metadata(hit.entity.get("metadata_json", "")),
-            )
-            search_results.append(SearchResult(entry=entry, score=hit.score))
-
+        for hits in results:
+            for hit in hits:
+                entity = hit.get("entity", {})
+                entry = MemoryEntry(
+                    id=hit.get("id", ""),
+                    run_id=entity.get("run_id", ""),
+                    task_id=entity.get("task_id", ""),
+                    title=entity.get("title", ""),
+                    source_url=entity.get("source_url", ""),
+                    content=entity.get("content", ""),
+                    source_type=entity.get("source_type", ""),
+                    confidence=entity.get("confidence", 0.0),
+                    created_at=entity.get("created_at", ""),
+                    metadata=_loads_metadata(entity.get("metadata_json", "")),
+                )
+                search_results.append(
+                    SearchResult(entry=entry, score=hit.get("distance", 0.0))
+                )
         return search_results
 
     async def delete(self, ids: list[str]) -> None:
         if not ids:
             return
         self._ensure_connected()
+        assert self._client is not None
         for col_name in [self._chunks_name, self._memories_name]:
-            col = Collection(col_name)
-            expr = f"id in {json.dumps(ids)}"
-            col.delete(expr)
+            self._client.delete(
+                collection_name=col_name,
+                ids=ids,
+            )
 
     async def snapshot(self, run_id: str) -> list[MemoryEntry]:
         self._ensure_connected()
+        assert self._client is not None
         entries: list[MemoryEntry] = []
         for col_name in [self._chunks_name, self._memories_name]:
-            col = Collection(col_name)
-            col.load()
-            results = col.query(
-                expr=f'run_id == "{run_id}"',
+            self._client.load_collection(collection_name=col_name)
+            results = self._client.query(
+                collection_name=col_name,
+                filter=f'run_id == "{run_id}"',
                 output_fields=[
                     "id",
                     "run_id",
@@ -234,7 +234,7 @@ class MilvusStore(MemoryStore):
             for r in results:
                 entries.append(
                     MemoryEntry(
-                        id=r["id"],
+                        id=r.get("id", ""),
                         run_id=r.get("run_id", ""),
                         task_id=r.get("task_id", ""),
                         title=r.get("title", ""),
@@ -288,3 +288,14 @@ def _loads_metadata(value: Any) -> dict[str, Any]:
     except (TypeError, json.JSONDecodeError):
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+def _embedding_dim_from_schema(schema: Any) -> int | None:
+    fields = schema.get("fields", []) if isinstance(schema, dict) else []
+    for schema_field in fields:
+        if schema_field.get("name") != "embedding":
+            continue
+        params = schema_field.get("params") or schema_field.get("type_params") or {}
+        dim = params.get("dim")
+        return int(dim) if dim is not None else None
+    return None

@@ -295,17 +295,17 @@
 
 ### PM0 真实环境自检与工程可靠性
 
-- [ ] PM001 实现 `deepresearch doctor`
-  - Files: `src/deepresearch/cli.py`, `src/deepresearch/doctor.py`, `tests/test_doctor.py`
+- [x] PM001 实现 `deepresearch doctor`
+  - Files: `src/deepresearch/cli.py`, `src/deepresearch/doctor.py`, `tests/test_doctor.py`, `pyproject.toml`
   - Done when: 可检查必需环境变量、MiMo/Tavily/embedding/reranker endpoint、模型列表、embedding 维度、reranker 模型、Milvus Standalone 连接和 collection schema；不打印密钥值。
-  - Verify: `uv run pytest tests/test_doctor.py`
+  - Verify: `uv run pytest tests/test_doctor.py`; real mode uses `uv run deepresearch doctor --real`
 
-- [ ] PM002 增加真实模式 integration/e2e 测试入口
-  - Files: `tests/integration/`, `pyproject.toml`, `docs/CONFIGURATION.md`
-  - Done when: Tavily、MiMo、embedding、reranker、Milvus Standalone smoke tests 使用 `integration/network/milvus/llm` marker；默认 `uv run pytest` 仍离线可跑。
+- [x] PM002 增加真实模式 integration/e2e 测试入口
+  - Files: `tests/integration/`, `pyproject.toml`
+  - Done when: Tavily、MiMo、embedding、reranker、Milvus Standalone smoke tests 使用 `integration/network/milvus/llm` marker；默认 `uv run pytest` 仍离线可跑；真实调用必须显式设置 `DEEPRESEARCH_RUN_REAL_INTEGRATION=1`。
   - Verify: `uv run pytest`, `uv run pytest -m integration`
 
-- [ ] PM003 迁移 Milvus ORM API 到 `MilvusClient`
+- [x] PM003 迁移 Milvus ORM API 到 `MilvusClient`
   - Files: `src/deepresearch/memory/milvus_store.py`, `tests/memory/`
   - Done when: 真实运行不再输出 PyMilvus ORM deprecation warning，collection init/upsert/search/snapshot 行为保持一致。
   - Verify: `uv run pytest tests/memory`
