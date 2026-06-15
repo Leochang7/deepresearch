@@ -129,8 +129,7 @@ class Judge:
             return False
         recent = self._history[-2:]
         return all(
-            result.post_fix_score - result.pre_fix_score
-            < self._config.min_score_delta
+            result.post_fix_score - result.pre_fix_score < self._config.min_score_delta
             for result in recent
         )
 

@@ -186,10 +186,10 @@ class MockLLM(LLMClient):
             return _PLANNER_RESPONSE
         if "research synthesizer" in combined:
             return _SYNTHESIS_RESPONSE
-        if "red agent" in combined or "red review" in combined:
-            return _RED_RESPONSE
         if "blue agent" in combined or "blue fix" in combined:
             return _BLUE_RESPONSE
+        if "red agent" in combined or "red review" in combined:
+            return _RED_RESPONSE
         if "research agent" in combined:
             return _RESEARCH_RESPONSE
         return self._default_response

@@ -91,9 +91,7 @@ async def test_run_executes_fix_and_stops_on_red_review_target():
 
 @pytest.mark.asyncio
 async def test_blue_self_score_cannot_terminate_loop():
-    blue_response = json.dumps(
-        {"actions": [], "revised_score": 1.0}
-    )
+    blue_response = json.dumps({"actions": [], "revised_score": 1.0})
     judge = _judge(
         [
             _review(0.4, issue=False),
@@ -126,9 +124,7 @@ def test_repeated_issue_signature_stops_as_oscillation():
 
 
 def test_two_small_improvements_stop_as_converged():
-    judge = Judge(
-        JudgeConfig(max_rounds=3, min_score_delta=0.03, oscillation_window=2)
-    )
+    judge = Judge(JudgeConfig(max_rounds=3, min_score_delta=0.03, oscillation_window=2))
     judge.record_round(RoundResult(1, 0.50, 0.51, 1, 1, {"a:x"}))
     judge.record_round(RoundResult(2, 0.51, 0.52, 1, 1, {"b:y"}))
 

@@ -79,9 +79,7 @@ class TestEvaluator:
         result = evaluate("r1", tasks, report, evidence)
         assert result.citation_coverage < 1.0
 
-    def test_references_do_not_inflate_body_citation_coverage(
-        self, tasks, evidence
-    ):
+    def test_references_do_not_inflate_body_citation_coverage(self, tasks, evidence):
         report = ResearchReport(
             run_id="r1",
             question="test",

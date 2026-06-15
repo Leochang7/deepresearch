@@ -236,22 +236,22 @@
 
 ### M9 CLI、Run Manager 与 Smoke Demo
 
-- [ ] T090 实现 RunManager
+- [x] T090 实现 RunManager
   - Files: `src/deepresearch/core/run_manager.py`, `tests/core/test_run_manager.py`
   - Done when: 创建 run_id，初始化 config、LLM、Retriever、Memory、Executor、TraceLogger，输出 run 目录。
   - Verify: `uv run pytest tests/core/test_run_manager.py`
 
-- [ ] T091 实现 CLI 命令
+- [x] T091 实现 CLI 命令
   - Files: `src/deepresearch/cli.py`, `tests/test_cli.py`
   - Done when: 支持 `init`、`run`、`index-corpus`、`eval`、`inspect`、`config`。
   - Verify: `uv run pytest tests/test_cli.py` and `uv run deepresearch --help`
 
-- [ ] T092 实现 mock 端到端 smoke run
+- [x] T092 实现 mock 端到端 smoke run
   - Files: `tests/e2e/test_mock_run.py`, `examples/corpus/`
   - Done when: 无 API key、无互联网、无 Milvus Standalone 时可生成 report、trace、memory_snapshot、evaluation。
   - Verify: `uv run pytest tests/e2e/test_mock_run.py`
 
-- [ ] T093 整理 README demo
+- [x] T093 整理 README demo
   - Files: `README.md`
   - Done when: README 包含安装、配置、mock run、真实 run、测试命令和输出文件说明。
   - Verify: 文档人工检查。

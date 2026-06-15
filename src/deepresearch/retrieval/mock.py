@@ -36,7 +36,12 @@ class MockRetriever(Retriever):
                 RetrievedDocument(
                     id=str(uuid.uuid4()),
                     title=f"Mock result for: {query}",
-                    content=f"This is mock content about {query}.",
+                    content=(
+                        f"This is mock content about {query}. "
+                        "Recent advances in LLM agents show 40% improvement in "
+                        "task completion rates. Multi-agent systems outperform "
+                        "single-agent approaches on complex tasks."
+                    ),
                     source_type="mock",
                     url=None,
                 )

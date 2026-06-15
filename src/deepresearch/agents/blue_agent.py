@@ -134,6 +134,8 @@ class BlueAgent:
             return True
 
         if action.type == "ADD":
+            if content in section.content:
+                return False
             section.content = "\n".join(
                 part for part in [section.content.strip(), content] if part
             )
@@ -147,9 +149,7 @@ class BlueAgent:
         else:
             return False
 
-        section.evidence_ids = self._extract_valid_ids(
-            section.content, evidence_ids
-        )
+        section.evidence_ids = self._extract_valid_ids(section.content, evidence_ids)
         return True
 
     @staticmethod
@@ -172,18 +172,23 @@ class BlueAgent:
         return False
 
     @staticmethod
-    def _find_section(
-        report: ResearchReport, target: str
-    ) -> ReportSection | None:
-        normalized = target.strip().lower()
+    def _find_section(report: ResearchReport, target: str) -> ReportSection | None:
+        normalized = BlueAgent._normalize_target(target)
         return next(
             (
                 section
                 for section in report.sections
-                if section.title.strip().lower() == normalized
+                if BlueAgent._normalize_target(section.title) == normalized
             ),
             None,
         )
+
+    @staticmethod
+    def _normalize_target(value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized.endswith(" section"):
+            normalized = normalized[: -len(" section")].strip()
+        return normalized
 
     @staticmethod
     def _extract_valid_ids(content: str, evidence_ids: set[str]) -> list[str]:

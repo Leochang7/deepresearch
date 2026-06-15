@@ -321,7 +321,7 @@ class ResearchAgent:
         await self._memory.upsert(
             [
                 MemoryEntry(
-                    id=item.evidence_id,
+                    id=f"{task.task_id}:{item.evidence_id}",
                     run_id=run_id,
                     task_id=task.task_id,
                     title=item.citation,
@@ -330,7 +330,7 @@ class ResearchAgent:
                     embedding=embedding,
                     source_type="memory",
                     confidence=item.confidence,
-                    metadata=item.metadata,
+                    metadata={**item.metadata, "evidence_id": item.evidence_id},
                 )
                 for item, content, embedding in zip(
                     evidence, contents, embeddings, strict=True

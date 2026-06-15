@@ -75,9 +75,9 @@ async def test_add_modify_delete_and_verify_apply_to_report():
             "content": "Verify the adoption rate with a primary source.",
         },
     ]
-    result = await BlueAgent(
-        MockLLM([json.dumps({"actions": actions})])
-    ).fix(_report(), [_issue()], _evidence())
+    result = await BlueAgent(MockLLM([json.dumps({"actions": actions})])).fix(
+        _report(), [_issue()], _evidence()
+    )
 
     background = result.report.sections[0]
     assert "Added supported sentence. [E1]" in background.content
@@ -120,9 +120,9 @@ async def test_unsafe_or_unresolvable_actions_are_rejected():
             "content": "Anything",
         },
     ]
-    result = await BlueAgent(
-        MockLLM([json.dumps({"actions": actions})])
-    ).fix(_report(), [_issue()], _evidence())
+    result = await BlueAgent(MockLLM([json.dumps({"actions": actions})])).fix(
+        _report(), [_issue()], _evidence()
+    )
 
     assert result.report == _report()
     assert result.actions == []
@@ -136,9 +136,29 @@ async def test_unsafe_or_unresolvable_actions_are_rejected():
 @pytest.mark.asyncio
 async def test_bad_json_keeps_original_report():
     report = _report()
-    result = await BlueAgent(MockLLM(["not json"])).fix(
-        report, [_issue()], _evidence()
-    )
+    result = await BlueAgent(MockLLM(["not json"])).fix(report, [_issue()], _evidence())
 
     assert result.report == report
     assert result.actions == []
+
+
+@pytest.mark.asyncio
+async def test_section_suffix_is_normalized_and_duplicate_add_is_rejected():
+    action = {
+        "action_id": "B1",
+        "type": "ADD",
+        "target": "Background section",
+        "content": "Added supported sentence.",
+        "evidence_id": "E1",
+    }
+    first = await BlueAgent(
+        MockLLM([json.dumps({"actions": [action]})])
+    ).fix(_report(), [_issue()], _evidence())
+    second = await BlueAgent(
+        MockLLM([json.dumps({"actions": [action]})])
+    ).fix(first.report, [_issue()], _evidence())
+
+    assert len(first.report.sections) == 1
+    assert first.report.sections[0].title == "Background"
+    assert second.report.sections[0].content.count("Added supported sentence.") == 1
+    assert second.rejected_actions == ["B1"]
