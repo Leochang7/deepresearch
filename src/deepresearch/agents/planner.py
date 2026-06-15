@@ -32,6 +32,47 @@ class PlannerAgent:
         except (TypeError, ValueError, CycleError):
             return self._fallback_plan(question)
 
+    async def replan(
+        self,
+        question: str,
+        trigger: str,
+        reason: str,
+        affected_tasks: list[TaskNode],
+        actions: list[str],
+    ) -> ResearchPlan:
+        task_summaries = "\n".join(
+            f"- [{t.task_id}] {t.description} (status={t.status.value})"
+            + (f" error={t.error}" if t.error else "")
+            + (
+                f" info_insufficient={t.result.get('information_insufficient')}"
+                if t.result and t.result.get("information_insufficient")
+                else ""
+            )
+            for t in affected_tasks
+        )
+        actions_text = ", ".join(actions)
+        user_msg = (
+            f"Research question: {question}\n\n"
+            f"Replan trigger: {trigger}\n"
+            f"Reason: {reason}\n"
+            f"Suggested actions: {actions_text}\n\n"
+            f"Affected tasks:\n{task_summaries}\n\n"
+            "Generate alternative tasks to address these failures. "
+            "Use different search queries or approaches. "
+            "Return a JSON object with a 'tasks' array."
+        )
+        messages = [
+            LLMMessage(role="system", content=self._system_prompt),
+            LLMMessage(role="user", content=user_msg),
+        ]
+        response = await self._llm.chat(messages, json_mode=True)
+        data = parse_json(response.content, strict=False)
+
+        try:
+            return self._build_validated_plan(question, data)
+        except (TypeError, ValueError, CycleError):
+            return self._replan_fallback(question, affected_tasks)
+
     def _build_validated_plan(self, question: str, data: dict | None) -> ResearchPlan:
         if not isinstance(data, dict):
             raise TypeError("Planner response must be a JSON object")
@@ -80,4 +121,22 @@ class PlannerAgent:
                     priority=1,
                 )
             ],
+        )
+
+    @staticmethod
+    def _replan_fallback(question: str, affected_tasks: list[TaskNode]) -> ResearchPlan:
+        tasks = [
+            TaskNode(
+                task_id=f"replan-{t.task_id}",
+                description=f"Retry: {t.description}",
+                goal=t.goal or "Retry with alternative approach",
+                dependencies=[],
+                priority=t.priority + 1,
+            )
+            for t in affected_tasks
+        ]
+        return ResearchPlan(
+            plan_id=str(uuid.uuid4()),
+            question=question,
+            tasks=tasks,
         )

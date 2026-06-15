@@ -20,3 +20,9 @@ Rules:
 - Use dependencies to express ordering constraints.
 - Tasks with no dependencies can run in parallel.
 - Higher priority number = higher priority.
+
+## Replanning
+When given a replan request, generate alternative tasks to address failures.
+Focus on the affected tasks. Use different search queries or approaches.
+Do not repeat the same strategy that failed.
+Keep task IDs unique and avoid conflicts with existing tasks.

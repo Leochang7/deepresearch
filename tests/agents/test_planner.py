@@ -98,3 +98,65 @@ class TestPlannerAgent:
         assert len(plan.tasks) == 1
         assert plan.tasks[0].task_id == "t1"
         assert plan.tasks[0].description == "research question"
+
+    @pytest.mark.asyncio
+    async def test_replan_returns_alternative_tasks(self, llm):
+        replan_response = json.dumps(
+            {
+                "plan_id": "replan-1",
+                "tasks": [
+                    {
+                        "task_id": "alt-t1",
+                        "description": "Alternative research approach",
+                        "goal": "Try different queries",
+                        "dependencies": [],
+                        "priority": 2,
+                    }
+                ],
+            }
+        )
+        llm.set_responses([replan_response])
+        agent = PlannerAgent(llm)
+
+        from deepresearch.schemas.task import TaskNode, TaskState
+
+        affected = [
+            TaskNode(
+                task_id="t1",
+                description="Original task",
+                goal="Original goal",
+                status=TaskState.FAILED,
+                error="timeout",
+            )
+        ]
+        plan = await agent.replan(
+            "test question",
+            "zero_evidence",
+            "No evidence found",
+            affected,
+            ["retry_with_alternate_queries"],
+        )
+        assert isinstance(plan, ResearchPlan)
+        assert len(plan.tasks) == 1
+        assert plan.tasks[0].task_id == "alt-t1"
+
+    @pytest.mark.asyncio
+    async def test_replan_fallback_on_bad_json(self, llm):
+        llm.set_responses(["not valid json !!!"])
+        agent = PlannerAgent(llm)
+
+        from deepresearch.schemas.task import TaskNode, TaskState
+
+        affected = [
+            TaskNode(
+                task_id="t1",
+                description="Failed task",
+                goal="test",
+                status=TaskState.FAILED,
+            )
+        ]
+        plan = await agent.replan(
+            "question", "task_failure", "failed", affected, ["retry"]
+        )
+        assert len(plan.tasks) == 1
+        assert plan.tasks[0].task_id == "replan-t1"

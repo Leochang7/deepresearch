@@ -55,11 +55,6 @@ class TestLegalTransitions:
         sm.transition(TaskState.RUNNING)
         assert sm.state == TaskState.RUNNING
 
-    def test_replanning_to_pending(self):
-        sm = TaskStateMachine(initial=TaskState.REPLANNING)
-        sm.transition(TaskState.PENDING)
-        assert sm.state == TaskState.PENDING
-
     def test_full_success_path(self):
         sm = TaskStateMachine()
         sm.transition(TaskState.READY)
@@ -73,17 +68,6 @@ class TestLegalTransitions:
         sm.transition(TaskState.RUNNING)
         sm.transition(TaskState.FAILED)
         sm.transition(TaskState.RETRYING)
-        sm.transition(TaskState.RUNNING)
-        sm.transition(TaskState.SUCCEEDED)
-        assert sm.state == TaskState.SUCCEEDED
-
-    def test_replan_path(self):
-        sm = TaskStateMachine()
-        sm.transition(TaskState.READY)
-        sm.transition(TaskState.RUNNING)
-        sm.transition(TaskState.REPLANNING)
-        sm.transition(TaskState.PENDING)
-        sm.transition(TaskState.READY)
         sm.transition(TaskState.RUNNING)
         sm.transition(TaskState.SUCCEEDED)
         assert sm.state == TaskState.SUCCEEDED
@@ -132,6 +116,7 @@ class TestIllegalTransitions:
 
 class TestStateMachineQuery:
     def test_is_terminal(self):
+        assert TaskStateMachine(initial=TaskState.REPLANNING).is_terminal
         assert TaskStateMachine(initial=TaskState.SUCCEEDED).is_terminal
         assert TaskStateMachine(initial=TaskState.CANCELLED).is_terminal
         assert TaskStateMachine(initial=TaskState.SKIPPED).is_terminal

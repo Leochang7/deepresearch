@@ -14,11 +14,11 @@ _TRANSITIONS: dict[TaskState, set[TaskState]] = {
     },
     TaskState.FAILED: {TaskState.RETRYING, TaskState.SKIPPED, TaskState.CANCELLED},
     TaskState.RETRYING: {TaskState.RUNNING},
-    TaskState.REPLANNING: {TaskState.PENDING},
     # Terminal states
     TaskState.SUCCEEDED: set(),
     TaskState.SKIPPED: set(),
     TaskState.CANCELLED: set(),
+    TaskState.REPLANNING: set(),
 }
 
 

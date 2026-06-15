@@ -135,6 +135,7 @@ class DAGExecutor:
             TaskState.FAILED,
             TaskState.SKIPPED,
             TaskState.CANCELLED,
+            TaskState.REPLANNING,
         }
         return all(t.status in terminal_states for t in self._dag.tasks)
 

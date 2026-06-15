@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import json
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,8 +15,19 @@ from deepresearch.agents.red_agent import RedAgent
 from deepresearch.agents.researcher import ResearchAgent
 from deepresearch.agents.synthesizer import Synthesizer
 from deepresearch.config import DeepResearchConfig
+from deepresearch.core.budget import (
+    BudgetedEmbeddingClient,
+    BudgetedLLMClient,
+    BudgetedRerankerClient,
+    BudgetedRetriever,
+    RunBudget,
+)
 from deepresearch.core.dag import DAG
-from deepresearch.core.executor import DAGExecutor, ExecutorConfig, GlobalTimeoutError
+from deepresearch.core.executor import (
+    DAGExecutor,
+    ExecutorConfig,
+    GlobalTimeoutError,
+)
 from deepresearch.core.trace import TraceEventType, TraceLogger
 from deepresearch.embeddings.base import EmbeddingClient
 from deepresearch.evaluation.metrics import evaluate
@@ -26,7 +40,7 @@ from deepresearch.retrieval.fetcher import WebFetcher
 from deepresearch.schemas.evaluation import EvaluationResult
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ResearchReport
-from deepresearch.schemas.task import TaskNode
+from deepresearch.schemas.task import TaskNode, TaskState
 
 
 @dataclass
@@ -38,6 +52,7 @@ class RunResult:
     plan_tasks: list[TaskNode]
     judge_rounds: list[RoundResult]
     output_dir: Path
+    budget: RunBudget | None = None
 
 
 class RunManager:
@@ -68,13 +83,19 @@ class RunManager:
         out.mkdir(parents=True, exist_ok=True)
 
         trace = TraceLogger(out / "trace.jsonl", run_id=run_id)
+        budget = RunBudget(max_llm_calls=self._config.executor.max_llm_calls_per_run)
+        llm = BudgetedLLMClient(self._llm, budget)
+        retriever = BudgetedRetriever(self._retriever, budget)
+        embedding = BudgetedEmbeddingClient(self._embedding, budget)
+        reranker = BudgetedRerankerClient(self._reranker, budget)
+        deadline = time.monotonic() + self._config.executor.global_timeout_seconds
 
-        planner = PlannerAgent(self._llm)
+        planner = PlannerAgent(llm)
         synthesizer = Synthesizer(
-            self._llm, report_profile=self._config.synthesizer.report_profile
+            llm, report_profile=self._config.synthesizer.report_profile
         )
-        red_agent = RedAgent(self._llm)
-        blue_agent = BlueAgent(self._llm)
+        red_agent = RedAgent(llm)
+        blue_agent = BlueAgent(llm)
         judge = Judge(
             JudgeConfig(
                 max_rounds=self._config.red_blue.max_rounds,
@@ -98,6 +119,10 @@ class RunManager:
 
         async def task_fn(task: TaskNode) -> dict:
             def report_progress(stage: str, metadata: dict) -> None:
+                if stage == "fetch_completed":
+                    budget.fetched_docs += metadata.get("document_count", 0)
+                elif stage == "chunking_completed":
+                    budget.chunks += metadata.get("chunk_count", 0)
                 trace.log(
                     TraceEventType.RETRIEVER_CALLED,
                     {"stage": stage, **metadata},
@@ -105,11 +130,11 @@ class RunManager:
                 )
 
             researcher = ResearchAgent(
-                self._llm,
-                self._retriever,
+                llm,
+                retriever,
                 self._memory,
-                self._embedding,
-                self._reranker,
+                embedding,
+                reranker,
                 fetcher=WebFetcher(
                     timeout=self._config.fetch.timeout_seconds,
                     max_retries=self._config.fetch.max_retries,
@@ -151,12 +176,7 @@ class RunManager:
             )
             return result
 
-        executor_cfg = ExecutorConfig(
-            max_concurrency=self._config.executor.max_concurrency,
-            max_task_retries=self._config.executor.max_task_retries,
-            task_timeout_seconds=self._config.executor.task_timeout_seconds,
-            global_timeout_seconds=self._config.executor.global_timeout_seconds,
-        )
+        executor_cfg = self._executor_config(deadline)
         executor = DAGExecutor(dag, task_fn, config=executor_cfg, trace=trace)
         try:
             await executor.run()
@@ -169,12 +189,89 @@ class RunManager:
                 },
             )
 
+        # Phase 2.5: Replan loop
+        all_tasks = list(dag.tasks)
+        for replan_round in range(self._config.executor.max_replans):
+            request = executor.check_replan()
+            if request is None:
+                break
+            trace.log(
+                TraceEventType.REPLAN_REQUESTED,
+                {
+                    "round": replan_round + 1,
+                    "trigger": request.trigger,
+                    "reason": request.reason,
+                    "affected_tasks": request.affected_tasks,
+                    "actions": request.actions,
+                },
+            )
+            affected = [t for t in all_tasks if t.task_id in request.affected_tasks]
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            try:
+                replan_plan = await asyncio.wait_for(
+                    planner.replan(
+                        question,
+                        request.trigger,
+                        request.reason,
+                        affected,
+                        request.actions,
+                    ),
+                    timeout=remaining,
+                )
+            except TimeoutError:
+                trace.log(
+                    TraceEventType.TASK_STATE_CHANGED,
+                    {
+                        "status": "global_timeout",
+                        "stage": "replan",
+                        "round": replan_round + 1,
+                    },
+                )
+                break
+            replan_tasks, superseded = self._prepare_replan_tasks(
+                replan_plan.tasks,
+                all_tasks,
+                set(request.affected_tasks),
+                replan_round + 1,
+            )
+            for task in superseded:
+                task.status = TaskState.REPLANNING
+            dag = DAG(replan_tasks)
+            all_tasks.extend(replan_tasks)
+            executor = DAGExecutor(
+                dag,
+                task_fn,
+                config=self._executor_config(deadline),
+                trace=trace,
+            )
+            try:
+                await executor.run()
+            except GlobalTimeoutError as error:
+                trace.log(
+                    TraceEventType.TASK_STATE_CHANGED,
+                    {
+                        "status": "global_timeout",
+                        "partial_result": error.partial_result,
+                    },
+                )
+            trace.log(
+                TraceEventType.REPLAN_COMPLETED,
+                {
+                    "round": replan_round + 1,
+                    "new_task_count": len(replan_tasks),
+                    "new_task_ids": [task.task_id for task in replan_tasks],
+                    "superseded_task_ids": [task.task_id for task in superseded],
+                },
+            )
+
         # Phase 3: Collect evidence from memory
-        evidence_collector = self._collect_evidence(dag.tasks)
+        evidence_collector = self._collect_evidence(all_tasks)
 
         # Phase 4: Synthesize report
         report = await synthesizer.synthesize(
-            run_id, question, plan.tasks, evidence_collector
+            run_id, question, all_tasks, evidence_collector
         )
         trace.log(
             TraceEventType.LLM_CALLED,
@@ -204,7 +301,7 @@ class RunManager:
         # Phase 6: Evaluate
         eval_result = evaluate(
             run_id,
-            plan.tasks,
+            all_tasks,
             judge_result.report,
             evidence_collector,
             red_issues=[
@@ -222,9 +319,10 @@ class RunManager:
             "final_score": judge_result.final_score,
             "rounds": float(len(judge_result.rounds)),
         }
+        budget.finish()
         trace.log(
             TraceEventType.EVALUATION_COMPLETED,
-            eval_result.model_dump(mode="json"),
+            {**eval_result.model_dump(mode="json"), "budget": budget.to_dict()},
         )
 
         # Write outputs
@@ -233,6 +331,7 @@ class RunManager:
             run_id,
             judge_result.report,
             eval_result,
+            budget,
         )
 
         return RunResult(
@@ -240,9 +339,10 @@ class RunManager:
             question=question,
             report=judge_result.report,
             evaluation=eval_result,
-            plan_tasks=plan.tasks,
+            plan_tasks=all_tasks,
             judge_rounds=judge_result.rounds,
             output_dir=out,
+            budget=budget,
         )
 
     @staticmethod
@@ -271,16 +371,145 @@ class RunManager:
         run_id: str,
         report: ResearchReport,
         evaluation: EvaluationResult,
+        budget: RunBudget,
     ) -> None:
         (out / "report.md").write_text(self._format_report_md(report), encoding="utf-8")
         (out / "evaluation.json").write_text(
-            evaluation.model_dump_json(indent=2), encoding="utf-8"
+            json.dumps(
+                {
+                    **evaluation.model_dump(mode="json"),
+                    "budget": budget.to_dict(),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
         )
         await export_snapshot(
             self._memory,
             run_id,
             out / "memory_snapshot.jsonl",
         )
+
+    def _executor_config(self, deadline: float) -> ExecutorConfig:
+        remaining = max(0.0, deadline - time.monotonic())
+        return ExecutorConfig(
+            max_concurrency=self._config.executor.max_concurrency,
+            max_task_retries=self._config.executor.max_task_retries,
+            task_timeout_seconds=self._config.executor.task_timeout_seconds,
+            global_timeout_seconds=remaining,
+            max_llm_calls_per_run=self._config.executor.max_llm_calls_per_run,
+        )
+
+    @staticmethod
+    def _prepare_replan_tasks(
+        replacements: list[TaskNode],
+        all_tasks: list[TaskNode],
+        affected_ids: set[str],
+        round_num: int,
+    ) -> tuple[list[TaskNode], list[TaskNode]]:
+        existing_ids = {task.task_id for task in all_tasks}
+
+        def unique_id(base: str) -> str:
+            candidate = base
+            suffix = 2
+            while candidate in existing_ids:
+                candidate = f"{base}-{suffix}"
+                suffix += 1
+            existing_ids.add(candidate)
+            return candidate
+
+        replacement_id_map = {
+            task.task_id: unique_id(f"replan-{round_num}-{task.task_id}")
+            for task in replacements
+        }
+        prepared_replacements = [
+            task.model_copy(
+                update={
+                    "task_id": replacement_id_map[task.task_id],
+                    "dependencies": [
+                        replacement_id_map[dependency]
+                        for dependency in task.dependencies
+                        if dependency in replacement_id_map
+                    ],
+                    "status": TaskState.PENDING,
+                    "retries": 0,
+                    "error": None,
+                    "result": None,
+                    "input": {
+                        **task.input,
+                        "replan_round": round_num,
+                        "replaces": sorted(affected_ids),
+                    },
+                }
+            )
+            for task in replacements
+        ]
+        depended_on = {
+            dependency
+            for task in prepared_replacements
+            for dependency in task.dependencies
+        }
+        replacement_terminals = [
+            task.task_id
+            for task in prepared_replacements
+            if task.task_id not in depended_on
+        ]
+
+        resumable: list[TaskNode] = []
+        resumable_ids: set[str] = set()
+        changed = True
+        while changed:
+            changed = False
+            for task in all_tasks:
+                if task.status not in {TaskState.SKIPPED, TaskState.CANCELLED}:
+                    continue
+                if task.task_id in resumable_ids:
+                    continue
+                if any(
+                    dependency in affected_ids or dependency in resumable_ids
+                    for dependency in task.dependencies
+                ):
+                    resumable.append(task)
+                    resumable_ids.add(task.task_id)
+                    changed = True
+
+        resume_id_map = {
+            task.task_id: unique_id(f"replan-{round_num}-resume-{task.task_id}")
+            for task in resumable
+        }
+        resumed_tasks = []
+        for task in resumable:
+            dependencies: list[str] = []
+            for dependency in task.dependencies:
+                if dependency in affected_ids:
+                    dependencies.extend(replacement_terminals)
+                elif dependency in resume_id_map:
+                    dependencies.append(resume_id_map[dependency])
+            resumed_tasks.append(
+                task.model_copy(
+                    update={
+                        "task_id": resume_id_map[task.task_id],
+                        "dependencies": list(dict.fromkeys(dependencies)),
+                        "status": TaskState.PENDING,
+                        "retries": 0,
+                        "error": None,
+                        "result": None,
+                        "input": {
+                            **task.input,
+                            "replan_round": round_num,
+                            "resumes": task.task_id,
+                        },
+                    }
+                )
+            )
+
+        superseded = [
+            task
+            for task in all_tasks
+            if task.task_id in affected_ids or task.task_id in resumable_ids
+        ]
+        return prepared_replacements + resumed_tasks, superseded
 
     @staticmethod
     def _format_report_md(report: ResearchReport) -> str:

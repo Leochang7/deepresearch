@@ -56,6 +56,18 @@ class TestEvaluator:
         result = evaluate("r1", tasks, report, evidence)
         assert result.task_success_rate == pytest.approx(0.6667, abs=1e-3)
 
+    def test_task_success_rate_excludes_superseded_tasks(self, tasks, evidence, report):
+        tasks[2].status = TaskState.REPLANNING
+        tasks.append(
+            TaskNode(
+                task_id="replan-1-t3",
+                description="replacement",
+                status=TaskState.SUCCEEDED,
+            )
+        )
+        result = evaluate("r1", tasks, report, evidence)
+        assert result.task_success_rate == 1.0
+
     def test_citation_coverage(self, tasks, evidence, report):
         result = evaluate("r1", tasks, report, evidence)
         assert result.citation_coverage == pytest.approx(1.0)

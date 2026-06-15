@@ -15,6 +15,8 @@ class TestTraceEventType:
             "red_review_created",
             "blue_fix_applied",
             "evaluation_completed",
+            "replan_requested",
+            "replan_completed",
         }
         actual = {e.value for e in TraceEventType}
         assert actual == expected

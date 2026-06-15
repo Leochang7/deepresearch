@@ -356,15 +356,15 @@
 
 ### PM3 Replan 与预算控制
 
-- [ ] PM030 实现真实 replan 闭环
+- [x] PM030 实现真实 replan 闭环
   - Files: `src/deepresearch/core/executor.py`, `src/deepresearch/agents/planner.py`, tests
-  - Done when: task 失败、evidence 为 0、同层失败率过高时可生成替代 task 并继续执行，trace 记录 replan 来源。
-  - Verify: `uv run pytest tests/core/test_replan.py tests/core/test_executor.py`
+  - Done when: task 失败、evidence 为 0、同层失败率过高时可生成无冲突 ID 的替代 task；受影响的 skipped/cancelled 下游任务按新依赖恢复执行；原任务标记为 `REPLANNING` 历史态且不计入成功率；所有 replan 共享 run 级全局超时；trace 记录来源、替代任务和被替换任务。
+  - Verify: `uv run pytest tests/core/test_replan.py tests/core/test_executor.py tests/core/test_run_manager.py`
 
-- [ ] PM031 增加 run budget 统计
+- [x] PM031 增加 run budget 统计
   - Files: `src/deepresearch/core/run_manager.py`, `src/deepresearch/core/trace.py`, schemas/tests
-  - Done when: run 记录 LLM calls、search calls、fetched docs、chunks、embedding batches、rerank calls、elapsed time。
-  - Verify: `uv run pytest tests/core/test_run_manager.py`
+  - Done when: 通过统一 client wrapper 按真实调用记录 LLM/search/embedding/rerank 次数和 token usage，同时记录 fetched docs、chunks、elapsed time；`max_llm_calls_per_run` 在调用前强制执行；预算写入 trace 和 `evaluation.json`。
+  - Verify: `uv run pytest tests/core/test_budget.py tests/core/test_run_manager.py`
 
 ### PM4 Trace 与展示
 

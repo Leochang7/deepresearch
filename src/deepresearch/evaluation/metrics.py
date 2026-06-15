@@ -16,8 +16,9 @@ def evaluate(
     red_issues: list[dict] | None = None,
     blue_actions: list[dict] | None = None,
 ) -> EvaluationResult:
-    total_tasks = len(tasks)
-    succeeded = sum(1 for t in tasks if t.status == TaskState.SUCCEEDED)
+    active_tasks = [task for task in tasks if task.status != TaskState.REPLANNING]
+    total_tasks = len(active_tasks)
+    succeeded = sum(1 for task in active_tasks if task.status == TaskState.SUCCEEDED)
     task_success_rate = succeeded / total_tasks if total_tasks > 0 else 0.0
 
     evidence_ids = {e.evidence_id for e in evidence}

@@ -10,6 +10,7 @@ from deepresearch.llm.mock import MockLLM
 from deepresearch.memory.store import MockMemoryStore
 from deepresearch.rerankers.mock import MockRerankerClient
 from deepresearch.retrieval.mock import MockRetriever
+from deepresearch.schemas.task import ResearchPlan, TaskNode, TaskState
 
 
 def _manager(memory: MockMemoryStore | None = None) -> RunManager:
@@ -151,3 +152,98 @@ async def test_run_manager_passes_fusion_config_to_researcher(tmp_path):
     assert kwargs["max_fused_chunks"] == 25
     assert kwargs["mmr_lambda"] == 0.6
     assert kwargs["max_mmr_results"] == 10
+
+
+@pytest.mark.asyncio
+async def test_run_budget_populated(tmp_path):
+    result = await _manager().run("test question", output_dir=tmp_path / "run")
+
+    assert result.budget is not None
+    assert result.budget.llm_calls >= 1
+    assert result.budget.search_calls >= 1
+    assert result.budget.chunks >= 1
+    assert result.budget.embedding_batches >= 1
+    assert result.budget.elapsed_seconds >= 0
+    d = result.budget.to_dict()
+    assert "llm_calls" in d
+    assert "elapsed_seconds" in d
+    evaluation = json.loads(
+        (result.output_dir / "evaluation.json").read_text(encoding="utf-8")
+    )
+    assert evaluation["budget"] == d
+
+
+@pytest.mark.asyncio
+async def test_run_manager_replan_replaces_failed_task_and_resumes_downstream(tmp_path):
+    config = DeepResearchConfig()
+    config.executor.max_task_retries = 1
+    config.executor.max_replans = 1
+    initial_plan = ResearchPlan(
+        plan_id="initial",
+        question="test",
+        tasks=[
+            TaskNode(task_id="t1", description="primary research"),
+            TaskNode(
+                task_id="t2",
+                description="dependent research",
+                dependencies=["t1"],
+            ),
+        ],
+    )
+    replacement_plan = ResearchPlan(
+        plan_id="replacement",
+        question="test",
+        tasks=[TaskNode(task_id="t1", description="alternate research")],
+    )
+
+    async def execute(task, *, run_id):
+        if task.task_id == "t1":
+            raise RuntimeError("primary source unavailable")
+        return {
+            "task_id": task.task_id,
+            "queries": [],
+            "evidence": [],
+            "evidence_count": 1,
+            "information_insufficient": False,
+            "chunk_count": 0,
+            "document_count": 0,
+        }
+
+    with (
+        patch("deepresearch.core.run_manager.PlannerAgent") as planner_cls,
+        patch("deepresearch.core.run_manager.ResearchAgent") as researcher_cls,
+    ):
+        planner_cls.return_value.plan = AsyncMock(return_value=initial_plan)
+        planner_cls.return_value.replan = AsyncMock(return_value=replacement_plan)
+        researcher_cls.return_value.execute = AsyncMock(side_effect=execute)
+        result = await RunManager(
+            config,
+            MockLLM(),
+            MockRetriever(),
+            MockMemoryStore(),
+            MockEmbeddingClient(),
+            MockRerankerClient(),
+        ).run("test", output_dir=tmp_path / "run")
+
+    tasks = {task.task_id: task for task in result.plan_tasks}
+    assert tasks["t1"].status == TaskState.REPLANNING
+    assert tasks["t2"].status == TaskState.REPLANNING
+    assert tasks["replan-1-t1"].status == TaskState.SUCCEEDED
+    assert tasks["replan-1-resume-t2"].status == TaskState.SUCCEEDED
+    assert tasks["replan-1-resume-t2"].dependencies == ["replan-1-t1"]
+    assert len(tasks) == len(result.plan_tasks)
+
+    events = [
+        json.loads(line)
+        for line in (result.output_dir / "trace.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    completed = next(
+        event for event in events if event["event_type"] == "replan_completed"
+    )
+    assert completed["run_id"] == result.run_id
+    assert completed["metadata"]["new_task_ids"] == [
+        "replan-1-t1",
+        "replan-1-resume-t2",
+    ]

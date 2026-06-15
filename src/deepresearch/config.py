@@ -110,6 +110,7 @@ class ExecutorConfig(BaseModel):
     task_timeout_seconds: int = 180
     global_timeout_seconds: int = 1800
     max_llm_calls_per_run: int = 80
+    max_replans: int = 1
 
 
 class RedBlueConfig(BaseModel):

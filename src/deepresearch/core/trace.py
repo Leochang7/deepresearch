@@ -17,6 +17,8 @@ class TraceEventType(StrEnum):
     RED_REVIEW_CREATED = "red_review_created"
     BLUE_FIX_APPLIED = "blue_fix_applied"
     EVALUATION_COMPLETED = "evaluation_completed"
+    REPLAN_REQUESTED = "replan_requested"
+    REPLAN_COMPLETED = "replan_completed"
 
 
 class TraceLogger:
