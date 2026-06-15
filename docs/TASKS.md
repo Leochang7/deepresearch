@@ -153,22 +153,22 @@
 
 ### M5 Milvus MemoryStore
 
-- [ ] T050 实现 MemoryStore 抽象和 MockMemoryStore
+- [x] T050 实现 MemoryStore 抽象和 MockMemoryStore
   - Files: `src/deepresearch/memory/store.py`, `tests/memory/test_store.py`
   - Done when: mock 支持 upsert、search、delete、snapshot。
   - Verify: `uv run pytest tests/memory/test_store.py`
 
-- [ ] T051 实现 Milvus collection schema
+- [x] T051 实现 Milvus collection schema
   - Files: `src/deepresearch/memory/milvus_store.py`, `tests/memory/test_milvus_schema.py`
   - Done when: 创建 `deepresearch_chunks` 和 `deepresearch_memories`，向量字段 1024 维，COSINE + HNSW。
   - Verify: `uv run pytest tests/memory/test_milvus_schema.py`
 
-- [ ] T052 实现 Milvus upsert/search/delete
+- [x] T052 实现 Milvus upsert/search/delete
   - Files: `src/deepresearch/memory/milvus_store.py`, `tests/memory/test_milvus_store.py`
   - Done when: 支持按 `run_id`、`task_id`、`source_type`、`confidence` 过滤检索。
   - Verify: `uv run pytest -m milvus`
 
-- [ ] T053 实现 memory snapshot 导出
+- [x] T053 实现 memory snapshot 导出
   - Files: `src/deepresearch/memory/milvus_store.py`, `tests/memory/test_snapshot.py`
   - Done when: 可导出 `outputs/<run_id>/memory_snapshot.jsonl`。
   - Verify: `uv run pytest tests/memory/test_snapshot.py`

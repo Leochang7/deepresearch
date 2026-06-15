@@ -18,3 +18,4 @@
 - 2026-06-15: 完成 M2 配置、Schema 与 Trace（T020-T024）：DeepResearchConfig 12 section + 优先级链、6 核心 Pydantic schema、9 状态状态机 + 合法流转表、JSON fallback 6 层策略、TraceLogger JSONL 9 种事件类型。共 80 个测试通过。
 - 2026-06-15: 完成 M3 模型抽象（T030-T036）：LLMClient + MockLLM + MiMo/DeepSeek client、EmbeddingClient + mock + OpenAI-compatible Qwen、RerankerClient + mock + OpenAI-compatible bge。MiMo 使用 `api-key` header，DeepSeek 使用 Bearer auth。共 123 个测试通过。
 - 2026-06-15: 完成 M4 Retriever、正文抓取与切片（T040-T046）：Retriever 抽象 + MockRetriever、LocalDatasetRetriever 关键词召回、Tavily WebSearchRetriever、MiMoSearchRetriever（tools.web_search）、WebFetcher（httpx+trafilatura）、chunking（1200/200/300）、dedup（source_url+content_hash）。共 166 个测试通过。
+- 2026-06-15: 完成 M5 Milvus MemoryStore（T050-T053）：MemoryStore 抽象 + MockMemoryStore（cosine similarity + 标量过滤）、MilvusLiteStore（两个 collection、FloatVector 1024、COSINE+HNSW、upsert/search/delete/query）、export_snapshot JSONL 导出。共 189 个测试通过。
