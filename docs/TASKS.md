@@ -79,37 +79,37 @@
 
 ### M3 模型抽象
 
-- [ ] T030 实现 LLMClient 抽象和 MockLLM
+- [x] T030 实现 LLMClient 抽象和 MockLLM
   - Files: `src/deepresearch/llm/base.py`, `src/deepresearch/llm/mock.py`, `tests/llm/`
   - Done when: mock 能返回稳定 planner/research/red-blue 输出。
   - Verify: `uv run pytest tests/llm`
 
-- [ ] T031 实现 MiMo v2.5 Pro LLMClient
+- [x] T031 实现 MiMo v2.5 Pro LLMClient
   - Files: `src/deepresearch/llm/mimo.py`, `tests/llm/test_mimo.py`
   - Done when: 使用 OpenAI-compatible `/chat/completions`，header 为 `api-key`，支持 thinking disabled、temperature、top_p、max_completion_tokens。
   - Verify: `uv run pytest tests/llm/test_mimo.py`
 
-- [ ] T032 实现 DeepSeek fallback client
+- [x] T032 实现 DeepSeek fallback client
   - Files: `src/deepresearch/llm/deepseek.py`, `tests/llm/test_deepseek.py`
   - Done when: DeepSeek 通过统一 LLMClient 接口调用，真实调用测试打 `llm` marker。
   - Verify: `uv run pytest tests/llm/test_deepseek.py`
 
-- [ ] T033 实现 EmbeddingClient 抽象和 mock
+- [x] T033 实现 EmbeddingClient 抽象和 mock
   - Files: `src/deepresearch/embeddings/base.py`, `src/deepresearch/embeddings/mock.py`, `tests/embeddings/`
   - Done when: mock 输出 1024 维稳定向量。
   - Verify: `uv run pytest tests/embeddings`
 
-- [ ] T034 实现 OpenAI-compatible Qwen embedding client
+- [x] T034 实现 OpenAI-compatible Qwen embedding client
   - Files: `src/deepresearch/embeddings/openai_compatible.py`, `tests/embeddings/test_openai_compatible.py`
   - Done when: 支持 batch size、timeout、retry、normalize=false 默认值。
   - Verify: `uv run pytest tests/embeddings/test_openai_compatible.py`
 
-- [ ] T035 实现 RerankerClient 抽象和 mock
+- [x] T035 实现 RerankerClient 抽象和 mock
   - Files: `src/deepresearch/rerankers/base.py`, `src/deepresearch/rerankers/mock.py`, `tests/rerankers/`
   - Done when: mock reranker 可稳定排序候选片段。
   - Verify: `uv run pytest tests/rerankers`
 
-- [ ] T036 实现 OpenAI-compatible bge reranker client
+- [x] T036 实现 OpenAI-compatible bge reranker client
   - Files: `src/deepresearch/rerankers/openai_compatible.py`, `tests/rerankers/test_openai_compatible.py`
   - Done when: 支持 batch size、timeout、retry，真实调用测试打 `llm` marker。
   - Verify: `uv run pytest tests/rerankers/test_openai_compatible.py`

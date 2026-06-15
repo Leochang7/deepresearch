@@ -13,3 +13,4 @@
 - 2026-06-15: 准备首次提交：补充 `.gitignore` 本地配置与运行产物规则，切换到 `develop` 作为日常开发分支。
 - 2026-06-15: Claude 完成 M1 项目骨架与工具链；复核通过 `uv run deepresearch --help`、`uv run deepresearch run --help`、`uv run deepresearch index-corpus --help`、`uv run pytest`、`uv run ruff check .`。
 - 2026-06-15: Review 并修复 M2：配置层不再把真实 API key 覆盖到 `api_key_env` 字段，TraceEventType 对齐文档中的细粒度结构化事件。
+- 2026-06-15: Review 并修复 M3：MiMo `thinking` 使用对象格式，LLM 参数保留显式 0 值，embedding normalize 配置实际生效。
