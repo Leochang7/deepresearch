@@ -37,6 +37,7 @@ _PLANNER_RESPONSE = json.dumps(
 _RESEARCH_RESPONSE = json.dumps(
     {
         "task_id": "t1",
+        "queries": ["LLM agent trends", "multi-agent systems"],
         "summary": "Found several relevant sources on the topic.",
         "evidence": [
             {
@@ -45,6 +46,7 @@ _RESEARCH_RESPONSE = json.dumps(
                 "quote": "Recent advances in LLM agents show 40% improvement in task completion rates.",
                 "citation": "AI Research Journal 2025",
                 "source_url": "https://example.com/paper1",
+                "source_id": "S1",
                 "confidence": 0.85,
             },
             {
@@ -53,6 +55,7 @@ _RESEARCH_RESPONSE = json.dumps(
                 "quote": "Multi-agent systems outperform single-agent approaches on complex tasks.",
                 "citation": "Agent Conference 2024",
                 "source_url": "https://example.com/paper2",
+                "source_id": "S1",
                 "confidence": 0.78,
             },
         ],
@@ -61,7 +64,7 @@ _RESEARCH_RESPONSE = json.dumps(
 
 _SYNTHESIS_RESPONSE = """## Executive Summary
 
-This report analyzes recent developments in the field.
+This report analyzes recent developments in the field [E1].
 
 ## Background
 
@@ -113,20 +116,13 @@ _BLUE_RESPONSE = json.dumps(
     }
 )
 
-
 class MockLLM(LLMClient):
     def __init__(
         self,
-        responses: dict[str, str] | None = None,
+        responses: list[str] | None = None,
         default_response: str = '{"result": "ok"}',
     ) -> None:
-        self._responses = responses or {
-            "planner": _PLANNER_RESPONSE,
-            "research": _RESEARCH_RESPONSE,
-            "synthesis": _SYNTHESIS_RESPONSE,
-            "red": _RED_RESPONSE,
-            "blue": _BLUE_RESPONSE,
-        }
+        self._queue: list[str] = list(responses or [])
         self._default_response = default_response
         self._calls: list[dict[str, Any]] = []
 
@@ -138,8 +134,20 @@ class MockLLM(LLMClient):
     def call_count(self) -> int:
         return len(self._calls)
 
-    def set_response(self, key: str, response: str) -> None:
-        self._responses[key] = response
+    def set_response(self, response: str, *, index: int | None = None) -> None:
+        if index is not None:
+            if index < len(self._queue):
+                self._queue[index] = response
+            else:
+                self._queue.extend(
+                    self._default_response for _ in range(index - len(self._queue))
+                )
+                self._queue.append(response)
+        else:
+            self._queue.append(response)
+
+    def set_responses(self, responses: list[str]) -> None:
+        self._queue = list(responses)
 
     async def chat(
         self,
@@ -162,18 +170,26 @@ class MockLLM(LLMClient):
             }
         )
 
-        content = self._pick_response(messages)
+        content = self._next_response(messages)
         return LLMResponse(
             content=content,
             model=model or "mock",
             usage={"prompt_tokens": 100, "completion_tokens": 50},
         )
 
-    def _pick_response(self, messages: list[LLMMessage]) -> str:
-        combined = " ".join(m.content.lower() for m in messages)
+    def _next_response(self, messages: list[LLMMessage]) -> str:
+        if self._queue:
+            return self._queue.pop(0)
 
-        for key in self._responses:
-            if key in combined:
-                return self._responses[key]
-
+        combined = " ".join(message.content.lower() for message in messages)
+        if "research planner" in combined:
+            return _PLANNER_RESPONSE
+        if "research synthesizer" in combined:
+            return _SYNTHESIS_RESPONSE
+        if "red agent" in combined or "red review" in combined:
+            return _RED_RESPONSE
+        if "blue agent" in combined or "blue fix" in combined:
+            return _BLUE_RESPONSE
+        if "research agent" in combined:
+            return _RESEARCH_RESPONSE
         return self._default_response

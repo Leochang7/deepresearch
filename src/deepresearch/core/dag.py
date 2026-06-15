@@ -52,10 +52,7 @@ class DAG:
             if task.status != TaskState.PENDING:
                 continue
             deps = self._parents.get(task.task_id, set())
-            if all(
-                self._tasks[dep].status == TaskState.SUCCEEDED
-                for dep in deps
-            ):
+            if all(self._tasks[dep].status == TaskState.SUCCEEDED for dep in deps):
                 ready.append(task)
         return sorted(ready, key=lambda t: t.priority, reverse=True)
 

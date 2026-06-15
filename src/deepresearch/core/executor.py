@@ -247,9 +247,7 @@ class DAGExecutor:
         if layer_failure is not None:
             layer_index, failed_in_layer, fail_ratio = layer_failure
             return ReplanRequest(
-                reason=(
-                    f"DAG layer {layer_index} failure ratio is {fail_ratio:.0%}"
-                ),
+                reason=(f"DAG layer {layer_index} failure ratio is {fail_ratio:.0%}"),
                 failed_tasks=failed,
                 trigger="layer_failure_ratio",
                 level="layer",
@@ -266,9 +264,7 @@ class DAGExecutor:
             )
 
         repeatedly_failed = [
-            task_id
-            for task_id in failed
-            if self._failure_attempts.get(task_id, 0) >= 2
+            task_id for task_id in failed if self._failure_attempts.get(task_id, 0) >= 2
         ]
         if repeatedly_failed:
             return ReplanRequest(

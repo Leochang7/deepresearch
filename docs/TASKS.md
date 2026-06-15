@@ -197,17 +197,17 @@
 
 ### M7 Agents 与报告生成
 
-- [ ] T070 实现 Planner Agent
+- [x] T070 实现 Planner Agent
   - Files: `src/deepresearch/agents/planner.py`, `src/deepresearch/prompts/planner.md`, `tests/agents/test_planner.py`
   - Done when: 输入问题输出合法 DAG plan，使用 JSON fallback 和 Pydantic 校验。
   - Verify: `uv run pytest tests/agents/test_planner.py`
 
-- [ ] T071 实现 Research Agent
+- [x] T071 实现 Research Agent
   - Files: `src/deepresearch/agents/researcher.py`, `src/deepresearch/prompts/researcher.md`, `tests/agents/test_researcher.py`
   - Done when: 完成 query 生成、retriever 调用、fetch、chunk、embedding、Milvus 写入、rerank、evidence 抽取。
   - Verify: `uv run pytest tests/agents/test_researcher.py`
 
-- [ ] T072 实现 Synthesizer
+- [x] T072 实现 Synthesizer
   - Files: `src/deepresearch/agents/synthesizer.py`, `src/deepresearch/prompts/synthesizer.md`, `tests/agents/test_synthesizer.py`
   - Done when: 生成 Markdown 报告，关键 claim 使用 `[E12]` evidence id 引用，缺证内容进入 Limitations。
   - Verify: `uv run pytest tests/agents/test_synthesizer.py`

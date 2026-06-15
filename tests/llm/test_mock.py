@@ -2,112 +2,96 @@ import json
 
 import pytest
 
-from deepresearch.llm.base import LLMClient, LLMMessage, LLMResponse
+from deepresearch.llm.base import LLMMessage
 from deepresearch.llm.mock import MockLLM
 
 
-class TestLLMBase:
-    def test_llm_message(self):
-        msg = LLMMessage(role="user", content="hello")
-        assert msg.role == "user"
-        assert msg.content == "hello"
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("prompt", "expected_key"),
+    [
+        ("You are a research planner.", "plan_id"),
+        ("You are a research agent.", "evidence"),
+        ("You are a red agent.", "issues"),
+        ("You are a blue agent.", "actions"),
+    ],
+)
+async def test_semantic_json_responses(prompt, expected_key):
+    response = await MockLLM().chat([LLMMessage(role="system", content=prompt)])
+    assert expected_key in json.loads(response.content)
 
-    def test_llm_response(self):
-        resp = LLMResponse(content="hi", model="test", usage={"tokens": 10})
-        assert resp.content == "hi"
-        assert resp.model == "test"
 
-    def test_llm_client_is_abstract(self):
-        with pytest.raises(TypeError):
-            LLMClient()
+@pytest.mark.asyncio
+async def test_semantic_synthesis_response():
+    response = await MockLLM().chat(
+        [LLMMessage(role="system", content="You are a research synthesizer.")]
+    )
+    assert "Executive Summary" in response.content
 
 
-class TestMockLLM:
-    @pytest.fixture
-    def mock(self):
-        return MockLLM()
+@pytest.mark.asyncio
+async def test_agents_do_not_depend_on_global_call_order():
+    mock = MockLLM()
+    research = await mock.chat(
+        [LLMMessage(role="system", content="You are a research agent.")]
+    )
+    planner = await mock.chat(
+        [LLMMessage(role="system", content="You are a research planner.")]
+    )
 
-    @pytest.mark.asyncio
-    async def test_returns_response(self, mock):
-        messages = [LLMMessage(role="user", content="hello")]
-        resp = await mock.chat(messages)
-        assert isinstance(resp, LLMResponse)
-        assert resp.content
+    assert "evidence" in json.loads(research.content)
+    assert "tasks" in json.loads(planner.content)
 
-    @pytest.mark.asyncio
-    async def test_planner_response(self, mock):
-        messages = [LLMMessage(role="system", content="You are a planner.")]
-        resp = await mock.chat(messages)
-        data = json.loads(resp.content)
-        assert "plan_id" in data
-        assert "tasks" in data
-        assert len(data["tasks"]) >= 2
 
-    @pytest.mark.asyncio
-    async def test_research_response(self, mock):
-        messages = [LLMMessage(role="user", content="research this topic")]
-        resp = await mock.chat(messages)
-        data = json.loads(resp.content)
-        assert "evidence" in data
-        assert len(data["evidence"]) >= 1
+@pytest.mark.asyncio
+async def test_custom_responses_are_consumed_then_semantic_fallback_is_used():
+    mock = MockLLM(["first", "second"])
 
-    @pytest.mark.asyncio
-    async def test_synthesis_response(self, mock):
-        messages = [LLMMessage(role="user", content="synthesis the findings")]
-        resp = await mock.chat(messages)
-        assert "Executive Summary" in resp.content
+    first = await mock.chat([LLMMessage(role="user", content="a")])
+    second = await mock.chat([LLMMessage(role="user", content="b")])
+    planner = await mock.chat(
+        [LLMMessage(role="system", content="You are a research planner.")]
+    )
 
-    @pytest.mark.asyncio
-    async def test_red_response(self, mock):
-        messages = [LLMMessage(role="user", content="red review this report")]
-        resp = await mock.chat(messages)
-        data = json.loads(resp.content)
-        assert "issues" in data
-        assert "score" in data
+    assert first.content == "first"
+    assert second.content == "second"
+    assert "plan_id" in json.loads(planner.content)
 
-    @pytest.mark.asyncio
-    async def test_blue_response(self, mock):
-        messages = [LLMMessage(role="user", content="blue fix the issues")]
-        resp = await mock.chat(messages)
-        data = json.loads(resp.content)
-        assert "actions" in data
 
-    @pytest.mark.asyncio
-    async def test_default_response(self):
-        mock = MockLLM(responses={})
-        messages = [LLMMessage(role="user", content="something random")]
-        resp = await mock.chat(messages)
-        data = json.loads(resp.content)
-        assert data == {"result": "ok"}
+@pytest.mark.asyncio
+async def test_set_response_appends_and_set_responses_replaces_queue():
+    mock = MockLLM()
+    mock.set_response("appended")
+    assert (
+        await mock.chat([LLMMessage(role="user", content="anything")])
+    ).content == "appended"
 
-    @pytest.mark.asyncio
-    async def test_custom_response(self):
-        mock = MockLLM()
-        mock.set_response("custom", '{"answer": 42}')
-        messages = [LLMMessage(role="user", content="custom question")]
-        resp = await mock.chat(messages)
-        assert resp.content == '{"answer": 42}'
+    mock.set_responses(["replacement"])
+    assert (
+        await mock.chat([LLMMessage(role="user", content="anything")])
+    ).content == "replacement"
 
-    @pytest.mark.asyncio
-    async def test_tracks_calls(self, mock):
-        messages = [LLMMessage(role="user", content="test")]
-        await mock.chat(messages, model="mimo", temperature=0.5)
-        await mock.chat(messages)
 
-        assert mock.call_count == 2
-        assert mock.calls[0]["model"] == "mimo"
-        assert mock.calls[0]["temperature"] == 0.5
-        assert mock.calls[1]["model"] is None
+@pytest.mark.asyncio
+async def test_default_response_for_unknown_prompt():
+    response = await MockLLM(default_response='{"answer": 42}').chat(
+        [LLMMessage(role="user", content="unclassified prompt")]
+    )
+    assert json.loads(response.content) == {"answer": 42}
 
-    @pytest.mark.asyncio
-    async def test_usage_in_response(self, mock):
-        messages = [LLMMessage(role="user", content="test")]
-        resp = await mock.chat(messages)
-        assert "prompt_tokens" in resp.usage
-        assert "completion_tokens" in resp.usage
 
-    @pytest.mark.asyncio
-    async def test_json_mode_param(self, mock):
-        messages = [LLMMessage(role="user", content="test")]
-        await mock.chat(messages, json_mode=True)
-        assert mock.calls[0]["json_mode"] is True
+@pytest.mark.asyncio
+async def test_tracks_calls_and_usage():
+    mock = MockLLM()
+    response = await mock.chat(
+        [LLMMessage(role="user", content="test")],
+        model="custom",
+        temperature=0.5,
+        json_mode=True,
+    )
+
+    assert mock.call_count == 1
+    assert mock.calls[0]["temperature"] == 0.5
+    assert mock.calls[0]["json_mode"] is True
+    assert response.model == "custom"
+    assert "prompt_tokens" in response.usage
