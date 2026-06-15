@@ -28,7 +28,10 @@ def test_init_creates_valid_toml_and_refuses_overwrite(tmp_path):
 
     assert first.exit_code == 0
     assert config_path.exists()
-    assert tomllib.loads(config_path.read_text(encoding="utf-8"))["llm"]["provider"] == "mimo"
+    assert (
+        tomllib.loads(config_path.read_text(encoding="utf-8"))["llm"]["provider"]
+        == "mimo"
+    )
     assert second.exit_code == 1
 
 
@@ -74,8 +77,9 @@ def test_real_run_exits_nonzero_when_all_tasks_fail(tmp_path, monkeypatch):
 
     with (
         patch("deepresearch.cli._build_runtime", return_value=(1, 2, 3, 4, 5)),
-        patch("deepresearch.core.run_manager.RunManager.run", new_callable=AsyncMock)
-        as run,
+        patch(
+            "deepresearch.core.run_manager.RunManager.run", new_callable=AsyncMock
+        ) as run,
     ):
         run.return_value = result_obj
         result = runner.invoke(
@@ -127,6 +131,8 @@ async def test_index_corpus_chunks_embeds_and_upserts(tmp_path):
     assert entries[0].source_type == "chunk"
     assert entries[0].run_id == "corpus"
     assert len(entries[0].embedding) == 1024
+
+
 def test_eval_and_inspect_support_custom_output_root(tmp_path):
     run_dir = tmp_path / "runs" / "run-1"
     run_dir.mkdir(parents=True)

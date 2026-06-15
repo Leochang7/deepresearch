@@ -74,9 +74,7 @@ class ResearchAgent:
             top_k=self._max_documents,
         )
         retrieved = dedup_documents(retrieved)[: self._max_documents]
-        self._report_progress(
-            "retrieval_completed", {"document_count": len(retrieved)}
-        )
+        self._report_progress("retrieval_completed", {"document_count": len(retrieved)})
         documents = await self._fetch_documents(retrieved)
         self._report_progress("fetch_completed", {"document_count": len(documents)})
         chunks = self._build_chunks(documents)[: self._max_chunks]

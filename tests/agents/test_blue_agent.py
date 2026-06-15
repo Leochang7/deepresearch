@@ -151,12 +151,12 @@ async def test_section_suffix_is_normalized_and_duplicate_add_is_rejected():
         "content": "Added supported sentence.",
         "evidence_id": "E1",
     }
-    first = await BlueAgent(
-        MockLLM([json.dumps({"actions": [action]})])
-    ).fix(_report(), [_issue()], _evidence())
-    second = await BlueAgent(
-        MockLLM([json.dumps({"actions": [action]})])
-    ).fix(first.report, [_issue()], _evidence())
+    first = await BlueAgent(MockLLM([json.dumps({"actions": [action]})])).fix(
+        _report(), [_issue()], _evidence()
+    )
+    second = await BlueAgent(MockLLM([json.dumps({"actions": [action]})])).fix(
+        first.report, [_issue()], _evidence()
+    )
 
     assert len(first.report.sections) == 1
     assert first.report.sections[0].title == "Background"

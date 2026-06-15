@@ -263,9 +263,8 @@ async def _index_corpus(
     vectors = (await embedding.embed([content for _, content in chunks])).embeddings
     entries = [
         MemoryEntry(
-            id="corpus-" + hashlib.sha256(
-                f"{document.id}:{content}".encode()
-            ).hexdigest()[:24],
+            id="corpus-"
+            + hashlib.sha256(f"{document.id}:{content}".encode()).hexdigest()[:24],
             run_id="corpus",
             task_id="",
             title=document.title,

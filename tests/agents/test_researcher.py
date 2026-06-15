@@ -201,7 +201,9 @@ async def test_fetch_failure_falls_back_to_retrieved_content():
 @pytest.mark.asyncio
 async def test_fetches_documents_with_bounded_concurrency():
     documents = [
-        _document().model_copy(update={"id": f"doc-{index}", "url": f"https://e/{index}"})
+        _document().model_copy(
+            update={"id": f"doc-{index}", "url": f"https://e/{index}"}
+        )
         for index in range(4)
     ]
     fetcher = AsyncMock()
