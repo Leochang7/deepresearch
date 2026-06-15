@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from deepresearch.memory.milvus_store import MilvusLiteStore
+from deepresearch.memory.milvus_store import MilvusStore
 
 
 def test_connect_creates_expected_collections_and_fields():
@@ -21,7 +21,7 @@ def test_connect_creates_expected_collections_and_fields():
     ):
         utility.has_collection.return_value = False
 
-        store = MilvusLiteStore(uri="./data/test.db")
+        store = MilvusStore(uri="./data/test.db")
         store.connect()
 
         connections.connect.assert_called_once_with(
@@ -71,10 +71,34 @@ def test_connect_creates_hnsw_cosine_index():
         ),
     ):
         utility.has_collection.return_value = False
-        MilvusLiteStore().connect()
+        MilvusStore().connect()
 
     assert len(indexes) == 2
     for _, field_name, index_params in indexes:
         assert field_name == "embedding"
         assert index_params["index_type"] == "HNSW"
         assert index_params["metric_type"] == "COSINE"
+
+
+def test_connect_uses_configured_embedding_dimension():
+    created_schemas = []
+
+    def fake_collection(*, name, schema):
+        created_schemas.append(schema)
+        col = MagicMock()
+        col.create_index = MagicMock()
+        return col
+
+    with (
+        patch("deepresearch.memory.milvus_store.connections"),
+        patch("deepresearch.memory.milvus_store.utility") as utility,
+        patch(
+            "deepresearch.memory.milvus_store.Collection", side_effect=fake_collection
+        ),
+    ):
+        utility.has_collection.return_value = False
+        MilvusStore(dim=2560).connect()
+
+    for schema in created_schemas:
+        fields = {field.name: field for field in schema.fields}
+        assert fields["embedding"].params["dim"] == 2560

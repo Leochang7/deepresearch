@@ -178,20 +178,19 @@ DEEPRESEARCH_EMBEDDING_DIM=1024
 DEEPRESEARCH_RERANKER_BASE_URL=
 DEEPRESEARCH_RERANKER_API_KEY=
 DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m32
-DEEPRESEARCH_MILVUS_URI=./data/milvus_lite.db
+DEEPRESEARCH_MILVUS_URI=http://localhost:19530
 DEEPRESEARCH_SEARCH_PROVIDER=tavily
 TAVILY_API_KEY=
 ```
 
 ## 7. Milvus 策略
 
-- 早期开发默认使用 Milvus Lite。
-- 后续部署 Milvus Standalone 到 Docker。
+- 开发、demo 和真实运行默认使用 Docker Milvus Standalone。
 - MVP 使用 `deepresearch_chunks` 和 `deepresearch_memories` 两个 collection。
 - 向量字段为 `embedding: FloatVector(1024)`，metric type 为 `COSINE`，index type 为 `HNSW`。
 - 单元测试不得依赖真实 Milvus，必须使用 `MockMemoryStore` 或等价测试替身。
 - 集成测试可以依赖 Milvus，但必须使用 marker 区分。
-- 没有 Milvus 服务时，基础测试仍必须能跑。
+- 没有 Milvus 服务时，基础测试仍必须能跑；真实运行前先启动 `docker-compose.milvus.yml`。
 
 ## 8. Retriever 策略
 

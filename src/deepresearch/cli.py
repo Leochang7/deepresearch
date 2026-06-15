@@ -64,7 +64,7 @@ def _build_runtime(
     )
     from deepresearch.llm.deepseek import DeepSeekLLMClient
     from deepresearch.llm.mimo import MiMoLLMClient
-    from deepresearch.memory.milvus_store import MilvusLiteStore
+    from deepresearch.memory.milvus_store import MilvusStore
     from deepresearch.rerankers.openai_compatible import (
         OpenAICompatibleRerankerClient,
     )
@@ -130,6 +130,7 @@ def _build_runtime(
         timeout=cfg.embedding.timeout_seconds,
         max_retries=cfg.embedding.max_retries,
         normalize=cfg.embedding.normalize,
+        request_dimensions=cfg.embedding.request_dimensions,
     )
     reranker = OpenAICompatibleRerankerClient(
         base_url=_required_config(
@@ -142,10 +143,11 @@ def _build_runtime(
         timeout=cfg.reranker.timeout_seconds,
         max_retries=cfg.reranker.max_retries,
     )
-    memory = MilvusLiteStore(
+    memory = MilvusStore(
         uri=cfg.milvus.uri,
         chunks_collection=cfg.milvus.chunks_collection,
         memories_collection=cfg.milvus.memories_collection,
+        dim=cfg.embedding.dim,
     )
     return llm, retriever, memory, embedding, reranker
 
@@ -180,6 +182,13 @@ def run(
     result = asyncio.run(
         manager.run(question, output_dir=Path(output) if output else None)
     )
+    if mode == "real" and result.evaluation.task_success_rate == 0:
+        typer.echo(
+            "Run failed: no research tasks succeeded. "
+            f"See {result.output_dir / 'trace.jsonl'}",
+            err=True,
+        )
+        raise typer.Exit(2)
 
     typer.echo(f"Run {result.run_id} complete.")
     typer.echo(f"Report: {result.output_dir / 'report.md'}")
@@ -215,7 +224,7 @@ async def _index_corpus(
     from deepresearch.embeddings.openai_compatible import (
         OpenAICompatibleEmbeddingClient,
     )
-    from deepresearch.memory.milvus_store import MilvusLiteStore
+    from deepresearch.memory.milvus_store import MilvusStore
     from deepresearch.memory.store import MemoryEntry
     from deepresearch.retrieval.chunking import chunk_text
     from deepresearch.retrieval.local_dataset import LocalDatasetRetriever
@@ -237,6 +246,7 @@ async def _index_corpus(
             timeout=cfg.embedding.timeout_seconds,
             max_retries=cfg.embedding.max_retries,
             normalize=cfg.embedding.normalize,
+            request_dimensions=cfg.embedding.request_dimensions,
         )
     )
     documents = await LocalDatasetRetriever(corpus).retrieve([""], top_k=100000)
@@ -268,10 +278,11 @@ async def _index_corpus(
         )
         for (document, content), vector in zip(chunks, vectors, strict=True)
     ]
-    store = MilvusLiteStore(
+    store = MilvusStore(
         uri=cfg.milvus.uri,
         chunks_collection=cfg.milvus.chunks_collection,
         memories_collection=cfg.milvus.memories_collection,
+        dim=cfg.embedding.dim,
     )
     await store.upsert(entries)
     return len(documents), len(entries)
@@ -283,7 +294,7 @@ def index_corpus(
     config_path: str | None = typer.Option(None, "--config", "-c"),
     mode: str = typer.Option("mock", help="Embedding mode: mock or real"),
 ) -> None:
-    """Chunk, embed, and index a local corpus into Milvus Lite."""
+    """Chunk, embed, and index a local corpus into Milvus."""
     corpus = Path(path)
     if not corpus.is_dir():
         typer.echo(f"Error: {path} is not a directory", err=True)

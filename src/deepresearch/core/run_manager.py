@@ -21,6 +21,7 @@ from deepresearch.memory.milvus_store import export_snapshot
 from deepresearch.memory.store import MemoryStore
 from deepresearch.rerankers.base import RerankerClient
 from deepresearch.retrieval.base import Retriever
+from deepresearch.retrieval.fetcher import WebFetcher
 from deepresearch.schemas.evaluation import EvaluationResult
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ResearchReport
@@ -68,9 +69,6 @@ class RunManager:
         trace = TraceLogger(out / "trace.jsonl", run_id=run_id)
 
         planner = PlannerAgent(self._llm)
-        researcher = ResearchAgent(
-            self._llm, self._retriever, self._memory, self._embedding, self._reranker
-        )
         synthesizer = Synthesizer(self._llm)
         red_agent = RedAgent(self._llm)
         blue_agent = BlueAgent(self._llm)
@@ -96,9 +94,36 @@ class RunManager:
         dag = DAG(plan.tasks)
 
         async def task_fn(task: TaskNode) -> dict:
+            def report_progress(stage: str, metadata: dict) -> None:
+                trace.log(
+                    TraceEventType.RETRIEVER_CALLED,
+                    {"stage": stage, **metadata},
+                    task_id=task.task_id,
+                )
+
+            researcher = ResearchAgent(
+                self._llm,
+                self._retriever,
+                self._memory,
+                self._embedding,
+                self._reranker,
+                fetcher=WebFetcher(
+                    timeout=self._config.fetch.timeout_seconds,
+                    max_retries=self._config.fetch.max_retries,
+                    user_agent=self._config.fetch.user_agent,
+                ),
+                max_queries=self._config.retrieval.max_queries_per_task,
+                max_documents=self._config.retrieval.max_docs_per_task,
+                max_chunks=self._config.retrieval.max_chunks_per_task,
+                fetch_concurrency=min(
+                    self._config.retrieval.max_docs_per_task,
+                    10,
+                ),
+                progress=report_progress,
+            )
             trace.log(
                 TraceEventType.RETRIEVER_CALLED,
-                {"status": "started"},
+                {"stage": "research_started"},
                 task_id=task.task_id,
             )
             result = await researcher.execute(task, run_id=run_id)

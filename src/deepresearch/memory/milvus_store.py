@@ -23,20 +23,24 @@ _CHUNKS_COLLECTION = "deepresearch_chunks"
 _MEMORIES_COLLECTION = "deepresearch_memories"
 
 
-class MilvusLiteStore(MemoryStore):
+class MilvusStore(MemoryStore):
     def __init__(
         self,
         *,
-        uri: str = "./data/milvus_lite.db",
+        uri: str = "http://localhost:19530",
         chunks_collection: str = _CHUNKS_COLLECTION,
         memories_collection: str = _MEMORIES_COLLECTION,
+        dim: int = _DIM,
     ) -> None:
         self._uri = uri
         self._chunks_name = chunks_collection
         self._memories_name = memories_collection
+        self._dim = dim
         self._connected = False
 
     def connect(self) -> None:
+        if "://" not in self._uri:
+            Path(self._uri).expanduser().parent.mkdir(parents=True, exist_ok=True)
         connections.connect(alias="default", uri=self._uri)
         self._connected = True
         self._ensure_collection(self._chunks_name)
@@ -66,7 +70,7 @@ class MilvusLiteStore(MemoryStore):
             FieldSchema(
                 name="embedding",
                 dtype=DataType.FLOAT_VECTOR,
-                dim=_DIM,
+                dim=self._dim,
             ),
         ]
         schema = CollectionSchema(fields=fields, description=f"DeepResearch {name}")

@@ -23,6 +23,7 @@ batch_size = 32
 timeout_seconds = 60
 max_retries = 2
 normalize = false
+request_dimensions = false
 
 [reranker]
 provider = "openai_compatible"
@@ -34,7 +35,7 @@ timeout_seconds = 60
 max_retries = 2
 
 [milvus]
-uri = "./data/milvus_lite.db"
+uri = "http://localhost:19530"
 chunks_collection = "deepresearch_chunks"
 memories_collection = "deepresearch_memories"
 metric_type = "COSINE"

@@ -66,11 +66,15 @@ class TestEnvVarOverride:
         monkeypatch.setenv("DEEPRESEARCH_LLM_PROVIDER", "deepseek")
         monkeypatch.setenv("DEEPRESEARCH_LLM_MODEL", "deepseek-chat")
         monkeypatch.setenv("DEEPRESEARCH_MILVUS_URI", "/env/path.db")
+        monkeypatch.setenv("DEEPRESEARCH_MILVUS_CHUNKS_COLLECTION", "chunks_env")
+        monkeypatch.setenv("DEEPRESEARCH_MILVUS_MEMORIES_COLLECTION", "memories_env")
 
         cfg = DeepResearchConfig.from_env()
         assert cfg.llm.provider == "deepseek"
         assert cfg.llm.model == "deepseek-chat"
         assert cfg.milvus.uri == "/env/path.db"
+        assert cfg.milvus.chunks_collection == "chunks_env"
+        assert cfg.milvus.memories_collection == "memories_env"
 
     def test_secret_values_do_not_override_api_key_env_names(self, monkeypatch):
         monkeypatch.setenv("DEEPRESEARCH_EMBEDDING_API_KEY", "secret-embedding")
@@ -123,7 +127,7 @@ provider = "cwd_provider"
         cfg = load_config(config_path=None, cwd=tmp_path)
         assert cfg.llm.provider == "cwd_provider"
 
-    def test_priority_cli_over_env_over_file(self, tmp_path, monkeypatch):
+    def test_priority_cli_over_file_over_env(self, tmp_path, monkeypatch):
         toml_content = """
 [llm]
 provider = "file_provider"
@@ -138,5 +142,5 @@ model = "file_model"
             config_path=str(cfg_path),
             cli_overrides={"llm": {"model": "cli_model"}},
         )
-        assert cfg.llm.provider == "env_provider"
+        assert cfg.llm.provider == "file_provider"
         assert cfg.llm.model == "cli_model"

@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -63,3 +64,22 @@ class TestTavilyWebSearchRetriever:
 
             await retriever.retrieve(["q1", "q2"], top_k=10)
             assert mock_client.post.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_multiple_queries_run_concurrently(self, retriever):
+        active = 0
+        peak_active = 0
+
+        async def search(query, top_k=5):
+            nonlocal active, peak_active
+            active += 1
+            peak_active = max(peak_active, active)
+            await asyncio.sleep(0)
+            active -= 1
+            return []
+
+        retriever._search = search
+
+        await retriever.retrieve(["q1", "q2", "q3"])
+
+        assert peak_active == 3

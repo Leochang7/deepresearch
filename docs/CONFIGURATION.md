@@ -16,8 +16,8 @@
 配置值优先级：
 
 1. CLI 参数。
-2. 环境变量。
-3. 配置文件。
+2. 配置文件中的显式字段。
+3. 环境变量。
 4. 内置默认值。
 
 ## 2. 默认配置
@@ -45,6 +45,7 @@ batch_size = 32
 timeout_seconds = 60
 max_retries = 2
 normalize = false
+request_dimensions = false
 
 [reranker]
 provider = "openai_compatible"
@@ -56,7 +57,7 @@ timeout_seconds = 60
 max_retries = 2
 
 [milvus]
-uri = "./data/milvus_lite.db"
+uri = "http://localhost:19530"
 chunks_collection = "deepresearch_chunks"
 memories_collection = "deepresearch_memories"
 metric_type = "COSINE"
@@ -125,15 +126,20 @@ DEEPRESEARCH_EMBEDDING_BASE_URL=
 DEEPRESEARCH_EMBEDDING_API_KEY=
 DEEPRESEARCH_EMBEDDING_MODEL=Qwen3-Embedding-4B
 DEEPRESEARCH_EMBEDDING_DIM=1024
+DEEPRESEARCH_EMBEDDING_REQUEST_DIMENSIONS=false
 DEEPRESEARCH_RERANKER_BASE_URL=
 DEEPRESEARCH_RERANKER_API_KEY=
 DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m32
-DEEPRESEARCH_MILVUS_URI=./data/milvus_lite.db
+DEEPRESEARCH_MILVUS_URI=http://localhost:19530
+DEEPRESEARCH_MILVUS_CHUNKS_COLLECTION=deepresearch_chunks
+DEEPRESEARCH_MILVUS_MEMORIES_COLLECTION=deepresearch_memories
 DEEPRESEARCH_SEARCH_PROVIDER=tavily
 TAVILY_API_KEY=
 ```
 
 `.env` 不提交仓库，`.env.example` 可以提交。
+
+注意：不同 OpenAI-compatible endpoint 暴露的模型名和 embedding 维度可能不同。当前真实验收环境的 `/models` 显示 `Qwen3-Embedding-4B` 为 2560 维，可用 reranker 为 `bge-reranker-v2-m3`；这种情况下需要设置 `DEEPRESEARCH_EMBEDDING_DIM=2560` 和 `DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m3`，并使用匹配维度的新 Milvus collection。
 
 ## 4. CLI
 

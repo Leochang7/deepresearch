@@ -36,7 +36,7 @@ uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋
 - Research Agent 生成子任务研究结果。
 - Retriever 支持本地资料集、Tavily 真实 Web 搜索、MiMo 原生搜索和 mock 搜索后端。
 - 使用 `httpx + trafilatura` 做轻量网页正文抓取。
-- Milvus Lite 记忆库。
+- Milvus Standalone 记忆库。
 - MiMo v2.5 Pro 作为默认 Planner/Research/Synthesizer/Red-Blue/Judge 模型。
 - Qwen3-Embedding-4B 作为 1024 维 embedding 模型。
 - bge-reranker-v2-m32 作为 reranker。
@@ -51,7 +51,7 @@ uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋
 
 - 检索源可以先使用 Tavily、MiMo 原生搜索、手动 mock 数据或本地资料集。
 - MCP 先作为后续适配层，不进入 MVP 必须范围。
-- Milvus 部署先使用 Milvus Lite；MVP 不做分布式集群。
+- Milvus 部署使用 Docker Milvus Standalone；MVP 不做分布式集群。
 - DeepSeek 作为 fallback 后端保留。
 - Red-Blue 先做 1-2 轮，不追求复杂多轮收敛。
 - ResearchBench 最后再做；MVP 只保留 3 个 smoke demo 示例。
@@ -95,7 +95,7 @@ uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋
 - 写前去重。
 - 基础矛盾检测。
 - 记忆按 run、task、source、claim 分层组织。
-- 从 Milvus Lite 演进到 Docker Milvus Standalone。
+- 从 Milvus Standalone 演进到 Milvus Distributed 或托管 Milvus。
 
 ### Phase 2.5：增强资料获取能力
 

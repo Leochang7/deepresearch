@@ -1,4 +1,5 @@
 import tomllib
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -56,6 +57,36 @@ def test_real_run_fails_fast_when_required_credentials_are_missing(monkeypatch):
     assert "MIMO_API_KEY" in result.output
 
 
+def test_real_run_exits_nonzero_when_all_tasks_fail(tmp_path, monkeypatch):
+    monkeypatch.setenv("MIMO_API_KEY", "key")
+    monkeypatch.setenv("TAVILY_API_KEY", "key")
+    monkeypatch.setenv("DEEPRESEARCH_EMBEDDING_BASE_URL", "https://example.com/v1")
+    monkeypatch.setenv("DEEPRESEARCH_EMBEDDING_API_KEY", "key")
+    monkeypatch.setenv("DEEPRESEARCH_RERANKER_BASE_URL", "https://example.com/v1")
+    monkeypatch.setenv("DEEPRESEARCH_RERANKER_API_KEY", "key")
+
+    output = tmp_path / "run"
+    result_obj = SimpleNamespace(
+        run_id="run-1",
+        output_dir=output,
+        evaluation=SimpleNamespace(task_success_rate=0),
+    )
+
+    with (
+        patch("deepresearch.cli._build_runtime", return_value=(1, 2, 3, 4, 5)),
+        patch("deepresearch.core.run_manager.RunManager.run", new_callable=AsyncMock)
+        as run,
+    ):
+        run.return_value = result_obj
+        result = runner.invoke(
+            app,
+            ["run", "question", "--mode", "real", "--output", str(output)],
+        )
+
+    assert result.exit_code == 2
+    assert "no research tasks succeeded" in result.output
+
+
 def test_index_corpus_invokes_real_indexing_workflow(tmp_path):
     corpus = tmp_path / "corpus"
     corpus.mkdir()
@@ -81,7 +112,7 @@ async def test_index_corpus_chunks_embeds_and_upserts(tmp_path):
     store = AsyncMock()
 
     with patch(
-        "deepresearch.memory.milvus_store.MilvusLiteStore",
+        "deepresearch.memory.milvus_store.MilvusStore",
         return_value=store,
     ):
         documents, chunks = await _index_corpus(

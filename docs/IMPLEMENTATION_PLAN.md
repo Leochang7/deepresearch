@@ -324,7 +324,7 @@ Reranker 默认参数：
 
 ### 3.6 Memory Store
 
-MVP 直接使用 Milvus 作为语义记忆与证据向量库。早期使用 Milvus Lite，后续使用 Docker 部署 Milvus Standalone。Agent 执行 trace、报告产物和评测结果先落盘为 JSON/JSONL；需要关系查询的元数据在 Milvus scalar fields 中冗余保存，后续再按需要引入 PostgreSQL 做结构化分析库。
+MVP 直接使用 Docker Milvus Standalone 作为语义记忆与证据向量库。Agent 执行 trace、报告产物和评测结果先落盘为 JSON/JSONL；需要关系查询的元数据在 Milvus scalar fields 中冗余保存，后续再按需要引入 PostgreSQL 做结构化分析库。
 
 核心 collection：
 
@@ -539,7 +539,7 @@ outputs/<run_id>/trace.jsonl
 ### 集成测试
 
 - Mock LLM 端到端运行。
-- Milvus Lite collection 初始化、upsert、search。
+- Milvus collection 初始化、upsert、search。
 - 单个任务失败后继续合成。
 - Red-Blue 修复后生成新报告。
 
@@ -565,7 +565,7 @@ outputs/<run_id>/trace.jsonl
 - LLM 输出不稳定：使用 Pydantic schema、JSON fallback 和 mock 测试。
 - 检索质量不足：MVP 支持本地资料集，并用 Milvus 标量过滤约束检索范围，避免只依赖全局向量相似度。
 - 外部搜索不稳定：Research Agent 依赖 Retriever 接口，MVP 提供 LocalDatasetRetriever 和 mock 搜索后端保证测试可复现。
-- Milvus 运维成本偏高：MVP 使用 Milvus Lite，后续提供 Docker Compose 启动 Milvus Standalone，并保留 Mock MemoryStore 测试替身。
+- Milvus 运维成本偏高：MVP 提供 Docker Compose 启动 Milvus Standalone，并保留 Mock MemoryStore 测试替身。
 - 多 Agent 成本高：限制最大任务数、最大轮数和上下文长度。
 - Red-Blue 循环震荡：设置最大轮数、分数阈值和重复 issue 检测。
 - 评测主观性强：规则指标先落地，LLM-as-Judge 作为补充。

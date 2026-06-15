@@ -52,6 +52,13 @@ DEEPRESEARCH_RERANKER_BASE_URL=https://your-endpoint/v1
 DEEPRESEARCH_RERANKER_API_KEY=your-key
 ```
 
+如果 endpoint 的 `/models` 返回 `Qwen3-Embedding-4B` 为 2560 维，需同步设置：
+
+```env
+DEEPRESEARCH_EMBEDDING_DIM=2560
+DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m3
+```
+
 ```bash
 # Tavily 搜索
 uv run deepresearch run "研究问题" --mode real --retriever tavily
@@ -75,9 +82,20 @@ uv run deepresearch inspect <run_id>      # 查看 trace
 uv run deepresearch config                # 查看当前配置
 ```
 
-`index-corpus` 会切片、生成 embedding，并写入配置中的 Milvus Lite。
+`index-corpus` 会切片、生成 embedding，并写入配置中的 Milvus。
 使用自定义运行根目录时，`eval` 和 `inspect` 可传
 `--output-root <directory>`。
+
+### Milvus Standalone
+
+真实模式默认连接本机 Milvus Standalone：
+
+```bash
+docker compose -f docker-compose.milvus.yml up -d
+```
+
+默认地址为 `http://localhost:19530`，可通过
+`DEEPRESEARCH_MILVUS_URI` 或 `config.toml` 覆盖。
 
 ## 测试
 
@@ -116,7 +134,7 @@ Planner → DAG Executor → Research Agent → Retriever → Memory → Synthes
 - MiMo v2.5 Pro / DeepSeek（LLM）
 - Qwen3-Embedding-4B（embedding）
 - bge-reranker-v2-m32（reranker）
-- Milvus Lite（向量存储）
+- Milvus Standalone（向量存储）
 - Tavily（Web 搜索）
 - httpx + trafilatura（正文抓取）
 

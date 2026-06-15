@@ -19,6 +19,7 @@ class OpenAICompatibleEmbeddingClient(EmbeddingClient):
         timeout: float = 60.0,
         max_retries: int = 2,
         normalize: bool = False,
+        request_dimensions: bool = False,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
@@ -28,6 +29,7 @@ class OpenAICompatibleEmbeddingClient(EmbeddingClient):
         self._timeout = timeout
         self._max_retries = max_retries
         self._normalize = normalize
+        self._request_dimensions = request_dimensions
 
     async def embed(
         self,
@@ -59,6 +61,8 @@ class OpenAICompatibleEmbeddingClient(EmbeddingClient):
             "model": model or self._model,
             "input": texts,
         }
+        if self._request_dimensions:
+            payload["dimensions"] = self._dim
         url = f"{self._base_url}/embeddings"
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -74,6 +78,12 @@ class OpenAICompatibleEmbeddingClient(EmbeddingClient):
                     data = resp.json()
 
                 embeddings = [item["embedding"] for item in data["data"]]
+                invalid_dims = sorted({len(embedding) for embedding in embeddings})
+                if invalid_dims != [self._dim]:
+                    raise ValueError(
+                        "Embedding response dimensions do not match configured "
+                        f"dim={self._dim}: got {invalid_dims}"
+                    )
                 if self._normalize:
                     embeddings = [_l2_normalize(embedding) for embedding in embeddings]
                 usage = data.get("usage", {})

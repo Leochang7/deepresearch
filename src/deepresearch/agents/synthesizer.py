@@ -74,7 +74,7 @@ class Synthesizer:
             summary=self._summary_from_section(summary_section),
             sections=sections,
             limitations=list(dict.fromkeys(limitations)),
-            references=[f"[{item.evidence_id}] {item.citation}" for item in evidence],
+            references=[self._format_reference(item) for item in evidence],
         )
 
     def _build_task_summaries(self, tasks: list[TaskNode]) -> str:
@@ -97,10 +97,18 @@ class Synthesizer:
             (
                 f"[{item.evidence_id}] {item.claim}\n"
                 f'  Quote: "{item.quote}"\n'
-                f"  Source: {item.citation} (confidence={item.confidence})"
+                f"  Source: {item.citation}\n"
+                f"  Source URL: {item.source_url or 'local-source'}\n"
+                f"  Confidence: {item.confidence}"
             )
             for item in evidence
         )
+
+    @staticmethod
+    def _format_reference(item: EvidenceItem) -> str:
+        if item.source_url:
+            return f"[{item.evidence_id}] {item.citation} - {item.source_url}"
+        return f"[{item.evidence_id}] {item.citation}"
 
     @staticmethod
     def _parse_sections(content: str) -> list[ReportSection]:

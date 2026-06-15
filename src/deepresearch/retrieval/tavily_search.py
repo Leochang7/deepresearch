@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import Any
 
@@ -29,10 +30,10 @@ class TavilyWebSearchRetriever(Retriever):
         task_id: str = "",
         top_k: int = 10,
     ) -> list[RetrievedDocument]:
-        all_docs: list[RetrievedDocument] = []
-        for query in queries:
-            docs = await self._search(query, top_k=min(top_k, 5))
-            all_docs.extend(docs)
+        results = await asyncio.gather(
+            *(self._search(query, top_k=min(top_k, 5)) for query in queries)
+        )
+        all_docs = [document for documents in results for document in documents]
         return all_docs[:top_k]
 
     async def _search(self, query: str, top_k: int = 5) -> list[RetrievedDocument]:

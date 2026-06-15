@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from deepresearch.memory.milvus_store import MilvusLiteStore
+from deepresearch.memory.milvus_store import MilvusStore
 from deepresearch.memory.store import MemoryEntry
 
 
@@ -18,11 +18,13 @@ def milvus_patches():
 
 
 @pytest.mark.asyncio
-async def test_upsert_auto_connects_and_writes_extended_fields(milvus_patches):
+async def test_upsert_auto_connects_and_writes_extended_fields(
+    milvus_patches, tmp_path
+):
     connections, _, collection = milvus_patches
     col = MagicMock()
     collection.return_value = col
-    store = MilvusLiteStore(uri="./data/test.db")
+    store = MilvusStore(uri=str(tmp_path / "data" / "test.db"))
 
     await store.upsert(
         [
@@ -53,7 +55,7 @@ async def test_upsert_auto_connects_and_writes_extended_fields(milvus_patches):
 
 
 @pytest.mark.asyncio
-async def test_search_builds_scalar_filters(milvus_patches):
+async def test_search_builds_scalar_filters(milvus_patches, tmp_path):
     _, _, collection = milvus_patches
     col = MagicMock()
     hit = MagicMock()
@@ -73,7 +75,7 @@ async def test_search_builds_scalar_filters(milvus_patches):
     col.search.return_value = [[hit]]
     collection.return_value = col
 
-    store = MilvusLiteStore(uri="./data/test.db")
+    store = MilvusStore(uri=str(tmp_path / "data" / "test.db"))
     results = await store.search(
         [0.1] * 1024,
         run_id="r1",
@@ -95,11 +97,13 @@ async def test_search_builds_scalar_filters(milvus_patches):
 
 
 @pytest.mark.asyncio
-async def test_delete_auto_connects_and_deletes_both_collections(milvus_patches):
+async def test_delete_auto_connects_and_deletes_both_collections(
+    milvus_patches, tmp_path
+):
     connections, _, collection = milvus_patches
     col = MagicMock()
     collection.return_value = col
-    store = MilvusLiteStore(uri="./data/test.db")
+    store = MilvusStore(uri=str(tmp_path / "data" / "test.db"))
 
     await store.delete(["e1", "e2"])
 
@@ -109,7 +113,7 @@ async def test_delete_auto_connects_and_deletes_both_collections(milvus_patches)
 
 
 @pytest.mark.asyncio
-async def test_snapshot_preserves_extended_fields(milvus_patches):
+async def test_snapshot_preserves_extended_fields(milvus_patches, tmp_path):
     _, _, collection = milvus_patches
     col = MagicMock()
     col.query.return_value = [
@@ -127,7 +131,7 @@ async def test_snapshot_preserves_extended_fields(milvus_patches):
         }
     ]
     collection.return_value = col
-    store = MilvusLiteStore(uri="./data/test.db")
+    store = MilvusStore(uri=str(tmp_path / "data" / "test.db"))
 
     entries = await store.snapshot("r1")
 
@@ -135,3 +139,13 @@ async def test_snapshot_preserves_extended_fields(milvus_patches):
     assert entries[0].title == "Title"
     assert entries[0].source_url == "https://example.com"
     assert entries[0].metadata == {"a": 1}
+
+
+def test_connect_creates_local_milvus_parent_directory(milvus_patches, tmp_path):
+    connections, _, _ = milvus_patches
+    uri = tmp_path / "nested" / "milvus.db"
+
+    MilvusStore(uri=str(uri)).connect()
+
+    assert uri.parent.is_dir()
+    connections.connect.assert_called_once_with(alias="default", uri=str(uri))

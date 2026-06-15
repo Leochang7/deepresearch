@@ -69,11 +69,44 @@ class TestOpenAICompatibleEmbeddingClient:
             assert headers["Authorization"] == "Bearer test-key"
 
     @pytest.mark.asyncio
+    async def test_embed_requests_configured_dimensions(self, client):
+        client = OpenAICompatibleEmbeddingClient(
+            base_url="https://api.example.com/v1",
+            api_key="test-key",
+            model="Qwen3-Embedding-4B",
+            dim=4,
+            request_dimensions=True,
+        )
+        with patch("httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post.return_value = _mock_http_response([[0.1, 0.2, 0.3, 0.4]])
+            mock_cls.return_value = mock_client
+
+            await client.embed(["test"])
+            payload = mock_client.post.call_args.kwargs["json"]
+            assert payload["dimensions"] == 4
+
+    @pytest.mark.asyncio
+    async def test_embed_rejects_unexpected_dimensions(self, client):
+        with patch("httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post.return_value = _mock_http_response([[0.1, 0.2]])
+            mock_cls.return_value = mock_client
+
+            with pytest.raises(ValueError, match="dimensions"):
+                await client.embed(["test"])
+
+    @pytest.mark.asyncio
     async def test_embed_can_normalize_vectors(self):
         client = OpenAICompatibleEmbeddingClient(
             base_url="https://api.example.com/v1",
             api_key="test-key",
             model="Qwen3-Embedding-4B",
+            dim=2,
             normalize=True,
         )
         with patch("httpx.AsyncClient") as mock_cls:

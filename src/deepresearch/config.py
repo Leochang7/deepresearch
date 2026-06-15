@@ -31,6 +31,7 @@ class EmbeddingConfig(BaseModel):
     timeout_seconds: int = 60
     max_retries: int = 2
     normalize: bool = False
+    request_dimensions: bool = False
 
 
 class RerankerConfig(BaseModel):
@@ -44,7 +45,7 @@ class RerankerConfig(BaseModel):
 
 
 class MilvusConfig(BaseModel):
-    uri: str = "./data/milvus_lite.db"
+    uri: str = "http://localhost:19530"
     chunks_collection: str = "deepresearch_chunks"
     memories_collection: str = "deepresearch_memories"
     metric_type: str = "COSINE"
@@ -119,9 +120,15 @@ _ENV_MAP: dict[str, tuple[str, str]] = {
     "DEEPRESEARCH_EMBEDDING_BASE_URL": ("embedding", "base_url"),
     "DEEPRESEARCH_EMBEDDING_MODEL": ("embedding", "model"),
     "DEEPRESEARCH_EMBEDDING_DIM": ("embedding", "dim"),
+    "DEEPRESEARCH_EMBEDDING_REQUEST_DIMENSIONS": (
+        "embedding",
+        "request_dimensions",
+    ),
     "DEEPRESEARCH_RERANKER_BASE_URL": ("reranker", "base_url"),
     "DEEPRESEARCH_RERANKER_MODEL": ("reranker", "model"),
     "DEEPRESEARCH_MILVUS_URI": ("milvus", "uri"),
+    "DEEPRESEARCH_MILVUS_CHUNKS_COLLECTION": ("milvus", "chunks_collection"),
+    "DEEPRESEARCH_MILVUS_MEMORIES_COLLECTION": ("milvus", "memories_collection"),
     "DEEPRESEARCH_SEARCH_PROVIDER": ("retrieval", "search_provider"),
 }
 
@@ -169,23 +176,25 @@ def load_config(
     cwd: Path | None = None,
     cli_overrides: dict[str, Any] | None = None,
 ) -> DeepResearchConfig:
-    """Load config with priority: CLI > env > file > default."""
+    """Load config with priority: CLI > explicit file values > env > default."""
 
     # 1. Start with defaults
     base = DeepResearchConfig()
 
-    # 2. Find and merge config file
-    file_path = _resolve_config_path(config_path, cwd)
-    if file_path is not None:
-        base = DeepResearchConfig.from_toml(file_path)
-
-    # 3. Apply env overrides
+    # 2. Apply env overrides
     env_overrides = _collect_env_overrides()
     if env_overrides:
         merged = _deep_merge(base.model_dump(), env_overrides)
         base = DeepResearchConfig.model_validate(merged)
 
-    # 4. Apply CLI overrides
+    # 3. Find and merge explicitly configured file values
+    file_path = _resolve_config_path(config_path, cwd)
+    if file_path is not None:
+        file_overrides = _read_toml_dict(file_path)
+        merged = _deep_merge(base.model_dump(), file_overrides)
+        base = DeepResearchConfig.model_validate(merged)
+
+    # 4. Apply CLI overrides last
     if cli_overrides:
         merged = _deep_merge(base.model_dump(), cli_overrides)
         base = DeepResearchConfig.model_validate(merged)
@@ -226,6 +235,12 @@ def _collect_env_overrides() -> dict[str, Any]:
         if value is not None:
             overrides.setdefault(section, {})[field] = value
     return overrides
+
+
+def _read_toml_dict(path: Path) -> dict[str, Any]:
+    with open(path, "rb") as f:
+        data = tomllib.load(f)
+    return data if isinstance(data, dict) else {}
 
 
 def _deep_merge(base: dict, override: dict) -> dict:

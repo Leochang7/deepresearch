@@ -54,7 +54,7 @@
 
 - [x] T020 实现配置加载
   - Files: `src/deepresearch/config.py`, `tests/test_config.py`
-  - Done when: 支持 `--config`、`DEEPRESEARCH_CONFIG_PATH`、当前目录、用户目录、系统目录和内置默认值；配置值优先级为 CLI > env > file > default。
+  - Done when: 支持 `--config`、`DEEPRESEARCH_CONFIG_PATH`、当前目录、用户目录、系统目录和内置默认值；配置值优先级为 CLI > file explicit values > env > default。
   - Verify: `uv run pytest tests/test_config.py`
 
 - [x] T021 定义核心 schema
@@ -256,9 +256,21 @@
   - Done when: README 包含安装、配置、mock run、真实 run、测试命令和输出文件说明。
   - Verify: 文档人工检查。
 
+### MVP 真实环境验收
+
+- [x] T094 修复真实检索运行的超时与 Milvus Standalone 接入问题
+  - Files: `src/deepresearch/agents/researcher.py`, `src/deepresearch/core/run_manager.py`, `src/deepresearch/memory/milvus_store.py`, `src/deepresearch/retrieval/tavily_search.py`, tests
+  - Done when: Tavily query 和正文抓取支持有界并发，Research Agent 使用配置中的 query/doc/chunk 限额，默认连接 Docker Milvus Standalone，trace 可定位研究阶段；真实模式全部任务失败时 CLI 返回非 0。
+  - Verify: `uv run pytest`, `uv run ruff check .`, 真实 Tavily smoke run `outputs/real-tavily-standalone-ok-smoke`。
+
+- [x] T095 修复报告 References 缺少 URL 的引用质量问题
+  - Files: `src/deepresearch/agents/synthesizer.py`, `tests/agents/test_synthesizer.py`
+  - Done when: Evidence 中存在 `source_url` 时 References 输出 `标题 - URL`，传给 Synthesizer 的 evidence context 显式包含 Source URL。
+  - Verify: `uv run pytest tests/agents/test_synthesizer.py tests/core/test_run_manager.py tests/e2e/test_mock_run.py tests/evaluation/test_metrics.py`
+
 ## Done Summary
 
-- [x] 确定 MVP 使用 Milvus Lite，后续迁移到 Docker Milvus Standalone。
+- [x] 确定 MVP 直接使用 Docker Milvus Standalone。
 - [x] 确定默认模型统一使用 MiMo v2.5 Pro，DeepSeek 作为 fallback。
 - [x] 确定 embedding 使用 Qwen3-Embedding-4B 1024 维，reranker 使用 bge-reranker-v2-m32。
 - [x] 确定真实 Web 搜索使用 Tavily，MVP 做轻量正文抓取。

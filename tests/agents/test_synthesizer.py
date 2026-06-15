@@ -14,6 +14,7 @@ def _evidence(evidence_id: str = "E1") -> EvidenceItem:
         claim="Test claim",
         quote="Test quote",
         citation="Source A",
+        source_url="https://example.com/source-a",
         confidence=0.9,
     )
 
@@ -37,6 +38,13 @@ async def test_synthesize_returns_cited_report_with_full_evidence_ids():
     }
     assert not any("Unused evidence" in item for item in report.limitations)
     assert len(report.references) == 2
+    assert report.references[0] == "[E1] Source A - https://example.com/source-a"
+
+
+def test_build_evidence_text_includes_source_url():
+    text = Synthesizer._build_evidence_text([_evidence()])
+
+    assert "Source URL: https://example.com/source-a" in text
 
 
 @pytest.mark.asyncio

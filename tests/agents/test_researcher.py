@@ -1,3 +1,4 @@
+import asyncio
 import json
 from unittest.mock import AsyncMock
 
@@ -195,3 +196,41 @@ async def test_fetch_failure_falls_back_to_retrieved_content():
 
     assert result["chunk_count"] == 1
     assert chunk_entries[0].content == "Search result snippet"
+
+
+@pytest.mark.asyncio
+async def test_fetches_documents_with_bounded_concurrency():
+    documents = [
+        _document().model_copy(update={"id": f"doc-{index}", "url": f"https://e/{index}"})
+        for index in range(4)
+    ]
+    fetcher = AsyncMock()
+    active = 0
+    peak_active = 0
+
+    async def fetch(url):
+        nonlocal active, peak_active
+        active += 1
+        peak_active = max(peak_active, active)
+        await asyncio.sleep(0)
+        active -= 1
+        return FetchResult(url=url, title="", content="", success=False)
+
+    fetcher.fetch.side_effect = fetch
+    agent = ResearchAgent(
+        MockLLM(),
+        MockRetriever(documents),
+        MockMemoryStore(),
+        MockEmbeddingClient(),
+        MockRerankerClient(),
+        fetcher=fetcher,
+        max_documents=4,
+        fetch_concurrency=2,
+    )
+
+    await agent.execute(
+        TaskNode(task_id="t1", description="concurrency", goal="test"),
+        run_id="run-1",
+    )
+
+    assert peak_active == 2
