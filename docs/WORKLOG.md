@@ -11,3 +11,4 @@
 - 2026-06-15: 重写 `docs/TASKS.md` 为可执行 MVP backlog，按 M0-M9 里程碑拆分任务，每个任务包含文件范围、完成标准和验证命令。
 - 2026-06-15: 将 unborn 分支从 `master` 重命名为 `main`，并确定第一次 commit 后创建 `develop` 作为日常开发分支。
 - 2026-06-15: 准备首次提交：补充 `.gitignore` 本地配置与运行产物规则，切换到 `develop` 作为日常开发分支。
+- 2026-06-15: Claude 完成 M1 项目骨架与工具链；复核通过 `uv run deepresearch --help`、`uv run deepresearch run --help`、`uv run deepresearch index-corpus --help`、`uv run pytest`、`uv run ruff check .`。

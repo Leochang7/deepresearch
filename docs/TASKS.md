@@ -30,22 +30,22 @@
   - Done when: 仓库已有初始 commit，且存在 `main` 和 `develop` 两个分支，日常开发切到 `develop`。
   - Verify: `git branch --list`
 
-- [ ] T010 建立 `src/deepresearch/` 包结构
+- [x] T010 建立 `src/deepresearch/` 包结构
   - Files: `src/deepresearch/**/__init__.py`
   - Done when: AGENTS.md 中定义的包目录全部存在，空包可导入。
   - Verify: `uv run pytest`
 
-- [ ] T011 配置项目依赖和 CLI entry
+- [x] T011 配置项目依赖和 CLI entry
   - Files: `pyproject.toml`, `src/deepresearch/cli.py`
   - Done when: `deepresearch` 命令可通过 uv 启动并显示 help。
   - Verify: `uv run deepresearch --help`
 
-- [ ] T012 配置 Ruff、pytest、pytest-asyncio 和测试 markers
+- [x] T012 配置 Ruff、pytest、pytest-asyncio 和测试 markers
   - Files: `pyproject.toml`, `tests/`
   - Done when: `unit`、`integration`、`e2e`、`slow`、`network`、`milvus`、`llm` markers 已注册。
   - Verify: `uv run ruff check .` and `uv run pytest`
 
-- [ ] T013 增加 `.env.example` 和默认配置模板
+- [x] T013 增加 `.env.example` 和默认配置模板
   - Files: `.env.example`, `config.example.toml`
   - Done when: 所有 `docs/CONFIGURATION.md` 中列出的变量都有示例值或空值。
   - Verify: 文档人工检查。

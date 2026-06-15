@@ -1,7 +1,57 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "deepresearch"
 version = "0.1.0"
-description = "Add your description here"
+description = "DeepResearch Agent - multi-agent deep research system"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "pydantic>=2.0",
+    "typer>=0.12",
+    "rich>=13.0",
+    "httpx>=0.27",
+    "trafilatura>=1.8",
+    "pymilvus>=2.4",
+    "numpy>=1.26",
+    "tomli-w>=1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+deepresearch = "deepresearch.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "unit: unit tests (default, no external dependencies)",
+    "integration: integration tests (may use external services)",
+    "e2e: end-to-end tests",
+    "slow: slow tests",
+    "network: tests requiring network access",
+    "milvus: tests requiring Milvus service",
+    "llm: tests requiring LLM API keys",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["deepresearch"]
