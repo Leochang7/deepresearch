@@ -14,3 +14,7 @@
 - 2026-06-15: Claude 完成 M1 项目骨架与工具链；复核通过 `uv run deepresearch --help`、`uv run deepresearch run --help`、`uv run deepresearch index-corpus --help`、`uv run pytest`、`uv run ruff check .`。
 - 2026-06-15: Review 并修复 M2：配置层不再把真实 API key 覆盖到 `api_key_env` 字段，TraceEventType 对齐文档中的细粒度结构化事件。
 - 2026-06-15: Review 并修复 M3：MiMo `thinking` 使用对象格式，LLM 参数保留显式 0 值，embedding normalize 配置实际生效。
+- 2026-06-15: 完成 M1 项目骨架与工具链（T009-T013）：src layout 10 个子包、pyproject.toml 依赖 + CLI entry、Ruff + pytest markers、`.env.example` + `config.example.toml`。验证：`uv run deepresearch --help`、`uv run pytest`、`uv run ruff check .`。
+- 2026-06-15: 完成 M2 配置、Schema 与 Trace（T020-T024）：DeepResearchConfig 12 section + 优先级链、6 核心 Pydantic schema、9 状态状态机 + 合法流转表、JSON fallback 6 层策略、TraceLogger JSONL 9 种事件类型。共 80 个测试通过。
+- 2026-06-15: 完成 M3 模型抽象（T030-T036）：LLMClient + MockLLM + MiMo/DeepSeek client、EmbeddingClient + mock + OpenAI-compatible Qwen、RerankerClient + mock + OpenAI-compatible bge。MiMo 使用 `api-key` header，DeepSeek 使用 Bearer auth。共 123 个测试通过。
+- 2026-06-15: 完成 M4 Retriever、正文抓取与切片（T040-T046）：Retriever 抽象 + MockRetriever、LocalDatasetRetriever 关键词召回、Tavily WebSearchRetriever、MiMoSearchRetriever（tools.web_search）、WebFetcher（httpx+trafilatura）、chunking（1200/200/300）、dedup（source_url+content_hash）。共 166 个测试通过。

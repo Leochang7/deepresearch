@@ -116,37 +116,37 @@
 
 ### M4 Retriever、正文抓取与切片
 
-- [ ] T040 实现 Retriever 抽象和 mock retriever
+- [x] T040 实现 Retriever 抽象和 mock retriever
   - Files: `src/deepresearch/retrieval/base.py`, `tests/retrieval/test_base.py`
   - Done when: 统一返回 `RetrievedDocument`，错误结果可记录 trace。
   - Verify: `uv run pytest tests/retrieval/test_base.py`
 
-- [ ] T041 实现 LocalDatasetRetriever
+- [x] T041 实现 LocalDatasetRetriever
   - Files: `src/deepresearch/retrieval/local_dataset.py`, `examples/corpus/`, `tests/retrieval/test_local_dataset.py`
   - Done when: 可读取 Markdown/JSONL 本地资料集并返回候选文档。
   - Verify: `uv run pytest tests/retrieval/test_local_dataset.py`
 
-- [ ] T042 实现 Tavily WebSearchProvider
+- [x] T042 实现 Tavily WebSearchProvider
   - Files: `src/deepresearch/retrieval/tavily_search.py`, `tests/retrieval/test_tavily_search.py`
   - Done when: 支持真实 Tavily 调用和 mock 响应；真实调用测试打 `network` marker。
   - Verify: `uv run pytest tests/retrieval/test_tavily_search.py`
 
-- [ ] T043 实现 MiMoSearchRetriever
+- [x] T043 实现 MiMoSearchRetriever
   - Files: `src/deepresearch/retrieval/mimo_search.py`, `tests/retrieval/test_mimo_search.py`
   - Done when: 通过 MiMo `tools.web_search` 调用并转换为 `RetrievedDocument`；真实调用测试打 `llm`/`network` marker。
   - Verify: `uv run pytest tests/retrieval/test_mimo_search.py`
 
-- [ ] T044 实现网页正文抓取
+- [x] T044 实现网页正文抓取
   - Files: `src/deepresearch/retrieval/fetcher.py`, `tests/retrieval/test_fetcher.py`
   - Done when: 使用 `httpx + trafilatura` 抓取和清洗正文；失败返回可追踪错误，不阻塞主流程。
   - Verify: `uv run pytest tests/retrieval/test_fetcher.py`
 
-- [ ] T045 实现 chunking
+- [x] T045 实现 chunking
   - Files: `src/deepresearch/retrieval/chunking.py`, `tests/retrieval/test_chunking.py`
   - Done when: 默认 1200 chars chunk、200 overlap、丢弃小于 300 chars 的碎片。
   - Verify: `uv run pytest tests/retrieval/test_chunking.py`
 
-- [ ] T046 实现 source_url + content_hash 去重
+- [x] T046 实现 source_url + content_hash 去重
   - Files: `src/deepresearch/retrieval/dedup.py`, `tests/retrieval/test_dedup.py`
   - Done when: 相同 URL 和正文 hash 的 chunk 被去重。
   - Verify: `uv run pytest tests/retrieval/test_dedup.py`
