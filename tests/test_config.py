@@ -26,6 +26,8 @@ class TestDeepResearchConfig:
         assert hasattr(cfg, "dedup")
         assert hasattr(cfg, "executor")
         assert hasattr(cfg, "red_blue")
+        assert hasattr(cfg, "synthesizer")
+        assert hasattr(cfg, "evidence_quality")
 
 
 class TestConfigFromFile:
@@ -86,6 +88,17 @@ class TestEnvVarOverride:
         assert cfg.embedding.api_key_env == "DEEPRESEARCH_EMBEDDING_API_KEY"
         assert cfg.reranker.api_key_env == "DEEPRESEARCH_RERANKER_API_KEY"
         assert cfg.web_search.api_key_env == "TAVILY_API_KEY"
+
+    def test_pm2_env_overrides(self, monkeypatch):
+        monkeypatch.setenv("DEEPRESEARCH_REPORT_PROFILE", "timeline")
+        monkeypatch.setenv("DEEPRESEARCH_EVIDENCE_MIN_CONFIDENCE", "0.55")
+        monkeypatch.setenv("DEEPRESEARCH_EVIDENCE_MIN_TOKEN_OVERLAP", "0.25")
+
+        cfg = DeepResearchConfig.from_env()
+
+        assert cfg.synthesizer.report_profile == "timeline"
+        assert cfg.evidence_quality.min_confidence == 0.55
+        assert cfg.evidence_quality.min_token_overlap == 0.25
 
 
 class TestLoadConfig:

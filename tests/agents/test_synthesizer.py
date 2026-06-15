@@ -16,6 +16,7 @@ def _evidence(evidence_id: str = "E1") -> EvidenceItem:
         citation="Source A",
         source_url="https://example.com/source-a",
         confidence=0.9,
+        retrieved_at="2026-06-16T00:00:00Z",
     )
 
 
@@ -37,8 +38,12 @@ async def test_synthesize_returns_cited_report_with_full_evidence_ids():
         "E2",
     }
     assert not any("Unused evidence" in item for item in report.limitations)
-    assert len(report.references) == 2
-    assert report.references[0] == "[E1] Source A - https://example.com/source-a"
+    assert len(report.references) == 1
+    ref = report.references[0]
+    assert "E1" in ref and "E2" in ref
+    assert "Source A" in ref
+    assert "https://example.com/source-a" in ref
+    assert "2026-06-16T00:00:00Z" in ref
 
 
 def test_build_evidence_text_includes_source_url():
@@ -104,3 +109,89 @@ async def test_failed_tasks_and_unused_evidence_are_limitations():
 
     assert "Failed tasks: t1" in report.limitations
     assert "Unused evidence: E2" in report.limitations
+
+
+@pytest.mark.asyncio
+async def test_references_deduplicated_by_source_url():
+    e1 = _evidence("E1")
+    e2 = _evidence("E2")
+    llm = MockLLM(["## Analysis\nClaim one [E1].\nClaim two [E2]."])
+
+    report = await Synthesizer(llm).synthesize("r1", "q", [_task()], [e1, e2])
+
+    assert len(report.references) == 1
+    ref = report.references[0]
+    assert "[E1]" in ref and "[E2]" in ref
+    assert "Source A" in ref
+    assert "https://example.com/source-a" in ref
+
+
+@pytest.mark.asyncio
+async def test_references_local_source_when_url_missing():
+    e = EvidenceItem(
+        evidence_id="E1",
+        task_id="t1",
+        claim="local claim",
+        quote="local quote",
+        citation="",
+        source_url=None,
+        confidence=0.5,
+    )
+    llm = MockLLM(["## Analysis\nLocal claim [E1]."])
+
+    report = await Synthesizer(llm).synthesize("r1", "q", [_task()], [e])
+
+    assert len(report.references) == 1
+    assert "local source" in report.references[0]
+
+
+@pytest.mark.asyncio
+async def test_references_keep_distinct_local_sources():
+    e1 = EvidenceItem(
+        evidence_id="E1",
+        task_id="t1",
+        claim="local claim one",
+        quote="local quote one",
+        citation="Local Doc A",
+        source_url=None,
+        confidence=0.8,
+        metadata={"document_id": "doc-a"},
+    )
+    e2 = EvidenceItem(
+        evidence_id="E2",
+        task_id="t1",
+        claim="local claim two",
+        quote="local quote two",
+        citation="Local Doc B",
+        source_url=None,
+        confidence=0.8,
+        metadata={"document_id": "doc-b"},
+    )
+    llm = MockLLM(["## Analysis\nOne [E1].\nTwo [E2]."])
+
+    report = await Synthesizer(llm).synthesize("r1", "q", [_task()], [e1, e2])
+
+    assert len(report.references) == 2
+    assert any("Local Doc A" in ref for ref in report.references)
+    assert any("Local Doc B" in ref for ref in report.references)
+
+
+@pytest.mark.asyncio
+async def test_synthesizer_with_comparison_profile():
+    llm = MockLLM(["## Overview\nOverview [E1].\n## Comparison Table\nCompare [E1]."])
+    synth = Synthesizer(llm, report_profile="comparison")
+
+    report = await synth.synthesize("r1", "q", [_task()], [_evidence()])
+
+    assert report.sections
+    section_titles = {s.title for s in report.sections}
+    assert "Comparison Table" in section_titles
+
+
+def test_synthesizer_system_prompt_includes_profile():
+    llm = MockLLM()
+    synth = Synthesizer(llm, report_profile="timeline")
+
+    assert "timeline" in synth._system_prompt
+    assert "Chronological" in synth._system_prompt
+    assert "Timeline" in synth._system_prompt

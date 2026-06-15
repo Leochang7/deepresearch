@@ -70,3 +70,24 @@ async def test_review_bad_json_returns_safe_default():
 
     assert result.issues == []
     assert result.score == 0.5
+
+
+@pytest.mark.asyncio
+async def test_unsupported_citation_issue_type_accepted():
+    llm = MockLLM(
+        [
+            (
+                '{"issues": [{"issue_id": "R1", "type": "unsupported_citation", '
+                '"severity": "high", "location": "Analysis", '
+                '"description": "Quote does not support claim", '
+                '"suggestion": "Replace with supporting evidence"}], '
+                '"score": 0.6}'
+            )
+        ]
+    )
+
+    result = await RedAgent(llm).review(_report(), _evidence())
+
+    assert len(result.issues) == 1
+    assert result.issues[0].type == "unsupported_citation"
+    assert result.issues[0].signature == "unsupported_citation:analysis"

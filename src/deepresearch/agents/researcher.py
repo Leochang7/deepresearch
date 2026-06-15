@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from deepresearch.agents.evidence_quality import (
+    DefaultEvidenceQualityChecker,
+    EvidenceQualityChecker,
+)
 from deepresearch.core.json_repair import parse_json
 from deepresearch.embeddings.base import EmbeddingClient
 from deepresearch.llm.base import LLMClient, LLMMessage
@@ -31,6 +35,7 @@ class SourceChunk:
     source_url: str
     content: str
     source_type: str
+    retrieved_at: str = ""
 
 
 class ResearchAgent:
@@ -43,6 +48,7 @@ class ResearchAgent:
         reranker: RerankerClient,
         *,
         fetcher: WebFetcher | None = None,
+        quality_checker: EvidenceQualityChecker | None = None,
         max_queries: int = 5,
         max_documents: int = 20,
         max_chunks: int = 80,
@@ -55,6 +61,7 @@ class ResearchAgent:
         self._embedding = embedding
         self._reranker = reranker
         self._fetcher = fetcher or WebFetcher()
+        self._quality_checker = quality_checker or DefaultEvidenceQualityChecker()
         self._max_queries = max_queries
         self._max_documents = max_documents
         self._max_chunks = max_chunks
@@ -114,6 +121,7 @@ class ResearchAgent:
                 source_url=result.entry.source_url,
                 content=result.entry.content,
                 source_type=str(result.entry.metadata.get("source_type", "unknown")),
+                retrieved_at=str(result.entry.metadata.get("retrieved_at", "")),
             )
             for result in recalled
         ]
@@ -219,6 +227,7 @@ class ResearchAgent:
                         source_url=document.url or "",
                         content=text,
                         source_type=document.source_type,
+                        retrieved_at=document.retrieved_at,
                     )
                 )
         return chunks
@@ -245,6 +254,7 @@ class ResearchAgent:
                     metadata={
                         "document_id": chunk.document_id,
                         "source_type": chunk.source_type,
+                        "retrieved_at": chunk.retrieved_at,
                     },
                 )
                 for chunk, embedding in zip(chunks, embeddings, strict=True)
@@ -299,26 +309,32 @@ class ResearchAgent:
             quote = str(raw.get("quote", "")).strip()
             if not quote or quote not in source.content:
                 continue
-            evidence.append(
-                EvidenceItem(
-                    evidence_id=str(
-                        raw.get("evidence_id") or f"E{uuid.uuid4().hex[:8]}"
+            item = EvidenceItem(
+                evidence_id=str(raw.get("evidence_id") or f"E{uuid.uuid4().hex[:8]}"),
+                task_id=task.task_id,
+                claim=str(raw.get("claim", "")).strip(),
+                quote=quote,
+                citation=source.title or source.source_url or source.document_id,
+                source_url=source.source_url or None,
+                confidence=self._bounded_confidence(raw.get("confidence", 0.5)),
+                retrieved_at=source.retrieved_at,
+                metadata={
+                    "source_id": next(
+                        key for key, value in source_map.items() if value == source
                     ),
-                    task_id=task.task_id,
-                    claim=str(raw.get("claim", "")).strip(),
-                    quote=quote,
-                    citation=source.title or source.source_url or source.document_id,
-                    source_url=source.source_url or None,
-                    confidence=self._bounded_confidence(raw.get("confidence", 0.5)),
-                    metadata={
-                        "source_id": next(
-                            key for key, value in source_map.items() if value == source
-                        ),
-                        "chunk_id": source.chunk_id,
-                        "document_id": source.document_id,
-                    },
-                )
+                    "chunk_id": source.chunk_id,
+                    "document_id": source.document_id,
+                    "retrieved_at": source.retrieved_at,
+                },
             )
+            passes, reason = self._quality_checker.check(item, source.content)
+            if not passes:
+                self._report_progress(
+                    "evidence_quality_rejected",
+                    {"evidence_id": item.evidence_id, "reason": reason},
+                )
+                continue
+            evidence.append(item)
         return evidence
 
     @staticmethod
@@ -364,7 +380,11 @@ class ResearchAgent:
                     embedding=embedding,
                     source_type="memory",
                     confidence=item.confidence,
-                    metadata={**item.metadata, "evidence_id": item.evidence_id},
+                    metadata={
+                        **item.metadata,
+                        "evidence_id": item.evidence_id,
+                        "retrieved_at": item.retrieved_at,
+                    },
                 )
                 for item, content, embedding in zip(
                     evidence, contents, embeddings, strict=True

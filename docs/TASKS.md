@@ -334,23 +334,23 @@
 
 ### PM2 引用与证据质量
 
-- [ ] PM020 增强 References 输出
-  - Files: `src/deepresearch/agents/synthesizer.py`, `tests/agents/test_synthesizer.py`
+- [x] PM020 增强 References 输出
+  - Files: `src/deepresearch/agents/synthesizer.py`, `src/deepresearch/agents/researcher.py`, `src/deepresearch/schemas/evidence.py`, `tests/agents/test_synthesizer.py`
   - Done when: References 去重，输出 `title + url + retrieved_at`，缺失 URL 时明确标记 local source。
   - Verify: `uv run pytest tests/agents/test_synthesizer.py`
 
-- [ ] PM021 Red Agent 增加引用支持度检查
+- [x] PM021 Red Agent 增加引用支持度检查
   - Files: `src/deepresearch/agents/red_agent.py`, `src/deepresearch/prompts/red_agent.md`, tests
   - Done when: Red Agent 能输出“引用不能支持 claim”的结构化 issue。
   - Verify: `uv run pytest tests/agents/test_red_agent.py`
 
-- [ ] PM022 增加 evidence 质量门控
-  - Files: `src/deepresearch/agents/researcher.py`, `src/deepresearch/schemas/evidence.py`, tests
+- [x] PM022 增加 evidence 质量门控
+  - Files: `src/deepresearch/agents/evidence_quality.py`, `src/deepresearch/agents/researcher.py`, `src/deepresearch/schemas/evidence.py`, tests
   - Done when: quote 必须原文命中，低置信 evidence 不进入 synthesis，claim/quote 语义一致性检查有可替换接口。
   - Verify: `uv run pytest tests/agents/test_researcher.py`
 
-- [ ] PM023 增加 report profile
-  - Files: `src/deepresearch/agents/synthesizer.py`, `src/deepresearch/prompts/synthesizer.md`, config/docs/tests
+- [x] PM023 增加 report profile
+  - Files: `src/deepresearch/agents/report_profiles.py`, `src/deepresearch/agents/synthesizer.py`, `src/deepresearch/config.py`, `.env.example`, `docs/CONFIGURATION.md`, tests
   - Done when: 支持 `factual_answer`、`comparison`、`timeline`、`tech_research`、`risk_analysis` 报告模板。
   - Verify: `uv run pytest tests/agents/test_synthesizer.py`
 

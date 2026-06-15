@@ -24,6 +24,7 @@ def _document() -> RetrievedDocument:
         url="https://example.com/source",
         source_type="web",
         content="Search result snippet",
+        retrieved_at="2026-06-16T00:00:00Z",
     )
 
 
@@ -89,7 +90,7 @@ async def test_evidence_source_is_bound_to_selected_chunk():
                 {
                     "evidence_id": "E1",
                     "source_id": "S1",
-                    "claim": "Supported claim",
+                    "claim": "Exact quote improves research workflows",
                     "quote": "Exact quote",
                     "citation": "Invented citation",
                     "source_url": "https://invented.example",
@@ -108,6 +109,7 @@ async def test_evidence_source_is_bound_to_selected_chunk():
     assert evidence["citation"] == "Fetched title"
     assert evidence["source_url"] == "https://example.com/source"
     assert evidence["confidence"] == 1.0
+    assert evidence["retrieved_at"] == "2026-06-16T00:00:00Z"
     assert evidence["metadata"]["source_id"] == "S1"
 
 
@@ -236,3 +238,34 @@ async def test_fetches_documents_with_bounded_concurrency():
     )
 
     assert peak_active == 2
+
+
+@pytest.mark.asyncio
+async def test_low_confidence_evidence_filtered():
+    llm = MockLLM(
+        [
+            json.dumps({"queries": ["agent evidence"]}),
+            json.dumps(
+                {
+                    "evidence": [
+                        {
+                            "evidence_id": "E1",
+                            "source_id": "S1",
+                            "claim": "LLM agents improve research",
+                            "quote": "Exact quote",
+                            "confidence": 0.1,
+                        }
+                    ]
+                }
+            ),
+        ]
+    )
+    agent, _, _ = _agent(llm=llm)
+
+    result = await agent.execute(
+        TaskNode(task_id="t1", description="extract", goal="test quality gate"),
+        run_id="run-1",
+    )
+
+    assert result["evidence_count"] == 0
+    assert result["information_insufficient"] is True

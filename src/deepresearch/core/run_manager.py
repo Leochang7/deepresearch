@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from deepresearch.agents.blue_agent import BlueAgent
+from deepresearch.agents.evidence_quality import DefaultEvidenceQualityChecker
 from deepresearch.agents.judge import Judge, JudgeConfig, RoundResult
 from deepresearch.agents.planner import PlannerAgent
 from deepresearch.agents.red_agent import RedAgent
@@ -69,7 +70,9 @@ class RunManager:
         trace = TraceLogger(out / "trace.jsonl", run_id=run_id)
 
         planner = PlannerAgent(self._llm)
-        synthesizer = Synthesizer(self._llm)
+        synthesizer = Synthesizer(
+            self._llm, report_profile=self._config.synthesizer.report_profile
+        )
         red_agent = RedAgent(self._llm)
         blue_agent = BlueAgent(self._llm)
         judge = Judge(
@@ -111,6 +114,10 @@ class RunManager:
                     timeout=self._config.fetch.timeout_seconds,
                     max_retries=self._config.fetch.max_retries,
                     user_agent=self._config.fetch.user_agent,
+                ),
+                quality_checker=DefaultEvidenceQualityChecker(
+                    min_confidence=self._config.evidence_quality.min_confidence,
+                    min_token_overlap=self._config.evidence_quality.min_token_overlap,
                 ),
                 max_queries=self._config.retrieval.max_queries_per_task,
                 max_documents=self._config.retrieval.max_docs_per_task,

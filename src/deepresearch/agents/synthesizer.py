@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from deepresearch.agents.report_profiles import ReportProfile, build_profile_prompt
 from deepresearch.llm.base import LLMClient, LLMMessage
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ReportSection, ResearchReport
@@ -13,11 +14,15 @@ _EVIDENCE_PATTERN = re.compile(r"\[(E\d+)\]")
 
 
 class Synthesizer:
-    def __init__(self, llm: LLMClient) -> None:
+    def __init__(
+        self, llm: LLMClient, *, report_profile: str = "tech_research"
+    ) -> None:
         self._llm = llm
-        self._system_prompt = (
+        base_prompt = (
             _PROMPT_PATH.read_text(encoding="utf-8") if _PROMPT_PATH.exists() else ""
         )
+        profile = ReportProfile(report_profile)
+        self._system_prompt = build_profile_prompt(profile, base_prompt)
 
     async def synthesize(
         self,
@@ -74,7 +79,7 @@ class Synthesizer:
             summary=self._summary_from_section(summary_section),
             sections=sections,
             limitations=list(dict.fromkeys(limitations)),
-            references=[self._format_reference(item) for item in evidence],
+            references=self._build_references(evidence_map),
         )
 
     def _build_task_summaries(self, tasks: list[TaskNode]) -> str:
@@ -106,9 +111,36 @@ class Synthesizer:
 
     @staticmethod
     def _format_reference(item: EvidenceItem) -> str:
+        title = item.citation or item.claim
+        suffix = f" (retrieved: {item.retrieved_at})" if item.retrieved_at else ""
         if item.source_url:
-            return f"[{item.evidence_id}] {item.citation} - {item.source_url}"
-        return f"[{item.evidence_id}] {item.citation}"
+            return f"[{item.evidence_id}] {title} — {item.source_url}{suffix}"
+        return f"[{item.evidence_id}] {title} — local source{suffix}"
+
+    def _build_references(self, evidence_map: dict[str, EvidenceItem]) -> list[str]:
+        by_source: dict[str, list[str]] = {}
+        for item in evidence_map.values():
+            by_source.setdefault(self._reference_key(item), []).append(item.evidence_id)
+        refs: list[str] = []
+        for ids in by_source.values():
+            first = evidence_map[ids[0]]
+            id_str = ", ".join(f"[{eid}]" for eid in ids)
+            title = first.citation or first.claim
+            suffix = f" (retrieved: {first.retrieved_at})" if first.retrieved_at else ""
+            if first.source_url:
+                refs.append(f"{id_str} {title} — {first.source_url}{suffix}")
+            else:
+                refs.append(f"{id_str} {title} — local source{suffix}")
+        return refs
+
+    @staticmethod
+    def _reference_key(item: EvidenceItem) -> str:
+        if item.source_url:
+            return f"url:{item.source_url}"
+        source_id = item.metadata.get("source_id") or item.metadata.get("document_id")
+        if source_id:
+            return f"local-id:{source_id}"
+        return f"local-title:{item.citation or item.claim}"
 
     @staticmethod
     def _parse_sections(content: str) -> list[ReportSection]:

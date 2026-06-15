@@ -111,6 +111,15 @@ class RedBlueConfig(BaseModel):
     oscillation_window: int = 2
 
 
+class SynthesizerConfig(BaseModel):
+    report_profile: str = "tech_research"
+
+
+class EvidenceQualityConfig(BaseModel):
+    min_confidence: float = 0.3
+    min_token_overlap: float = 0.1
+
+
 # Env var name -> (config section, field name)
 _ENV_MAP: dict[str, tuple[str, str]] = {
     "DEEPRESEARCH_LLM_PROVIDER": ("llm", "provider"),
@@ -130,6 +139,15 @@ _ENV_MAP: dict[str, tuple[str, str]] = {
     "DEEPRESEARCH_MILVUS_CHUNKS_COLLECTION": ("milvus", "chunks_collection"),
     "DEEPRESEARCH_MILVUS_MEMORIES_COLLECTION": ("milvus", "memories_collection"),
     "DEEPRESEARCH_SEARCH_PROVIDER": ("retrieval", "search_provider"),
+    "DEEPRESEARCH_REPORT_PROFILE": ("synthesizer", "report_profile"),
+    "DEEPRESEARCH_EVIDENCE_MIN_CONFIDENCE": (
+        "evidence_quality",
+        "min_confidence",
+    ),
+    "DEEPRESEARCH_EVIDENCE_MIN_TOKEN_OVERLAP": (
+        "evidence_quality",
+        "min_token_overlap",
+    ),
 }
 
 
@@ -146,6 +164,10 @@ class DeepResearchConfig(BaseModel):
     dedup: DedupConfig = Field(default_factory=DedupConfig)
     executor: ExecutorConfig = Field(default_factory=ExecutorConfig)
     red_blue: RedBlueConfig = Field(default_factory=RedBlueConfig)
+    synthesizer: SynthesizerConfig = Field(default_factory=SynthesizerConfig)
+    evidence_quality: EvidenceQualityConfig = Field(
+        default_factory=EvidenceQualityConfig
+    )
 
     @classmethod
     def from_toml(cls, path: Path) -> DeepResearchConfig:

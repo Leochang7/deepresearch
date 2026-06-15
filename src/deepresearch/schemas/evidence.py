@@ -22,4 +22,5 @@ class EvidenceItem(BaseModel):
     citation: str = ""
     source_url: str | None = None
     confidence: float = 0.0
+    retrieved_at: str = ""
     metadata: dict = Field(default_factory=dict)

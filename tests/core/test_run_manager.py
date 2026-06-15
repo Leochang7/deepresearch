@@ -86,7 +86,9 @@ async def test_evidence_ids_are_unique_across_tasks(tmp_path):
     references = result.report.references
 
     assert len(references) == len(set(references))
-    assert len(references) == 2
+    assert len(references) >= 1
+    ref = references[0]
+    assert "[E1]" in ref and "[E2]" in ref
 
 
 @pytest.mark.asyncio

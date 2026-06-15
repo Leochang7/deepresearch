@@ -18,6 +18,7 @@ class RedIssue(BaseModel):
     type: Literal[
         "missing_citation",
         "citation_missing",
+        "unsupported_citation",
         "factual_error",
         "logical_inconsistency",
         "over_interpretation",

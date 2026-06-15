@@ -38,7 +38,7 @@ thinking = "disabled"
 [embedding]
 provider = "openai_compatible"
 model = "Qwen3-Embedding-4B"
-dim = 1024
+dim = 2560
 base_url = ""
 api_key_env = "DEEPRESEARCH_EMBEDDING_API_KEY"
 batch_size = 32
@@ -49,7 +49,7 @@ request_dimensions = false
 
 [reranker]
 provider = "openai_compatible"
-model = "bge-reranker-v2-m32"
+model = "bge-reranker-v2-m3"
 base_url = ""
 api_key_env = "DEEPRESEARCH_RERANKER_API_KEY"
 batch_size = 16
@@ -111,6 +111,13 @@ max_rounds = 3
 target_score = 0.85
 min_score_delta = 0.03
 oscillation_window = 2
+
+[synthesizer]
+report_profile = "tech_research"
+
+[evidence_quality]
+min_confidence = 0.3
+min_token_overlap = 0.1
 ```
 
 ## 3. 环境变量
@@ -125,11 +132,14 @@ DEEPRESEARCH_FALLBACK_LLM_PROVIDER=deepseek
 DEEPRESEARCH_EMBEDDING_BASE_URL=
 DEEPRESEARCH_EMBEDDING_API_KEY=
 DEEPRESEARCH_EMBEDDING_MODEL=Qwen3-Embedding-4B
-DEEPRESEARCH_EMBEDDING_DIM=1024
+DEEPRESEARCH_EMBEDDING_DIM=2560
 DEEPRESEARCH_EMBEDDING_REQUEST_DIMENSIONS=false
 DEEPRESEARCH_RERANKER_BASE_URL=
 DEEPRESEARCH_RERANKER_API_KEY=
-DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m32
+DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m3
+DEEPRESEARCH_REPORT_PROFILE=tech_research
+DEEPRESEARCH_EVIDENCE_MIN_CONFIDENCE=0.3
+DEEPRESEARCH_EVIDENCE_MIN_TOKEN_OVERLAP=0.1
 DEEPRESEARCH_MILVUS_URI=http://localhost:19530
 DEEPRESEARCH_MILVUS_CHUNKS_COLLECTION=deepresearch_chunks
 DEEPRESEARCH_MILVUS_MEMORIES_COLLECTION=deepresearch_memories

@@ -6,13 +6,14 @@ Check for:
 3. Missing or incorrect citations
 4. Over-interpretation of evidence
 5. Structural problems
+6. Citations where the quote does not support the claim it cites
 
 Output a JSON object:
 {
   "issues": [
     {
       "issue_id": "R1",
-      "type": "missing_citation|factual_error|logical_inconsistency|over_interpretation|structural",
+      "type": "missing_citation|unsupported_citation|factual_error|logical_inconsistency|over_interpretation|structural",
       "severity": "low|medium|high",
       "location": "Section name or paragraph",
       "description": "What the issue is",
