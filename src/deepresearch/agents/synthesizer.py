@@ -91,7 +91,7 @@ class Synthesizer:
                     f" Result: {task.result.get('summary', str(task.result)[:200])}"
                 )
             parts.append(
-                f"- [{task.task_id}] {task.description} "
+                f"- Task {task.task_id}: {task.description} "
                 f"(status={task.status.value}){result_text}"
             )
         return "\n".join(parts)
@@ -190,6 +190,9 @@ class Synthesizer:
                 if not stripped:
                     kept_lines.append(line)
                     continue
+                if self._is_markdown_heading(stripped):
+                    kept_lines.append(line)
+                    continue
 
                 cited_ids = self._extract_evidence_ids(stripped)
                 valid_ids = [
@@ -248,3 +251,7 @@ class Synthesizer:
     @staticmethod
     def _extract_evidence_ids(text: str) -> list[str]:
         return list(dict.fromkeys(_EVIDENCE_PATTERN.findall(text)))
+
+    @staticmethod
+    def _is_markdown_heading(text: str) -> bool:
+        return bool(re.fullmatch(r"#{1,6}\s+\S.*", text))

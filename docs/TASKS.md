@@ -11,6 +11,23 @@
 
 ## MVP Backlog
 
+### Current Bugfix
+
+- [x] BF001 修复真实 benchmark 中 MiMo JSON array 响应导致任务失败的问题
+  - Files: `src/deepresearch/agents/researcher.py`, `tests/agents/test_researcher.py`
+  - Done when: query/evidence 提取兼容 JSON object 和 JSON array，避免 `'list' object has no attribute 'get'`。
+  - Verify: `uv run pytest tests/agents/test_researcher.py`
+
+- [x] BF002 避免 synthesizer 把 task_id 当作 evidence citation
+  - Files: `src/deepresearch/agents/synthesizer.py`, `src/deepresearch/prompts/synthesizer.md`, `tests/agents/test_synthesizer.py`
+  - Done when: task summary 不再输出 `[t1]` 形态，prompt 明确禁止引用 task ID。
+  - Verify: `uv run pytest tests/agents/test_synthesizer.py`
+
+- [x] BF003 避免 Markdown 小标题被误判为无引用事实 claim
+  - Files: `src/deepresearch/agents/synthesizer.py`, `tests/agents/test_synthesizer.py`
+  - Done when: `###` 等报告内小标题可保留，不进入 `Uncited claim` limitations。
+  - Verify: `uv run pytest tests/agents/test_synthesizer.py`
+
 ### M0 文档与工程约束
 
 - [x] T000 建立项目规划文档

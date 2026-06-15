@@ -52,6 +52,13 @@ def test_build_evidence_text_includes_source_url():
     assert "Source URL: https://example.com/source-a" in text
 
 
+def test_task_summaries_do_not_look_like_citations():
+    text = Synthesizer(MockLLM())._build_task_summaries([_task()])
+
+    assert "Task t1:" in text
+    assert "[t1]" not in text
+
+
 @pytest.mark.asyncio
 async def test_unknown_citation_is_removed_and_added_to_limitations():
     llm = MockLLM(
@@ -94,6 +101,21 @@ async def test_uncited_claim_is_moved_to_limitations():
         item == "Uncited claim in Analysis: Unsupported factual claim."
         for item in report.limitations
     )
+
+
+@pytest.mark.asyncio
+async def test_markdown_subheadings_do_not_require_citations():
+    llm = MockLLM(["## Analysis\n### Retrieval Quality\nSupported [E1]."])
+
+    report = await Synthesizer(llm).synthesize(
+        "r1", "question", [_task()], [_evidence()]
+    )
+
+    analysis = next(
+        section for section in report.sections if section.title == "Analysis"
+    )
+    assert "### Retrieval Quality" in analysis.content
+    assert not any("Retrieval Quality" in item for item in report.limitations)
 
 
 @pytest.mark.asyncio

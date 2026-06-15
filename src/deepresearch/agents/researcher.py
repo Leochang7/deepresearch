@@ -277,11 +277,7 @@ class ResearchAgent:
         ]
         response = await self._llm.chat(messages, json_mode=True)
         data = parse_json(response.content, strict=False)
-        queries: list[str] = []
-        if data and isinstance(data.get("queries"), list):
-            queries = [
-                str(query).strip() for query in data["queries"] if str(query).strip()
-            ]
+        queries = self._extract_query_list(data)
 
         supplements = [
             task.description,
@@ -408,11 +404,12 @@ class ResearchAgent:
         ]
         response = await self._llm.chat(messages, json_mode=True)
         data = parse_json(response.content, strict=False)
-        if not data or not isinstance(data.get("evidence"), list):
+        raw_evidence = self._extract_evidence_list(data)
+        if not raw_evidence:
             return []
 
         evidence: list[EvidenceItem] = []
-        for raw in data["evidence"]:
+        for raw in raw_evidence:
             if not isinstance(raw, dict):
                 continue
             source = source_map.get(str(raw.get("source_id", "")))
@@ -469,6 +466,38 @@ class ResearchAgent:
             return max(0.0, min(1.0, float(value)))
         except (TypeError, ValueError):
             return 0.5
+
+    @staticmethod
+    def _extract_query_list(data: object) -> list[str]:
+        if isinstance(data, dict):
+            raw_queries = data.get("queries", [])
+        elif isinstance(data, list):
+            raw_queries = data
+        else:
+            raw_queries = []
+
+        queries: list[str] = []
+        if not isinstance(raw_queries, list):
+            return queries
+        for raw in raw_queries:
+            if isinstance(raw, dict):
+                value = raw.get("query") or raw.get("text") or raw.get("q")
+            else:
+                value = raw
+            query = str(value).strip()
+            if query:
+                queries.append(query)
+        return queries
+
+    @staticmethod
+    def _extract_evidence_list(data: object) -> list[object]:
+        if isinstance(data, dict):
+            raw_evidence = data.get("evidence", [])
+        elif isinstance(data, list):
+            raw_evidence = data
+        else:
+            raw_evidence = []
+        return raw_evidence if isinstance(raw_evidence, list) else []
 
     async def _store_evidence(
         self,

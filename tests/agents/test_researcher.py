@@ -124,6 +124,54 @@ async def test_evidence_source_is_bound_to_selected_chunk():
 
 
 @pytest.mark.asyncio
+async def test_json_array_query_response_is_supported():
+    llm = MockLLM(
+        [
+            json.dumps(["agent evidence", {"query": "tool use research"}]),
+            json.dumps({"evidence": []}),
+        ]
+    )
+    agent, _, _ = _agent(llm=llm)
+
+    result = await agent.execute(
+        TaskNode(task_id="t1", description="extract", goal="extract evidence"),
+        run_id="run-1",
+    )
+
+    assert "agent evidence" in result["queries"]
+    assert "tool use research" in result["queries"]
+
+
+@pytest.mark.asyncio
+async def test_json_array_evidence_response_is_supported():
+    llm = MockLLM(
+        [
+            json.dumps({"queries": ["agent evidence"]}),
+            json.dumps(
+                [
+                    {
+                        "evidence_id": "E1",
+                        "source_id": "S1",
+                        "claim": "Exact quote improves research workflows",
+                        "quote": "Exact quote",
+                        "confidence": 0.9,
+                    }
+                ]
+            ),
+        ]
+    )
+    agent, _, _ = _agent(llm=llm)
+
+    result = await agent.execute(
+        TaskNode(task_id="t1", description="extract", goal="extract evidence"),
+        run_id="run-1",
+    )
+
+    assert result["evidence_count"] == 1
+    assert result["evidence"][0]["evidence_id"] == "E1"
+
+
+@pytest.mark.asyncio
 async def test_unknown_source_id_is_rejected_and_triggers_replan_fields():
     llm = MockLLM(
         [
