@@ -89,3 +89,8 @@ max_rounds = 3
 target_score = 0.85
 min_score_delta = 0.03
 oscillation_window = 2
+
+[langfuse]
+enabled = false
+host = "https://cloud.langfuse.com"
+experiment_name = "deepresearch"

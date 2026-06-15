@@ -116,6 +116,17 @@ class TestEnvVarOverride:
         assert cfg.fusion.mmr_lambda == 0.6
         assert cfg.fusion.max_mmr_results == 10
 
+    def test_langfuse_env_overrides(self, monkeypatch):
+        monkeypatch.setenv("DEEPRESEARCH_LANGFUSE_ENABLED", "true")
+        monkeypatch.setenv("LANGFUSE_HOST", "http://localhost:3000")
+        monkeypatch.setenv("DEEPRESEARCH_EXPERIMENT_NAME", "pm6-test")
+
+        cfg = DeepResearchConfig.from_env()
+
+        assert cfg.langfuse.enabled is True
+        assert cfg.langfuse.host == "http://localhost:3000"
+        assert cfg.langfuse.experiment_name == "pm6-test"
+
 
 class TestLoadConfig:
     def test_default_when_no_file(self, tmp_path, monkeypatch):

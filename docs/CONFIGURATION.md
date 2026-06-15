@@ -157,6 +157,13 @@ DEEPRESEARCH_MILVUS_CHUNKS_COLLECTION=deepresearch_chunks
 DEEPRESEARCH_MILVUS_MEMORIES_COLLECTION=deepresearch_memories
 DEEPRESEARCH_SEARCH_PROVIDER=tavily
 TAVILY_API_KEY=
+
+# Langfuse 可选评测追踪
+DEEPRESEARCH_LANGFUSE_ENABLED=false
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+LANGFUSE_HOST=https://cloud.langfuse.com
+DEEPRESEARCH_EXPERIMENT_NAME=deepresearch
 ```
 
 `.env` 不提交仓库，`.env.example` 可以提交。
@@ -166,6 +173,10 @@ TAVILY_API_KEY=
 Milvus collection description 会保存 `schema_version`、`embedding_model` 和
 `dim`。启动时任一项缺失或与当前配置不一致都会快速失败；旧 collection
 需要删除并按当前配置重建，系统不会静默复用不兼容向量。
+
+Langfuse 是可选评测追踪能力。默认关闭；开启时需要提供
+`LANGFUSE_PUBLIC_KEY` 和 `LANGFUSE_SECRET_KEY`。缺少密钥或未安装
+Langfuse SDK 时，系统只记录 warning 并继续本地 run，不影响默认离线测试。
 
 ## 4. CLI
 

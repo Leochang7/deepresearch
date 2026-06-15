@@ -6,6 +6,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from deepresearch.agents.blue_agent import BlueAgent
 from deepresearch.agents.evidence_quality import DefaultEvidenceQualityChecker
@@ -30,6 +31,7 @@ from deepresearch.core.executor import (
 )
 from deepresearch.core.trace import TraceEventType, TraceLogger
 from deepresearch.embeddings.base import EmbeddingClient
+from deepresearch.evaluation.langfuse import LangfuseAdapter
 from deepresearch.evaluation.metrics import evaluate
 from deepresearch.llm.base import LLMClient
 from deepresearch.memory.milvus_store import export_snapshot
@@ -325,6 +327,27 @@ class RunManager:
             {**eval_result.model_dump(mode="json"), "budget": budget.to_dict()},
         )
 
+        # Langfuse reporting (no-op if disabled)
+        langfuse = LangfuseAdapter(
+            enabled=self._config.langfuse.enabled,
+            host=self._config.langfuse.host,
+        )
+        langfuse.report_run(
+            run_id,
+            question,
+            judge_result.report.model_dump(mode="json"),
+            eval_result.model_dump(mode="json"),
+            budget.to_dict(),
+            {
+                "experiment": self._config.langfuse.experiment_name,
+                "llm": self._config.llm.model,
+                "embedding": self._config.embedding.model,
+                "retriever": self._config.retrieval.search_provider,
+                "report_profile": self._config.synthesizer.report_profile,
+            },
+            self._trace_summary(out / "trace.jsonl"),
+        )
+
         # Write outputs
         await self._write_outputs(
             out,
@@ -344,6 +367,22 @@ class RunManager:
             output_dir=out,
             budget=budget,
         )
+
+    @staticmethod
+    def _trace_summary(trace_path: Path) -> dict[str, Any]:
+        if not trace_path.exists():
+            return {"event_count": 0, "event_types": {}}
+        counts: dict[str, int] = {}
+        event_count = 0
+        for line in trace_path.read_text(encoding="utf-8").splitlines():
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            event_count += 1
+            event_type = event.get("event_type", "unknown")
+            counts[event_type] = counts.get(event_type, 0) + 1
+        return {"event_count": event_count, "event_types": counts}
 
     @staticmethod
     def _collect_evidence(tasks: list[TaskNode]) -> list[EvidenceItem]:

@@ -150,7 +150,8 @@ MVP 阶段不追求：
   - 覆盖度。
   - 引用质量。
   - 可读性。
-- 支持实验结果导出为 JSON 和 Markdown。
+- 支持实验结果导出为 JSON、JSONL 和 Markdown。
+- Post-MVP 通过 Langfuse 管理 dataset、experiment run、trace 和 score 对比；本项目保留可复现 dataset、benchmark runner、本地 evaluator 和 Langfuse adapter。
 
 ## 7. 非功能需求
 

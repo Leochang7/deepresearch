@@ -180,19 +180,20 @@ Memory 需要避免“collection 维度/模型混用”再次发生。
 - 高相似 claim 但结论词相反。
 - 同 source_url 不同 claim。
 
-### P6：评测与实验
+### P6：Langfuse 评测闭环
 
-最后补 benchmark，不要在真实链路还不稳时过早投入。
+最后补 benchmark，但不在本项目内自研完整评测平台。PM6 改为 Langfuse 驱动的评测闭环：Langfuse 负责 trace、dataset、experiment run、score 记录和对比展示；本项目保留 dataset、runner、规则指标、LLM-as-Judge schema 和可复现实验入口。
 
 顺序：
 
-1. 固定 3-5 个真实 smoke questions。
-2. 固化每次输出的结构完整度、引用覆盖率、任务成功率。
-3. 增加小型 ResearchBench。
-4. 引入 HotpotQA 风格多跳问题。
-5. 增加 LLM-as-Judge 五维评分。
-6. 增加 Bootstrap 95% CI 和 Cohen's d。
-7. 增加一键实验脚本。
+1. 接入可选 Langfuse adapter，不影响默认离线测试。
+2. 固化 ResearchBench mini，先做 10-15 个可复现 case。
+3. 实现 `deepresearch benchmark` runner，输出 JSONL 和 summary。
+4. 本地扩展 `factual_hit_rate` 与 `hallucination_flag`。
+5. 增加 LLM-as-Judge 五维评分，并可写入 Langfuse scores。
+6. pipeline 稳定后，再扩到 ResearchBench 11 领域/35 题、HotpotQA 深度研究变体、Bootstrap 95% CI、Cohen's d 和多后端实验脚本。
+
+详细设计见 [Langfuse Evaluation Plan](EVALUATION_LANGFUSE_PLAN.md)。
 
 ## 2. 推荐下一步
 

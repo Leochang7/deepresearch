@@ -131,6 +131,7 @@ MVP：
 
 后续：
 
+- Langfuse。
 - pandas。
 - scipy。
 - numpy。
@@ -143,9 +144,10 @@ MVP：
 - 引用覆盖率。
 - 报告结构完整度。
 - 幻觉风险。
+- Langfuse experiment scores。
 - 五维 Judge 评分。
-- Bootstrap 95% CI。
-- Cohen's d。
+- Bootstrap 95% CI，后置到 benchmark 样本量稳定后。
+- Cohen's d，后置到多后端实验稳定后。
 
 ### 1.8 CLI 与配置
 
@@ -231,6 +233,7 @@ dependencies = [
   "scipy",
   "pandas",
   "scikit-learn",
+  "langfuse",
   "playwright",
   "mcp",
 ]
@@ -267,10 +270,12 @@ dependencies = [
 
 ### V0.3
 
-- 引入 ResearchBench。
-- 增加 LLM-as-Judge。
-- 增加实验脚本和统计分析。
-- 引入 PostgreSQL 作为结构化实验与 trace 分析库。
+- 接入 Langfuse 作为实验追踪、dataset、score 和对比平台。
+- 引入 ResearchBench mini。
+- 增加 `deepresearch benchmark` runner。
+- 增加 LLM-as-Judge schema。
+- 后续再补统计分析；不优先自研实验 dashboard。
+- 引入 PostgreSQL 作为结构化业务分析库前，优先复用 Langfuse 的实验记录能力。
 - 增加 MCPRetriever 和 ModelNativeSearchRetriever。
 
 ### V0.4

@@ -239,3 +239,43 @@ def test_inspect_timeline_preserves_failure_reason(tmp_path):
     assert result.exit_code == 0
     assert "failed" in result.output
     assert "network unavailable" in result.output
+
+
+def test_benchmark_uses_experiment_output_directory(tmp_path):
+    dataset = tmp_path / "bench.jsonl"
+    dataset.write_text(
+        '{"id":"case-1","domain":"test","difficulty":"easy","question":"q","expected_facts":["f1","f2"],"required_citations":1,"tags":[]}\n',
+        encoding="utf-8",
+    )
+    summary = {
+        "total_cases": 1,
+        "avg_task_success_rate": 1.0,
+        "avg_citation_coverage": 0.5,
+        "avg_elapsed_seconds": 0.1,
+    }
+
+    with (
+        patch(
+            "deepresearch.evaluation.benchmark.run_benchmark",
+            new_callable=AsyncMock,
+            return_value=([], summary),
+        ) as run_benchmark,
+        patch("deepresearch.cli._build_runtime", return_value=(1, 2, 3, 4, 5)),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "benchmark",
+                str(dataset),
+                "--output",
+                str(tmp_path / "outputs"),
+                "--experiment",
+                "exp-1",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert "experiment: exp-1" in result.output
+    assert (
+        run_benchmark.await_args.kwargs["output_dir"] == tmp_path / "outputs" / "exp-1"
+    )

@@ -390,14 +390,34 @@
   - Done when: 支持同实体不同日期/数值、相反结论词、同 source_url 不同 claim 的启发式检测。
   - Verify: `uv run pytest tests/memory/test_conflict.py`
 
-### PM6 评测与实验
+### PM6 Langfuse 评测闭环
 
-- [ ] PM060 固化真实 smoke question set
-  - Files: `examples/questions.txt`, `tests/e2e/`, `docs/MVP_ACCEPTANCE.md`
-  - Done when: 有 3-5 个固定真实问题和对应指标记录。
-  - Verify: `uv run pytest tests/e2e`
-
-- [ ] PM061 设计 ResearchBench mini
-  - Files: `src/deepresearch/evaluation/benchmark.py`, `docs/`
-  - Done when: 支持少量多领域问题、规则指标汇总和 JSONL 输出。
+- [x] PM060 接入 Langfuse adapter
+  - Files: `src/deepresearch/evaluation/langfuse.py`, `src/deepresearch/config.py`, `.env.example`, `docs/EVALUATION_LANGFUSE_PLAN.md`, tests
+  - Done when: 可选上报 run input、config 摘要、report、evaluation、budget、trace summary 和 scores 到 Langfuse；无 key 或关闭开关时默认离线行为不变。
   - Verify: `uv run pytest tests/evaluation`
+
+- [x] PM061 设计 ResearchBench mini dataset
+  - Files: `examples/bench/researchbench_mini.jsonl`, `docs/EVALUATION_LANGFUSE_PLAN.md`, tests
+  - Done when: 有 10-15 个可复现 case，每题包含 `id/domain/difficulty/question/expected_facts/required_citations/tags`。
+  - Verify: `uv run pytest tests/evaluation`
+
+- [x] PM062 实现 benchmark runner
+  - Files: `src/deepresearch/evaluation/benchmark.py`, `src/deepresearch/cli.py`, tests
+  - Done when: `uv run deepresearch benchmark --dataset examples/bench/researchbench_mini.jsonl --mode mock` 可离线跑完并输出 `results.jsonl` 与 `summary.json`；真实模式可选上报 Langfuse。
+  - Verify: `uv run pytest tests/evaluation tests/test_cli.py`
+
+- [ ] PM063 增加本地事实覆盖与幻觉风险指标
+  - Files: `src/deepresearch/evaluation/metrics.py`, `tests/evaluation/`
+  - Done when: 支持 `factual_hit_rate` 和 `hallucination_flag`，可基于 expected facts 与引用约束计算。
+  - Verify: `uv run pytest tests/evaluation`
+
+- [ ] PM064 增加 LLM-as-Judge 5 维评分 schema
+  - Files: `src/deepresearch/evaluation/judge_eval.py`, `src/deepresearch/prompts/`, tests
+  - Done when: 输出 factuality、citation_support、completeness、reasoning_consistency、readability 五维分数，并可写入 Langfuse scores。
+  - Verify: `uv run pytest tests/evaluation`
+
+- [ ] PM065 扩展完整 benchmark 与统计分析
+  - Files: `examples/bench/`, `src/deepresearch/evaluation/`, docs
+  - Done when: 在 pipeline 稳定后扩展到 ResearchBench 11 领域/35 题、HotpotQA 深度研究变体、Bootstrap 95% CI、Cohen's d 和多后端实验脚本。
+  - Verify: `uv run pytest tests/evaluation`; real experiments use explicit integration/e2e commands

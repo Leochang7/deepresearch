@@ -33,3 +33,4 @@
 - 2026-06-16: 完成 PM1 检索质量增强（PM010-PM013）：document-level RRF 支持 canonical URL；chunk-level RRF 融合多 query vector recall 与独立中英文关键词 recall；Milvus search 返回 embedding；reranker score 作为 MMR relevance；FusionConfig 已接入 RunManager 并支持环境变量覆盖。真实 Milvus Standalone vector/keyword smoke 通过。
 - 2026-06-16: Review 并修复 PM3：replan 替代任务统一生成无冲突 ID，自动恢复受影响的下游任务并共享 run 级全局超时；被替换任务作为 `REPLANNING` 历史态从成功率分母排除。预算统计改为 LLM/Retriever/Embedding/Reranker wrapper 精确计数，强制执行 LLM call 上限并持久化 token usage 到 `evaluation.json`。
 - 2026-06-16: Review 并修复 PM4/PM5：`inspect --timeline` 增加 task 总耗时、阶段耗时和可靠失败原因；Milvus 装配传入 embedding model，并强制校验 schema version/model/dim metadata；冲突检测降低同源 chunk 和英文子串误报、补反向结论检测；MVP 验收文档补真实 run 指标、产物路径和 Standalone 复现命令。
+- 2026-06-16: 调整 PM6 规划：不在项目内自研完整评测平台，改为 Langfuse 驱动的评测闭环；本地保留 ResearchBench mini、benchmark runner、规则指标、LLM-as-Judge schema 和 Langfuse adapter，完整 35 题/HotpotQA/统计显著性后置。

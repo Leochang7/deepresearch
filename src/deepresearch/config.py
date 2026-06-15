@@ -129,6 +129,12 @@ class EvidenceQualityConfig(BaseModel):
     min_token_overlap: float = 0.1
 
 
+class LangfuseConfig(BaseModel):
+    enabled: bool = False
+    host: str = "https://cloud.langfuse.com"
+    experiment_name: str = "deepresearch"
+
+
 # Env var name -> (config section, field name)
 _ENV_MAP: dict[str, tuple[str, str]] = {
     "DEEPRESEARCH_LLM_PROVIDER": ("llm", "provider"),
@@ -162,6 +168,9 @@ _ENV_MAP: dict[str, tuple[str, str]] = {
     "DEEPRESEARCH_MAX_FUSED_CHUNKS": ("fusion", "max_fused_chunks"),
     "DEEPRESEARCH_MMR_LAMBDA": ("fusion", "mmr_lambda"),
     "DEEPRESEARCH_MAX_MMR_RESULTS": ("fusion", "max_mmr_results"),
+    "DEEPRESEARCH_LANGFUSE_ENABLED": ("langfuse", "enabled"),
+    "LANGFUSE_HOST": ("langfuse", "host"),
+    "DEEPRESEARCH_EXPERIMENT_NAME": ("langfuse", "experiment_name"),
 }
 
 
@@ -183,6 +192,7 @@ class DeepResearchConfig(BaseModel):
     evidence_quality: EvidenceQualityConfig = Field(
         default_factory=EvidenceQualityConfig
     )
+    langfuse: LangfuseConfig = Field(default_factory=LangfuseConfig)
 
     @classmethod
     def from_toml(cls, path: Path) -> DeepResearchConfig:

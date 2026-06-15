@@ -500,3 +500,47 @@ def doctor(
         typer.echo(f"\n{len(report.errors)} check(s) failed.")
         raise typer.Exit(1)
     typer.echo("\nAll checks passed.")
+
+
+@app.command(name="benchmark")
+def benchmark_cmd(
+    dataset: str = typer.Argument(help="Path to benchmark JSONL dataset"),
+    config_path: str | None = typer.Option(None, "--config", "-c"),
+    output: str = typer.Option("outputs/bench", "--output", "-o"),
+    experiment: str = typer.Option("", "--experiment", "-e"),
+    mode: str = typer.Option("mock", "--mode", "-m"),
+) -> None:
+    """Run benchmark suite and produce results.jsonl + summary.json."""
+    from deepresearch.core.run_manager import RunManager
+    from deepresearch.evaluation.benchmark import load_dataset, run_benchmark
+
+    dataset_path = Path(dataset)
+    if not dataset_path.is_file():
+        typer.echo(f"Dataset not found: {dataset}", err=True)
+        raise typer.Exit(1)
+
+    cases = load_dataset(dataset_path)
+    typer.echo(f"Loaded {len(cases)} benchmark cases from {dataset}")
+
+    cfg = load_config(config_path=config_path)
+    experiment_id = (
+        experiment or f"{dataset_path.stem}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    )
+    output_dir = Path(output) / experiment_id
+    cfg.langfuse.experiment_name = experiment_id
+
+    def make_manager() -> RunManager:
+        components = _build_runtime(cfg, mode=mode)
+        return RunManager(cfg, *components)
+
+    _results, summary = asyncio.run(
+        run_benchmark(cases, make_manager, output_dir=output_dir)
+    )
+
+    typer.echo(f"\nBenchmark complete: {summary['total_cases']} cases")
+    typer.echo(f"  experiment: {experiment_id}")
+    typer.echo(f"  avg task_success_rate: {summary.get('avg_task_success_rate', 0)}")
+    typer.echo(f"  avg citation_coverage: {summary.get('avg_citation_coverage', 0)}")
+    typer.echo(f"  avg elapsed: {summary.get('avg_elapsed_seconds', 0):.1f}s")
+    typer.echo(f"\nResults: {output_dir / 'results.jsonl'}")
+    typer.echo(f"Summary: {output_dir / 'summary.json'}")

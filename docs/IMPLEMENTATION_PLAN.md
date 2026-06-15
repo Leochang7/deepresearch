@@ -448,12 +448,13 @@ MVP 指标：
 - `red_issue_count`
 - `blue_fix_count`
 
-后续指标：
+后续指标与实验：
 
-- LLM-as-Judge 五维评分。
-- Bootstrap 95% CI。
-- Cohen's d。
-- 不同模型、不同策略的对比实验。
+- 先接入 Langfuse，负责 trace、dataset、experiment run、score 记录和对比展示。
+- 本项目保留 ResearchBench mini、benchmark runner、本地规则指标和 LLM-as-Judge schema。
+- 规则指标扩展到 `factual_hit_rate`、`hallucination_flag`。
+- LLM-as-Judge 五维评分：factuality、citation_support、completeness、reasoning_consistency、readability。
+- Bootstrap 95% CI、Cohen's d、HotpotQA 深度研究变体和 11 领域/35 题完整 ResearchBench 后置到 pipeline 稳定后。
 
 ### 3.10 JSON fallback
 
