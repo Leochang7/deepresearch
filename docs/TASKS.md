@@ -368,24 +368,24 @@
 
 ### PM4 Trace 与展示
 
-- [ ] PM040 增强 `inspect --timeline`
+- [x] PM040 增强 `inspect --timeline`
   - Files: `src/deepresearch/cli.py`, tests/docs
   - Done when: CLI 可按 task 输出阶段耗时、失败原因、query/doc/chunk/evidence 数量。
   - Verify: `uv run pytest tests/test_cli.py`
 
-- [ ] PM041 增加 MVP 验收文档
+- [x] PM041 增加 MVP 验收文档
   - Files: `docs/MVP_ACCEPTANCE.md`, `README.md`
   - Done when: 记录真实 smoke run 配置、指标、产物路径、已知限制和复现命令。
   - Verify: 文档人工检查。
 
 ### PM5 Memory 与数据治理
 
-- [ ] PM050 增加 Memory schema version
+- [x] PM050 增加 Memory schema version
   - Files: `src/deepresearch/memory/milvus_store.py`, config/docs/tests
   - Done when: collection metadata 记录 embedding model、dim、schema version，启动时校验配置匹配。
   - Verify: `uv run pytest tests/memory`
 
-- [ ] PM051 增加轻量冲突检测
+- [x] PM051 增加轻量冲突检测
   - Files: `src/deepresearch/memory/conflict.py`, tests
   - Done when: 支持同实体不同日期/数值、相反结论词、同 source_url 不同 claim 的启发式检测。
   - Verify: `uv run pytest tests/memory/test_conflict.py`

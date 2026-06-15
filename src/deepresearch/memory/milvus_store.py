@@ -16,6 +16,7 @@ from deepresearch.memory.store import (
 _DIM = 1024
 _METRIC = "COSINE"
 _INDEX_TYPE = "HNSW"
+_SCHEMA_VERSION = 1
 
 _CHUNKS_COLLECTION = "deepresearch_chunks"
 _MEMORIES_COLLECTION = "deepresearch_memories"
@@ -29,11 +30,13 @@ class MilvusStore(MemoryStore):
         chunks_collection: str = _CHUNKS_COLLECTION,
         memories_collection: str = _MEMORIES_COLLECTION,
         dim: int = _DIM,
+        embedding_model: str = "",
     ) -> None:
         self._uri = uri
         self._chunks_name = chunks_collection
         self._memories_name = memories_collection
         self._dim = dim
+        self._embedding_model = embedding_model
         self._client: MilvusClient | None = None
 
     def connect(self) -> None:
@@ -71,7 +74,10 @@ class MilvusStore(MemoryStore):
                 dim=self._dim,
             ),
         ]
-        schema = CollectionSchema(fields=fields, description=f"DeepResearch {name}")
+        schema = CollectionSchema(
+            fields=fields,
+            description=self._schema_description(),
+        )
         self._client.create_collection(
             collection_name=name,
             schema=schema,
@@ -97,6 +103,48 @@ class MilvusStore(MemoryStore):
                 f"Milvus collection {name} embedding dim mismatch: "
                 f"expected {self._dim}, got {dim}"
             )
+        meta = self._collection_metadata(schema)
+        if meta is None:
+            raise ValueError(
+                f"Milvus collection {name} has no DeepResearch schema metadata; "
+                "recreate the collection before use"
+            )
+        if meta.get("schema_version") != _SCHEMA_VERSION:
+            raise ValueError(
+                f"Milvus collection {name} schema version mismatch: "
+                f"expected {_SCHEMA_VERSION}, got {meta.get('schema_version')}"
+            )
+        if meta.get("dim") != self._dim:
+            raise ValueError(
+                f"Milvus collection {name} metadata dim mismatch: "
+                f"expected {self._dim}, got {meta.get('dim')}"
+            )
+        stored_model = meta.get("embedding_model", "")
+        if self._embedding_model and stored_model != self._embedding_model:
+            raise ValueError(
+                f"Milvus collection {name} embedding model mismatch: "
+                f"expected {self._embedding_model}, got {stored_model or '<missing>'}"
+            )
+
+    def _schema_description(self) -> str:
+        return json.dumps(
+            {
+                "schema_version": _SCHEMA_VERSION,
+                "embedding_model": self._embedding_model,
+                "dim": self._dim,
+            }
+        )
+
+    @staticmethod
+    def _collection_metadata(schema: dict) -> dict | None:
+        desc = schema.get("description", "")
+        if not desc:
+            return None
+        try:
+            data = json.loads(desc)
+            return data if isinstance(data, dict) else None
+        except (json.JSONDecodeError, TypeError):
+            return None
 
     def _ensure_connected(self) -> None:
         if self._client is None:

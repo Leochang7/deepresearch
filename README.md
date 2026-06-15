@@ -79,12 +79,16 @@ uv run deepresearch init --output config.toml
 uv run deepresearch index-corpus ./examples/corpus --mode mock
 uv run deepresearch eval <run_id>         # 查看评测结果
 uv run deepresearch inspect <run_id>      # 查看 trace
+uv run deepresearch inspect <run_id> --timeline
 uv run deepresearch config                # 查看当前配置
 ```
 
 `index-corpus` 会切片、生成 embedding，并写入配置中的 Milvus。
 使用自定义运行根目录时，`eval` 和 `inspect` 可传
 `--output-root <directory>`。
+
+真实环境的复现配置、验收指标和已知限制见
+[`docs/MVP_ACCEPTANCE.md`](docs/MVP_ACCEPTANCE.md)。
 
 ### Milvus Standalone
 

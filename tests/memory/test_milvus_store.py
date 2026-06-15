@@ -10,6 +10,12 @@ def _mock_store():
     with patch("deepresearch.memory.milvus_store.MilvusClient") as mock_cls:
         client = MagicMock()
         client.has_collection.return_value = True
+        client.describe_collection.return_value = {
+            "description": (
+                '{"schema_version": 1, "embedding_model": "", "dim": 1024}'
+            ),
+            "fields": [{"name": "embedding", "params": {"dim": 1024}}],
+        }
         mock_cls.return_value = client
         store = MilvusStore()
         store.connect()

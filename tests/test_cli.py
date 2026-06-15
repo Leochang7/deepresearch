@@ -118,7 +118,7 @@ async def test_index_corpus_chunks_embeds_and_upserts(tmp_path):
     with patch(
         "deepresearch.memory.milvus_store.MilvusStore",
         return_value=store,
-    ):
+    ) as store_cls:
         documents, chunks = await _index_corpus(
             corpus,
             DeepResearchConfig(),
@@ -131,6 +131,7 @@ async def test_index_corpus_chunks_embeds_and_upserts(tmp_path):
     assert entries[0].source_type == "chunk"
     assert entries[0].run_id == "corpus"
     assert len(entries[0].embedding) == 1024
+    assert store_cls.call_args.kwargs["embedding_model"] == "Qwen3-Embedding-4B"
 
 
 def test_eval_and_inspect_support_custom_output_root(tmp_path):
@@ -171,3 +172,70 @@ def test_config_accepts_explicit_file(tmp_path):
 
     assert result.exit_code == 0
     assert "LLM provider: deepseek" in result.output
+
+
+def test_inspect_timeline_shows_task_stats(tmp_path):
+    run_dir = tmp_path / "runs" / "run-tl"
+    run_dir.mkdir(parents=True)
+    trace_lines = [
+        '{"timestamp":"2026-06-16T00:00:00+00:00","event_type":"task_state_changed","task_id":"t1","metadata":{"status":"running"}}',
+        '{"timestamp":"2026-06-16T00:00:01+00:00","event_type":"retriever_called","task_id":"t1","metadata":{"stage":"queries_generated","query_count":3}}',
+        '{"timestamp":"2026-06-16T00:00:03+00:00","event_type":"retriever_called","task_id":"t1","metadata":{"stage":"retrieval_completed","document_count":10}}',
+        '{"timestamp":"2026-06-16T00:00:04+00:00","event_type":"retriever_called","task_id":"t1","metadata":{"stage":"chunking_completed","chunk_count":25}}',
+        '{"timestamp":"2026-06-16T00:00:06+00:00","event_type":"retriever_called","task_id":"t1","metadata":{"stage":"evidence_extraction_completed","evidence_count":4}}',
+        '{"timestamp":"2026-06-16T00:00:07+00:00","event_type":"task_state_changed","task_id":"t1","metadata":{"status":"succeeded"}}',
+    ]
+    (run_dir / "trace.jsonl").write_text("\n".join(trace_lines), encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["inspect", "run-tl", "--output-root", str(tmp_path / "runs"), "--timeline"],
+    )
+
+    assert result.exit_code == 0
+    assert "t1" in result.output
+    assert "succeeded" in result.output
+    assert "3" in result.output
+    assert "4" in result.output
+    assert "7.000" in result.output
+    assert "queries_generated=1.000s" in result.output
+    assert "retrieval_completed=2.000s" in result.output
+
+
+def test_inspect_timeline_no_trace(tmp_path):
+    run_dir = tmp_path / "runs" / "run-empty"
+    run_dir.mkdir(parents=True)
+
+    result = runner.invoke(
+        app,
+        ["inspect", "run-empty", "--output-root", str(tmp_path / "runs"), "--timeline"],
+    )
+
+    assert result.exit_code == 0
+    assert "No trace.jsonl" in result.output
+
+
+def test_inspect_timeline_preserves_failure_reason(tmp_path):
+    run_dir = tmp_path / "runs" / "run-failed"
+    run_dir.mkdir(parents=True)
+    trace_lines = [
+        '{"timestamp":"2026-06-16T00:00:00+00:00","event_type":"task_state_changed","task_id":"t1","metadata":{"status":"running"}}',
+        '{"timestamp":"2026-06-16T00:00:01+00:00","event_type":"task_state_changed","task_id":"t1","metadata":{"status":"error","error":"network unavailable"}}',
+        '{"timestamp":"2026-06-16T00:00:02+00:00","event_type":"task_state_changed","task_id":"t1","metadata":{"status":"failed"}}',
+    ]
+    (run_dir / "trace.jsonl").write_text("\n".join(trace_lines), encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "inspect",
+            "run-failed",
+            "--output-root",
+            str(tmp_path / "runs"),
+            "--timeline",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "failed" in result.output
+    assert "network unavailable" in result.output

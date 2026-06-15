@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -148,6 +149,7 @@ def _build_runtime(
         chunks_collection=cfg.milvus.chunks_collection,
         memories_collection=cfg.milvus.memories_collection,
         dim=cfg.embedding.dim,
+        embedding_model=cfg.embedding.model,
     )
     return llm, retriever, memory, embedding, reranker
 
@@ -282,6 +284,7 @@ async def _index_corpus(
         chunks_collection=cfg.milvus.chunks_collection,
         memories_collection=cfg.milvus.memories_collection,
         dim=cfg.embedding.dim,
+        embedding_model=cfg.embedding.model,
     )
     await store.upsert(entries)
     return len(documents), len(entries)
@@ -329,12 +332,18 @@ def eval_cmd(
 def inspect(
     run_id: str = typer.Argument(help="Run ID to inspect"),
     output_root: str = typer.Option("outputs", help="Runs root directory"),
+    timeline: bool = typer.Option(
+        False, "--timeline", "-t", help="Show per-task timeline"
+    ),
 ) -> None:
     """Inspect trace and outputs of a research run."""
     run_dir = _run_dir(run_id, output_root)
     if not run_dir.is_dir():
         typer.echo(f"No outputs found for run {run_id}", err=True)
         raise typer.Exit(1)
+    if timeline:
+        _print_timeline(run_dir)
+        return
     typer.echo(f"Run directory: {run_dir}")
     for path in sorted(run_dir.iterdir()):
         typer.echo(f"  {path.name} ({path.stat().st_size} bytes)")
@@ -342,6 +351,115 @@ def inspect(
     if trace_path.exists():
         lines = trace_path.read_text(encoding="utf-8").strip().splitlines()
         typer.echo(f"\nTrace events: {len(lines)}")
+
+
+def _print_timeline(run_dir: Path) -> None:
+    trace_path = run_dir / "trace.jsonl"
+    if not trace_path.exists():
+        typer.echo("No trace.jsonl found.")
+        return
+    task_stats = _parse_timeline(trace_path)
+    if not task_stats:
+        typer.echo("No task events found in trace.")
+        return
+    header = (
+        f"{'task_id':<22} {'status':<12} {'elapsed':<9} {'queries':<8} "
+        f"{'docs':<6} {'chunks':<7} {'evidence':<9} error"
+    )
+    typer.echo(header)
+    typer.echo("-" * len(header))
+    for stats in task_stats:
+        typer.echo(
+            f"{stats['task_id']:<22} "
+            f"{stats['status']:<12} "
+            f"{stats.get('elapsed_seconds', 0.0):<9.3f} "
+            f"{stats.get('query_count', 0):<8} "
+            f"{stats.get('document_count', 0):<6} "
+            f"{stats.get('chunk_count', 0):<7} "
+            f"{stats.get('evidence_count', 0):<9} "
+            f"{stats.get('error', '')}"
+        )
+        stage_durations = stats.get("stage_durations", {})
+        if stage_durations:
+            details = ", ".join(
+                f"{stage}={seconds:.3f}s" for stage, seconds in stage_durations.items()
+            )
+            typer.echo(f"  stages: {details}")
+
+
+def _parse_timeline(trace_path: Path) -> list[dict]:
+    task_stats: dict[str, dict] = {}
+    for line in trace_path.read_text(encoding="utf-8").strip().splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        task_id = event.get("task_id", "")
+        if not task_id:
+            continue
+        timestamp = _parse_trace_timestamp(event.get("timestamp"))
+        stats = task_stats.setdefault(
+            task_id,
+            {
+                "task_id": task_id,
+                "status": "unknown",
+                "stage_durations": {},
+                "_first_timestamp": timestamp,
+                "_last_timestamp": timestamp,
+                "_previous_timestamp": timestamp,
+            },
+        )
+        if timestamp is not None:
+            if stats["_first_timestamp"] is None:
+                stats["_first_timestamp"] = timestamp
+            stats["_last_timestamp"] = timestamp
+        event_type = event.get("event_type", "")
+        metadata = event.get("metadata", {})
+        if event_type == "retriever_called":
+            stage = metadata.get("stage", "")
+            previous = stats.get("_previous_timestamp")
+            if timestamp is not None and previous is not None and stage:
+                stats["stage_durations"][stage] = max(
+                    0.0, (timestamp - previous).total_seconds()
+                )
+            if stage == "queries_generated":
+                stats["query_count"] = metadata.get("query_count", 0)
+            elif stage == "retrieval_completed":
+                stats["document_count"] = metadata.get("document_count", 0)
+            elif stage == "chunking_completed":
+                stats["chunk_count"] = metadata.get("chunk_count", 0)
+            elif stage == "evidence_extraction_completed":
+                stats["evidence_count"] = metadata.get("evidence_count", 0)
+        elif event_type == "task_state_changed":
+            status = metadata.get("status", "")
+            if status:
+                stats["status"] = status
+            if metadata.get("error"):
+                stats["error"] = metadata["error"]
+        if timestamp is not None:
+            stats["_previous_timestamp"] = timestamp
+
+    results = []
+    for stats in task_stats.values():
+        first = stats.pop("_first_timestamp")
+        last = stats.pop("_last_timestamp")
+        stats.pop("_previous_timestamp")
+        stats["elapsed_seconds"] = (
+            max(0.0, (last - first).total_seconds())
+            if first is not None and last is not None
+            else 0.0
+        )
+        results.append(stats)
+    return results
+
+
+def _parse_trace_timestamp(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 @app.command(name="config")

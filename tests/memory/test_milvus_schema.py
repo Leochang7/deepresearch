@@ -1,4 +1,7 @@
+import json
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from deepresearch.memory.milvus_store import MilvusStore
 
@@ -97,3 +100,65 @@ def test_existing_collection_dimension_mismatch_fails_fast():
             assert "embedding dim mismatch" in str(exc)
         else:
             raise AssertionError("expected dimension mismatch to fail")
+
+
+def test_connect_writes_schema_metadata():
+    with patch("deepresearch.memory.milvus_store.MilvusClient") as mock_cls:
+        mock_client = _make_mock_client()
+        mock_cls.return_value = mock_client
+
+        MilvusStore(dim=1024, embedding_model="Qwen3-Embedding-4B").connect()
+
+        for call in mock_client.create_collection.call_args_list:
+            schema = call.kwargs["schema"]
+            meta = json.loads(schema.description)
+            assert meta["schema_version"] == 1
+            assert meta["embedding_model"] == "Qwen3-Embedding-4B"
+            assert meta["dim"] == 1024
+
+
+def test_connect_validates_schema_version_mismatch():
+    with patch("deepresearch.memory.milvus_store.MilvusClient") as mock_cls:
+        mock_client = _make_mock_client()
+        mock_client.has_collection.return_value = True
+        mock_client.describe_collection.return_value = {
+            "description": '{"schema_version": 99, "embedding_model": "", "dim": 1024}',
+            "fields": [{"name": "embedding", "params": {"dim": 1024}}],
+        }
+        mock_cls.return_value = mock_client
+
+        with pytest.raises(ValueError, match="schema version mismatch"):
+            MilvusStore().connect()
+
+
+def test_connect_rejects_collection_without_schema_metadata():
+    with patch("deepresearch.memory.milvus_store.MilvusClient") as mock_cls:
+        mock_client = _make_mock_client()
+        mock_client.has_collection.return_value = True
+        mock_client.describe_collection.return_value = {
+            "fields": [{"name": "embedding", "params": {"dim": 1024}}],
+        }
+        mock_cls.return_value = mock_client
+
+        with pytest.raises(ValueError, match="no DeepResearch schema metadata"):
+            MilvusStore().connect()
+
+
+def test_connect_validates_embedding_model_mismatch():
+    with patch("deepresearch.memory.milvus_store.MilvusClient") as mock_cls:
+        mock_client = _make_mock_client()
+        mock_client.has_collection.return_value = True
+        mock_client.describe_collection.return_value = {
+            "description": json.dumps(
+                {
+                    "schema_version": 1,
+                    "embedding_model": "old-model",
+                    "dim": 1024,
+                }
+            ),
+            "fields": [{"name": "embedding", "params": {"dim": 1024}}],
+        }
+        mock_cls.return_value = mock_client
+
+        with pytest.raises(ValueError, match="embedding model mismatch"):
+            MilvusStore(embedding_model="new-model").connect()
