@@ -15,14 +15,18 @@ def test_connect_creates_expected_collections_and_fields():
     with (
         patch("deepresearch.memory.milvus_store.connections") as connections,
         patch("deepresearch.memory.milvus_store.utility") as utility,
-        patch("deepresearch.memory.milvus_store.Collection", side_effect=fake_collection),
+        patch(
+            "deepresearch.memory.milvus_store.Collection", side_effect=fake_collection
+        ),
     ):
         utility.has_collection.return_value = False
 
         store = MilvusLiteStore(uri="./data/test.db")
         store.connect()
 
-        connections.connect.assert_called_once_with(alias="default", uri="./data/test.db")
+        connections.connect.assert_called_once_with(
+            alias="default", uri="./data/test.db"
+        )
 
     assert [name for name, _ in created_schemas] == [
         "deepresearch_chunks",
@@ -62,7 +66,9 @@ def test_connect_creates_hnsw_cosine_index():
     with (
         patch("deepresearch.memory.milvus_store.connections"),
         patch("deepresearch.memory.milvus_store.utility") as utility,
-        patch("deepresearch.memory.milvus_store.Collection", side_effect=fake_collection),
+        patch(
+            "deepresearch.memory.milvus_store.Collection", side_effect=fake_collection
+        ),
     ):
         utility.has_collection.return_value = False
         MilvusLiteStore().connect()

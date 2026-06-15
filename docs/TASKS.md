@@ -175,22 +175,22 @@
 
 ### M6 DAG 与执行器
 
-- [ ] T060 实现 DAG 数据结构和无环校验
+- [x] T060 实现 DAG 数据结构和无环校验
   - Files: `src/deepresearch/core/dag.py`, `tests/core/test_dag.py`
   - Done when: 支持依赖解析、ready task 查询、循环依赖报错。
   - Verify: `uv run pytest tests/core/test_dag.py`
 
-- [ ] T061 实现异步 DAG Executor 基础调度
+- [x] T061 实现异步 DAG Executor 基础调度
   - Files: `src/deepresearch/core/executor.py`, `tests/core/test_executor.py`
   - Done when: 基于 `asyncio.Semaphore` 控制并发，按依赖执行任务。
   - Verify: `uv run pytest tests/core/test_executor.py`
 
-- [ ] T062 实现 timeout、retry 和 cancellation
+- [x] T062 实现 timeout、retry 和 cancellation
   - Files: `src/deepresearch/core/executor.py`, `tests/core/test_executor_timeout.py`
   - Done when: 支持 task timeout、max retries、global timeout 和 cancelled 状态。
   - Verify: `uv run pytest tests/core/test_executor_timeout.py`
 
-- [ ] T063 实现 replan 和三级降级策略
+- [x] T063 实现 replan 和三级降级策略
   - Files: `src/deepresearch/core/executor.py`, `tests/core/test_replan.py`
   - Done when: 单任务失败、同层失败比例 >= 40%、evidence 为 0、information_insufficient 可触发 replan 或 limitation。
   - Verify: `uv run pytest tests/core/test_replan.py`
