@@ -1,0 +1,30 @@
+{
+  "run_id": "1d8bfe89d22d",
+  "task_success_rate": 0.125,
+  "citation_coverage": 1.0,
+  "empty_citation_rate": 0.0,
+  "report_section_completeness": 0.8,
+  "red_issue_count": 11,
+  "blue_fix_count": 2,
+  "factual_hit_rate": 0.0,
+  "hallucination_flag": false,
+  "hallucination_details": [],
+  "judge_scores": {
+    "final_score": 0.65,
+    "rounds": 3.0
+  },
+  "created_at": "",
+  "metadata": {},
+  "budget": {
+    "llm_calls": 32,
+    "search_calls": 55,
+    "fetched_docs": 220,
+    "chunks": 880,
+    "embedding_batches": 22,
+    "rerank_calls": 10,
+    "prompt_tokens": 343158,
+    "completion_tokens": 18098,
+    "total_tokens": 361256,
+    "elapsed_seconds": 424.391
+  }
+}

@@ -10,7 +10,9 @@ def test_noop_when_disabled():
     adapter.report_run("r1", "q", {}, {}, {}, {}, {})
 
 
-def test_noop_when_keys_missing(caplog):
+def test_noop_when_keys_missing(caplog, monkeypatch):
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+    monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
     with caplog.at_level(logging.WARNING):
         adapter = LangfuseAdapter(enabled=True, public_key="", secret_key="")
     assert not adapter.is_enabled
