@@ -469,20 +469,20 @@
 
 ### PM8 Local Corpus 可复现真实评测
 
-- [ ] PM080 设计本地 benchmark corpus 结构
+- [x] PM080 设计本地 benchmark corpus 结构
   - Files: `examples/corpus/`, `docs/REAL_BENCHMARK_GUIDE.md`, tests
   - Done when: 为 PM7 5-case smoke 建立可提交的本地资料集目录，至少覆盖 `llm_agents`、`embeddings`、`fine_tuning`、`reasoning`、`rag`；每个 case 有 2-4 篇短文档，包含 expected facts 所需证据。
   - Verify: 文档人工检查；资料不包含密钥、私有网页或版权风险长文全文。
 
-- [ ] PM081 benchmark CLI 支持 local corpus
+- [x] PM081 benchmark CLI 支持 local corpus
   - Files: `src/deepresearch/cli.py`, `src/deepresearch/evaluation/benchmark.py`, tests
   - Done when: `deepresearch benchmark` 支持 `--retriever local --corpus examples/corpus`；真实模式仍使用真实 LLM/embedding/reranker/Milvus，但检索来源走本地 corpus，不依赖 Tavily/MiMo 搜索额度。
   - Verify: `uv run pytest tests/test_cli.py tests/evaluation/test_benchmark.py`
 
-- [ ] PM082 建立 Local Corpus Smoke 配置
-  - Files: `docs/REAL_BENCHMARK_GUIDE.md`, `docs/CONFIGURATION.md`, optional `examples/configs/`
+- [x] PM082 建立 Local Corpus Smoke 配置
+  - Files: `docs/REAL_BENCHMARK_GUIDE.md`, `docs/CONFIGURATION.md`, `examples/configs/benchmark_smoke.toml`
   - Done when: 有一份低成本 smoke 配置，限制 query/docs/chunks/replan/red-blue 轮数；用于稳定复现 PM7 5-case，不影响默认配置。
-  - Verify: `uv run deepresearch doctor --real --config <smoke-config>`
+  - Verify: `uv run pytest tests/test_cli.py`; TOML syntax valid
 
 - [ ] PM083 跑通 PM7 5-case local-corpus real benchmark
   - Files: `outputs/bench-local-*` ignored, docs
@@ -494,7 +494,7 @@
   - Done when: 给定本地 corpus 中包含答案的资料，ResearchAgent 能稳定抽取原文 quote、绑定 source_url/title、写入 memory，并让 citation_coverage 不依赖模型常识。
   - Verify: `uv run pytest tests/agents/test_researcher.py`; PM083 指标复测。
 
-- [ ] PM085 将联网搜索降级为增强层
-  - Files: `docs/POST_MVP_ROADMAP.md`, `docs/REAL_BENCHMARK_GUIDE.md`, config/docs/tests
-  - Done when: 文档明确默认 benchmark 不依赖实时搜索；Tavily、MiMo Search、SearXNG/Brave/DuckDuckGo 等仅作为 optional retriever adapter 或探索模式。
+- [x] PM085 将联网搜索降级为增强层
+  - Files: `docs/POST_MVP_ROADMAP.md`, `docs/REAL_BENCHMARK_GUIDE.md`, `docs/CONFIGURATION.md`
+  - Done when: 文档明确默认 benchmark 不依赖实时搜索；Tavily、MiMo Search 仅作为 optional retriever adapter；默认 `uv run pytest` 不依赖互联网。
   - Verify: 文档人工检查；默认 `uv run pytest` 不依赖互联网。

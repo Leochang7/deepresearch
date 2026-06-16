@@ -2,7 +2,7 @@
 
 ## 完整真实 Benchmark + Langfuse 上报
 
-当前建议优先使用 Local Corpus 路径做真实评测。原因是 MiMo 原生联网搜索会产生额外费用，Tavily 免费额度有限且可能返回 432；实时搜索结果也不可复现。早期 benchmark 的目标应是验证“给定可控资料后，系统能否稳定抽取证据、生成引用、降低幻觉”，而不是验证搜索 API 的额度和稳定性。
+当前建议优先使用 Local Corpus 路径做真实评测。The primary benchmark path uses a local corpus. Real-time web search (Tavily, MiMo Search) is an optional network enhancement layer, not required for benchmark evaluation. Local corpus benchmark 的目标是验证”给定可控资料后，系统能否稳定抽取证据、生成引用、降低幻觉”，而不是验证搜索 API 的额度和稳定性。
 
 ### 1. 环境准备
 
@@ -41,6 +41,7 @@ uv run deepresearch benchmark \
   --mode real \
   --retriever local \
   --corpus examples/corpus \
+  --config examples/configs/benchmark_smoke.toml \
   --output outputs/bench-local \
   --experiment pm8-local-smoke
 ```
@@ -50,9 +51,10 @@ uv run deepresearch benchmark \
 - `--mode real` 仍使用真实 MiMo chat、embedding、reranker 和 Milvus。
 - `--retriever local` 避免消耗 Tavily/MiMo 搜索额度。
 - `outputs/bench-local` 不提交，只用于本地复测。
-- 当前 `benchmark --corpus` 仍待 PM8 实现；实现前可先用 `deepresearch run --retriever local --corpus examples/corpus` 单题调试。
 
-### 3. 可选路径：联网 Benchmark
+### 3. Optional: Network-Enhanced Retrieval
+
+> **Note:** This path costs real API credits (Tavily, MiMo Search) and produces non-reproducible results. Not recommended for benchmark evaluation.
 
 ```bash
 uv run deepresearch benchmark \
@@ -61,7 +63,7 @@ uv run deepresearch benchmark \
   --output outputs/bench-$(date +%Y%m%d)
 ```
 
-联网 benchmark 仅作为增强验证，不作为默认验收路径。使用前确认 Tavily/MiMo 搜索额度充足。
+联网 benchmark 仅作为增强验证，不作为默认验收路径。使用前确认 Tavily/MiMo 搜索额度充足。搜索结果受时间、额度和网络波动影响，不适合调优 evidence extraction 和 citation coverage。
 
 ### 4. 查看结果
 
@@ -119,6 +121,30 @@ curl http://localhost:19530/healthz
 uv run deepresearch doctor --real  # 会检查 dim
 ```
 
+## Quick Start: Local Corpus Smoke Benchmark
+
+The recommended stable benchmark path uses a local corpus instead of real-time web search:
+
+```bash
+# Prerequisites: real LLM/embedding/reranker/Milvus configured in .env
+uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl \
+  --mode real --retriever local --corpus examples/corpus \
+  --config examples/configs/benchmark_smoke.toml \
+  --experiment pm8-local-smoke \
+  --output outputs/bench-local
+```
+
+This runs the PM7 5-case smoke suite against curated local documents covering 5 domains: llm_agents, embeddings, fine_tuning, reasoning, and rag.
+
+**Why local corpus?** Real-time Tavily/MiMo search costs per query and is not reproducible across runs. The local corpus provides deterministic retrieval for stable metric comparison.
+
+**Smoke config** (`examples/configs/benchmark_smoke.toml`) limits:
+- 2 queries per task, 5 docs, 15 chunks
+- 20 max LLM calls per run, 0 replans, 1 red-blue round
+- 90s task timeout, 600s global timeout
+
+Remove `--config examples/configs/benchmark_smoke.toml` to use default settings (higher cost, longer runtime).
+
 ## PM7 Smoke Benchmark（事实覆盖率校准）
 
 PM7 将 `factual_hit_rate` 从粗糙字符串匹配升级为 fact-level 规则 + 可选 LLM 语义判定。5-case smoke 使用 `examples/bench/researchbench_smoke5.jsonl`，包含 dict 格式的 `expected_facts`（含 `keywords` / `aliases`）。
@@ -132,7 +158,7 @@ uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl --mode m
 # 真实模式
 uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl --mode real --output outputs/bench-pm7-smoke --experiment pm7-smoke
 
-# 推荐：真实模型 + 本地 corpus（PM8 实现后）
+# 推荐：真实模型 + 本地 corpus
 uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl --mode real --retriever local --corpus examples/corpus --output outputs/bench-local --experiment pm8-local-smoke
 ```
 

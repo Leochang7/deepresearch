@@ -509,6 +509,18 @@ def benchmark_cmd(
     output: str = typer.Option("outputs/bench", "--output", "-o"),
     experiment: str = typer.Option("", "--experiment", "-e"),
     mode: str = typer.Option("mock", "--mode", "-m"),
+    retriever: str | None = typer.Option(
+        None, "--retriever", help="Retriever for real mode: tavily, mimo, or local"
+    ),
+    corpus: str | None = typer.Option(
+        None, "--corpus", help="Local corpus directory for local retrieval"
+    ),
+    case_id: str | None = typer.Option(
+        None, "--case-id", help="Run only one benchmark case by ID"
+    ),
+    limit: int | None = typer.Option(
+        None, "--limit", help="Run only the first N benchmark cases after filtering"
+    ),
 ) -> None:
     """Run benchmark suite and produce results.jsonl + summary.json."""
     from deepresearch.core.run_manager import RunManager
@@ -520,6 +532,15 @@ def benchmark_cmd(
         raise typer.Exit(1)
 
     cases = load_dataset(dataset_path)
+    if case_id:
+        cases = [case for case in cases if case.id == case_id]
+        if not cases:
+            typer.echo(f"Case not found: {case_id}", err=True)
+            raise typer.Exit(1)
+    if limit is not None:
+        if limit < 1:
+            raise typer.BadParameter("--limit must be >= 1")
+        cases = cases[:limit]
     typer.echo(f"Loaded {len(cases)} benchmark cases from {dataset}")
 
     cfg = load_config(config_path=config_path)
@@ -530,7 +551,8 @@ def benchmark_cmd(
     cfg.langfuse.experiment_name = experiment_id
 
     def make_manager() -> RunManager:
-        components = _build_runtime(cfg, mode=mode)
+        corpus_path = Path(corpus) if corpus else None
+        components = _build_runtime(cfg, mode=mode, retriever_name=retriever, corpus=corpus_path)
         return RunManager(cfg, *components)
 
     _results, summary = asyncio.run(

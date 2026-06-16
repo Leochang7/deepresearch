@@ -1,0 +1,23 @@
+# Smoke benchmark config — low-cost settings for local corpus reproducible evaluation.
+# Usage:
+#   uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl \
+#     --mode real --retriever local --corpus examples/corpus \
+#     --config examples/configs/benchmark_smoke.toml \
+#     --experiment pm8-local-smoke
+
+[retrieval]
+max_queries_per_task = 2
+max_docs_per_task = 5
+max_chunks_per_task = 15
+
+[executor]
+max_concurrency = 2
+max_task_retries = 1
+task_timeout_seconds = 90
+global_timeout_seconds = 600
+max_llm_calls_per_run = 20
+max_replans = 0
+
+[red_blue]
+max_rounds = 1
+target_score = 0.80

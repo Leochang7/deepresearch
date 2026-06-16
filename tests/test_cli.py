@@ -279,3 +279,140 @@ def test_benchmark_uses_experiment_output_directory(tmp_path):
     assert (
         run_benchmark.await_args.kwargs["output_dir"] == tmp_path / "outputs" / "exp-1"
     )
+
+
+def test_benchmark_filters_case_id_and_limit(tmp_path):
+    dataset = tmp_path / "bench.jsonl"
+    dataset.write_text(
+        "\n".join(
+            [
+                '{"id":"case-1","domain":"test","difficulty":"easy","question":"q1","expected_facts":[],"required_citations":0,"tags":[]}',
+                '{"id":"case-2","domain":"test","difficulty":"easy","question":"q2","expected_facts":[],"required_citations":0,"tags":[]}',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    summary = {
+        "total_cases": 1,
+        "avg_task_success_rate": 1.0,
+        "avg_citation_coverage": 0.5,
+        "avg_elapsed_seconds": 0.1,
+    }
+
+    with (
+        patch(
+            "deepresearch.evaluation.benchmark.run_benchmark",
+            new_callable=AsyncMock,
+            return_value=([], summary),
+        ) as run_benchmark,
+        patch("deepresearch.cli._build_runtime", return_value=(1, 2, 3, 4, 5)),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "benchmark",
+                str(dataset),
+                "--case-id",
+                "case-2",
+                "--limit",
+                "1",
+            ],
+        )
+
+    assert result.exit_code == 0
+    cases = run_benchmark.await_args.args[0]
+    assert [case.id for case in cases] == ["case-2"]
+
+
+def test_benchmark_passes_retriever_override(tmp_path):
+    dataset = tmp_path / "bench.jsonl"
+    dataset.write_text(
+        '{"id":"case-1","domain":"test","difficulty":"easy","question":"q","expected_facts":[],"required_citations":0,"tags":[]}\n',
+        encoding="utf-8",
+    )
+    summary = {
+        "total_cases": 1,
+        "avg_task_success_rate": 1.0,
+        "avg_citation_coverage": 0.5,
+        "avg_elapsed_seconds": 0.1,
+    }
+
+    with (
+        patch(
+            "deepresearch.evaluation.benchmark.run_benchmark",
+            new_callable=AsyncMock,
+            return_value=([], summary),
+        ) as run_benchmark,
+        patch("deepresearch.cli._build_runtime", return_value=(1, 2, 3, 4, 5)) as build,
+    ):
+        result = runner.invoke(
+            app,
+            ["benchmark", str(dataset), "--mode", "real", "--retriever", "mimo"],
+        )
+        assert result.exit_code == 0
+        manager_factory = run_benchmark.await_args.args[1]
+        manager_factory()
+
+    assert build.call_args.kwargs["retriever_name"] == "mimo"
+
+
+def test_benchmark_unknown_case_id_fails(tmp_path):
+    dataset = tmp_path / "bench.jsonl"
+    dataset.write_text(
+        '{"id":"case-1","domain":"test","difficulty":"easy","question":"q","expected_facts":[],"required_citations":0,"tags":[]}\n',
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        ["benchmark", str(dataset), "--case-id", "missing"],
+    )
+
+    assert result.exit_code == 1
+    assert "Case not found: missing" in result.output
+
+
+def test_benchmark_passes_corpus_to_build_runtime(tmp_path):
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "doc.md").write_text("local corpus content", encoding="utf-8")
+
+    dataset = tmp_path / "bench.jsonl"
+    dataset.write_text(
+        '{"id":"case-1","domain":"test","difficulty":"easy","question":"q","expected_facts":[],"required_citations":0,"tags":[]}\n',
+        encoding="utf-8",
+    )
+    summary = {
+        "total_cases": 1,
+        "avg_task_success_rate": 1.0,
+        "avg_citation_coverage": 0.5,
+        "avg_elapsed_seconds": 0.1,
+    }
+
+    with (
+        patch(
+            "deepresearch.evaluation.benchmark.run_benchmark",
+            new_callable=AsyncMock,
+            return_value=([], summary),
+        ) as run_benchmark,
+        patch("deepresearch.cli._build_runtime", return_value=(1, 2, 3, 4, 5)) as build,
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "benchmark",
+                str(dataset),
+                "--mode",
+                "mock",
+                "--retriever",
+                "local",
+                "--corpus",
+                str(corpus),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        manager_factory = run_benchmark.await_args.args[1]
+        manager_factory()
+
+    assert build.call_args.kwargs["corpus"] == corpus

@@ -249,16 +249,15 @@ ResearchBench smoke question -> LocalDatasetRetriever -> fetch/chunk/embed -> Mi
 - 本地 corpus 是可提交、可复现、可审查的资料集。
 - 真实模式仍使用真实 MiMo chat、Qwen embedding、bge reranker 和 Milvus Standalone。
 - 联网搜索作为 optional retriever adapter，只用于探索和增强，不作为稳定验收依赖。
-- 先验证“给到资料后系统能否抽证据、写引用、降低幻觉”，再评估实时搜索质量。
+- 先验证”给到资料后系统能否抽证据、写引用、降低幻觉”，再评估实时搜索质量。
 
 PM8 范围：
 
-- 为 PM7 5-case smoke 准备本地 corpus。
-- `benchmark` CLI 支持 `--retriever local --corpus examples/corpus`。
-- 准备低成本 smoke 配置，限制 query/docs/chunks/replan/Red-Blue 轮数。
-- 跑通 local-corpus real benchmark。
-- 基于可控资料集修复 evidence extraction 和 citation coverage。
-- 将 Tavily/MiMo Search 文档定位调整为 optional network adapter。
+- [x] PM080: 为 PM7 5-case smoke 准备本地 corpus。
+- [x] PM081: `benchmark` CLI 支持 `--retriever local --corpus examples/corpus`。
+- [x] PM082: 准备低成本 smoke 配置，限制 query/docs/chunks/replan/Red-Blue 轮数。
+- [ ] PM083: 跑通 local-corpus real benchmark。
+- [x] PM085: 将 Tavily/MiMo Search 文档定位调整为 optional network adapter。默认 benchmark 使用 local corpus，不依赖实时搜索；`uv run pytest` 默认不依赖互联网。Tavily/MiMo Search 作为可选的检索器适配层，使用时消耗真实 API 额度且结果不可复现。
 
 PM8 不做：
 

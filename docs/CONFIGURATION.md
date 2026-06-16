@@ -69,6 +69,9 @@ top_k_documents = 20
 top_k_vector = 30
 top_k_reranked = 8
 search_provider = "tavily"
+# NOTE: For benchmarks, set search_provider = "local" to avoid internet
+# dependency and ensure reproducible evaluation. Default "uv run pytest"
+# must never depend on real-time search.
 max_queries_per_task = 5
 max_docs_per_task = 20
 max_chunks_per_task = 80
@@ -201,3 +204,7 @@ Content-Type: application/json
 ```
 
 MiMo 原生搜索通过 chat completion 的 `tools` 字段启用，并封装在 `MiMoSearchRetriever` 中。业务层不得直接拼接 MiMo 搜索请求。
+
+## Benchmark Smoke Config
+
+For reproducible benchmark runs, use `examples/configs/benchmark_smoke.toml` to limit resource consumption. See [REAL_BENCHMARK_GUIDE.md](REAL_BENCHMARK_GUIDE.md) for details.
