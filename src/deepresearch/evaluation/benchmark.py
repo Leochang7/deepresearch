@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import random
 import time
@@ -66,10 +67,31 @@ async def run_benchmark(
     max_concurrency: int = 1,
 ) -> tuple[list[BenchmarkResult], dict[str, Any]]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    results: list[BenchmarkResult] = []
     start = time.monotonic()
 
-    for case in cases:
+    semaphore = asyncio.Semaphore(max_concurrency)
+
+    async def _guarded(case: BenchmarkCase, case_idx: int) -> BenchmarkResult:
+        async with semaphore:
+            return await _run_case(case, case_idx, manager_factory, output_dir, llm)
+
+    gathered = await asyncio.gather(
+        *[_guarded(case, i) for i, case in enumerate(cases)],
+    )
+
+    results = list(gathered)
+    summary = _write_results(output_dir, results, time.monotonic() - start)
+    return results, summary
+
+
+async def _run_case(
+    case: BenchmarkCase,
+    case_idx: int,
+    manager_factory: Callable[[], RunManager],
+    output_dir: Path,
+    llm: LLMClient | None = None,
+) -> BenchmarkResult:
+    try:
         case_dir = output_dir / case.id
         manager = manager_factory()
         run_start = time.monotonic()
@@ -115,7 +137,7 @@ async def run_benchmark(
                         judge_hits / len(updated_details), 4
                     )
 
-        result = BenchmarkResult(
+        return BenchmarkResult(
             case_id=case.id,
             run_id=run_result.run_id,
             question=case.question,
@@ -125,11 +147,17 @@ async def run_benchmark(
             budget=run_result.budget.to_dict() if run_result.budget else {},
             elapsed_seconds=round(elapsed, 3),
         )
-        results.append(result)
-        _write_results(output_dir, results, time.monotonic() - start)
-
-    summary = _write_results(output_dir, results, time.monotonic() - start)
-    return results, summary
+    except Exception as exc:
+        return BenchmarkResult(
+            case_id=case.id,
+            run_id="",
+            question=case.question,
+            domain=case.domain,
+            difficulty=case.difficulty,
+            evaluation={"error": str(exc), "stage": "run"},
+            budget={},
+            elapsed_seconds=0.0,
+        )
 
 
 def _write_results(

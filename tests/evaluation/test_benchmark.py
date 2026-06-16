@@ -97,7 +97,8 @@ async def test_run_benchmark_mock(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_run_benchmark_writes_results_after_each_case(tmp_path):
+async def test_run_benchmark_fault_isolation_returns_error_result(tmp_path):
+    """Single case failure doesn't propagate; error is captured in result."""
     cases = [
         BenchmarkCase(
             id="done",
@@ -138,17 +139,27 @@ async def test_run_benchmark_writes_results_after_each_case(tmp_path):
             )
 
     output_dir = tmp_path / "bench"
-    with pytest.raises(RuntimeError, match="case failed"):
-        await run_benchmark(cases, lambda: FakeManager(), output_dir=output_dir)
+    results, summary = await run_benchmark(
+        cases, lambda: FakeManager(), output_dir=output_dir
+    )
+
+    # Fault isolation: all results are returned, including the failed one
+    assert len(results) == 2
+
+    done_result = next(r for r in results if r.case_id == "done")
+    assert "error" not in done_result.evaluation
+
+    boom_result = next(r for r in results if r.case_id == "boom")
+    assert "error" in boom_result.evaluation
+    assert boom_result.evaluation["error"] == "case failed"
+    assert boom_result.evaluation["stage"] == "run"
 
     results_path = output_dir / "results.jsonl"
     summary_path = output_dir / "summary.json"
     assert results_path.exists()
     assert summary_path.exists()
     lines = results_path.read_text(encoding="utf-8").strip().splitlines()
-    assert len(lines) == 1
-    assert json.loads(lines[0])["case_id"] == "done"
-    assert json.loads(summary_path.read_text(encoding="utf-8"))["total_cases"] == 1
+    assert len(lines) == 2
 
 
 def test_summary_includes_difficulty_breakdown():
@@ -550,3 +561,193 @@ def test_load_dataset_with_dict_format_facts():
         assert isinstance(cases[0].expected_facts[1], str)
     finally:
         tmp_path.unlink()
+
+
+@pytest.mark.asyncio
+async def test_run_benchmark_concurrent(tmp_path):
+    """Cases run concurrently when max_concurrency > 1."""
+    import asyncio as _asyncio
+    import time
+
+    report = ResearchReport(
+        run_id="test",
+        question="Q",
+        summary="S",
+        sections=[ReportSection(title="A", content="B [E1]")],
+    )
+
+    class TimedManager:
+        async def run(self, question, *, output_dir):
+            output_dir.mkdir(parents=True)
+            await _asyncio.sleep(0.15)
+            return SimpleNamespace(
+                run_id="test",
+                plan_tasks=[],
+                report=report,
+                evaluation=EvaluationResult(run_id="test"),
+                budget=None,
+                judge_rounds=[],
+            )
+
+    cases = [
+        BenchmarkCase(
+            id=f"c{i}",
+            domain="test",
+            difficulty="easy",
+            question=f"Q{i}",
+            expected_facts=[],
+            required_citations=0,
+            tags=[],
+        )
+        for i in range(4)
+    ]
+
+    start = time.monotonic()
+    results, summary = await run_benchmark(
+        cases,
+        lambda: TimedManager(),
+        output_dir=tmp_path / "bench",
+        max_concurrency=4,
+    )
+    elapsed = time.monotonic() - start
+
+    assert len(results) == 4
+    # 4 cases at 0.15s each with concurrency=4 should take ~0.15s, not ~0.6s
+    assert elapsed < 0.5
+
+
+@pytest.mark.asyncio
+async def test_run_benchmark_fault_isolation(tmp_path):
+    """Single case failure doesn't prevent other cases from completing."""
+    report = ResearchReport(
+        run_id="test",
+        question="Q",
+        summary="S",
+        sections=[ReportSection(title="A", content="B [E1]")],
+    )
+
+    class FailManager:
+        async def run(self, question, *, output_dir):
+            output_dir.mkdir(parents=True)
+            if "fail" in question:
+                raise RuntimeError("simulated failure")
+            return SimpleNamespace(
+                run_id="test",
+                plan_tasks=[],
+                report=report,
+                evaluation=EvaluationResult(run_id="test"),
+                budget=None,
+                judge_rounds=[],
+            )
+
+    cases = [
+        BenchmarkCase(
+            id="c1",
+            domain="test",
+            difficulty="easy",
+            question="ok1",
+            expected_facts=[],
+            required_citations=0,
+            tags=[],
+        ),
+        BenchmarkCase(
+            id="c2",
+            domain="test",
+            difficulty="easy",
+            question="fail this",
+            expected_facts=[],
+            required_citations=0,
+            tags=[],
+        ),
+        BenchmarkCase(
+            id="c3",
+            domain="test",
+            difficulty="easy",
+            question="ok2",
+            expected_facts=[],
+            required_citations=0,
+            tags=[],
+        ),
+    ]
+
+    results, _ = await run_benchmark(
+        cases,
+        lambda: FailManager(),
+        output_dir=tmp_path / "bench",
+        max_concurrency=3,
+    )
+
+    assert len(results) == 3
+    c2 = next(r for r in results if r.case_id == "c2")
+    assert "error" in c2.evaluation
+    c1 = next(r for r in results if r.case_id == "c1")
+    assert "error" not in c1.evaluation
+    c3 = next(r for r in results if r.case_id == "c3")
+    assert "error" not in c3.evaluation
+
+
+@pytest.mark.asyncio
+async def test_run_benchmark_results_in_case_order(tmp_path):
+    """Results are ordered by original case order regardless of completion time."""
+    import asyncio as _asyncio
+
+    report = ResearchReport(
+        run_id="test",
+        question="Q",
+        summary="S",
+        sections=[ReportSection(title="A", content="B [E1]")],
+    )
+
+    class VariableSpeedManager:
+        async def run(self, question, *, output_dir):
+            output_dir.mkdir(parents=True)
+            # First case is slow, rest are fast
+            delay = 0.2 if "slow" in question else 0.05
+            await _asyncio.sleep(delay)
+            return SimpleNamespace(
+                run_id="test",
+                plan_tasks=[],
+                report=report,
+                evaluation=EvaluationResult(run_id="test"),
+                budget=None,
+                judge_rounds=[],
+            )
+
+    cases = [
+        BenchmarkCase(
+            id="c-slow",
+            domain="test",
+            difficulty="easy",
+            question="slow query",
+            expected_facts=[],
+            required_citations=0,
+            tags=[],
+        ),
+        BenchmarkCase(
+            id="c-fast1",
+            domain="test",
+            difficulty="easy",
+            question="fast query",
+            expected_facts=[],
+            required_citations=0,
+            tags=[],
+        ),
+        BenchmarkCase(
+            id="c-fast2",
+            domain="test",
+            difficulty="easy",
+            question="fast query",
+            expected_facts=[],
+            required_citations=0,
+            tags=[],
+        ),
+    ]
+
+    results, _ = await run_benchmark(
+        cases,
+        lambda: VariableSpeedManager(),
+        output_dir=tmp_path / "bench",
+        max_concurrency=3,
+    )
+
+    assert [r.case_id for r in results] == ["c-slow", "c-fast1", "c-fast2"]
