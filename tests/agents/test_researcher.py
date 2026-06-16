@@ -465,6 +465,19 @@ async def test_researcher_uses_independent_keyword_recall():
     assert memory.keyword_queries == ["检索研究证据"]
 
 
+def test_task_keywords_handles_chinese():
+    from deepresearch.agents.researcher import ResearchAgent
+    from deepresearch.schemas.task import TaskNode
+
+    task = TaskNode(
+        task_id="t1",
+        description="什么是RAG",
+        goal="理解检索增强生成",
+    )
+    keywords = ResearchAgent._task_keywords(task)
+    assert len(keywords) > 0
+
+
 def test_fuzzy_quote_matches_case_insensitive():
     """LLM often capitalizes the first letter of a quote."""
     source = "reAct interleaves reasoning and acting steps in a loop."

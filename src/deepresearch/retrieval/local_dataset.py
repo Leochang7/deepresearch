@@ -110,11 +110,17 @@ def _load_jsonl(path: Path) -> list[RetrievedDocument]:
 
 
 def _tokenize(text: str) -> set[str]:
-    return {
-        token
-        for token in re.findall(r"[a-zA-Z][a-zA-Z0-9_-]{2,}", text.lower())
-        if token not in _STOPWORDS
-    }
+    normalized = text.lower()
+    # Latin tokens (3+ chars)
+    latin = set(re.findall(r"[a-z][a-z0-9_-]{2,}", normalized))
+    latin -= _STOPWORDS
+    # CJK unigrams + bigrams (same range as store.py:lexical_tokens)
+    cjk_runs = re.findall(r"[㐀-鿿]+", normalized)
+    cjk: set[str] = set()
+    for run in cjk_runs:
+        cjk.update(run)
+        cjk.update(run[i : i + 2] for i in range(len(run) - 1))
+    return latin | cjk
 
 
 def _score_document(query_tokens: set[str], doc: RetrievedDocument) -> int:

@@ -3,6 +3,39 @@ import pytest
 from deepresearch.retrieval.local_dataset import LocalDatasetRetriever
 
 
+def test_tokenize_handles_chinese():
+    from deepresearch.retrieval.local_dataset import _tokenize
+
+    tokens = _tokenize("什么是检索增强生成")
+    assert len(tokens) > 0
+    assert any(len(t) <= 2 and ord(t[0]) > 0x3400 for t in tokens)
+
+
+def test_tokenize_mixed_language():
+    from deepresearch.retrieval.local_dataset import _tokenize
+
+    tokens = _tokenize("RAG检索增强生成 framework")
+    latin = {t for t in tokens if t.isascii()}
+    cjk = {t for t in tokens if not t.isascii()}
+    assert len(latin) > 0
+    assert len(cjk) > 0
+
+
+def test_score_document_chinese_query():
+    from deepresearch.retrieval.local_dataset import _score_document, _tokenize
+    from deepresearch.schemas.evidence import RetrievedDocument
+
+    doc = RetrievedDocument(
+        id="d1",
+        title="RAG介绍",
+        content="检索增强生成结合了检索和生成的方法",
+        source_type="local_dataset",
+    )
+    query_tokens = _tokenize("什么是检索增强生成")
+    score = _score_document(query_tokens, doc)
+    assert score > 0
+
+
 class TestLocalDatasetRetriever:
     @pytest.mark.asyncio
     async def test_reads_markdown_files(self, tmp_path):
