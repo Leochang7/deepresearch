@@ -7,6 +7,7 @@ from deepresearch.doctor import (
     CheckResult,
     DoctorReport,
     _check_langfuse,
+    _check_langfuse_prompts,
     _check_milvus,
     run_doctor,
 )
@@ -137,14 +138,42 @@ class TestDoctor:
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
         mock_client = MagicMock()
         mock_client.auth_check.return_value = True
+        mock_prompt = MagicMock()
+        mock_prompt.compile.return_value = "prompt"
+        mock_client.get_prompt.return_value = mock_prompt
         mock_langfuse = MagicMock(return_value=mock_client)
+        cfg = DeepResearchConfig.model_validate(
+            {"langfuse": {"prompt_provider": "langfuse_with_local_fallback"}}
+        )
 
         with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse)}):
-            check = await _check_langfuse(DeepResearchConfig())
+            check = await _check_langfuse(cfg)
 
         assert check.ok
         assert "Langfuse endpoint OK" in check.message
+        assert mock_client.get_prompt.call_count == 7
         mock_client.shutdown.assert_called_once()
+
+    def test_langfuse_prompt_check_reports_missing_prompt(self):
+        from unittest.mock import MagicMock
+
+        mock_client = MagicMock()
+        mock_client.get_prompt.side_effect = Exception("not found")
+        cfg = DeepResearchConfig.model_validate(
+            {
+                "langfuse": {
+                    "prompt_provider": "langfuse",
+                    "prompt_label": "production",
+                }
+            }
+        )
+
+        check = _check_langfuse_prompts(mock_client, cfg)
+
+        assert not check.ok
+        assert check.name == "langfuse_prompts"
+        assert "planner" in check.message
+        assert "production" in check.message
 
     def test_real_checks_are_opt_in(self):
         with patch("deepresearch.doctor._real_checks") as real_checks:

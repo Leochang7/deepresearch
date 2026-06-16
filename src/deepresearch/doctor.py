@@ -11,8 +11,19 @@ from deepresearch.config import DeepResearchConfig
 from deepresearch.embeddings.openai_compatible import OpenAICompatibleEmbeddingClient
 from deepresearch.llm.base import LLMMessage
 from deepresearch.llm.mimo import MiMoLLMClient
+from deepresearch.prompts.provider import PromptProviderError
 from deepresearch.rerankers.openai_compatible import OpenAICompatibleRerankerClient
 from deepresearch.retrieval.tavily_search import TavilyWebSearchRetriever
+
+_RUNTIME_PROMPTS = (
+    "planner",
+    "researcher",
+    "synthesizer",
+    "red_agent",
+    "blue_agent",
+    "judge_eval",
+    "fact_judge",
+)
 
 
 @dataclass
@@ -351,6 +362,13 @@ async def _check_langfuse(cfg: DeepResearchConfig) -> CheckResult:
             host=cfg.langfuse.host,
         )
         auth_ok = client.auth_check()
+        prompts_checked = False
+        if auth_ok and cfg.langfuse.prompt_provider != "local":
+            prompt_check = _check_langfuse_prompts(client, cfg)
+            if not prompt_check.ok:
+                client.shutdown()
+                return prompt_check
+            prompts_checked = True
         client.shutdown()
     except Exception as exc:
         return _failed(
@@ -365,6 +383,42 @@ async def _check_langfuse(cfg: DeepResearchConfig) -> CheckResult:
         message=(
             "Langfuse endpoint OK, "
             f"host={cfg.langfuse.host}, prompt_label={cfg.langfuse.prompt_label}"
+            + (f", prompts={len(_RUNTIME_PROMPTS)}" if prompts_checked else "")
+        ),
+    )
+
+
+def _check_langfuse_prompts(client: object, cfg: DeepResearchConfig) -> CheckResult:
+    from deepresearch.prompts.provider import LangfusePromptProvider
+
+    provider = LangfusePromptProvider(client=client, label=cfg.langfuse.prompt_label)
+    missing: list[str] = []
+    empty: list[str] = []
+    for name in _RUNTIME_PROMPTS:
+        try:
+            prompt = provider.get(name)
+        except PromptProviderError:
+            missing.append(name)
+            continue
+        if not prompt.strip():
+            empty.append(name)
+    if missing or empty:
+        details = []
+        if missing:
+            details.append("missing/unavailable: " + ", ".join(missing))
+        if empty:
+            details.append("empty: " + ", ".join(empty))
+        return _failed(
+            "langfuse_prompts",
+            "Langfuse prompts check failed for label "
+            f"{cfg.langfuse.prompt_label}: {'; '.join(details)}",
+        )
+    return CheckResult(
+        name="langfuse_prompts",
+        ok=True,
+        message=(
+            f"Langfuse prompts OK, label={cfg.langfuse.prompt_label}, "
+            f"count={len(_RUNTIME_PROMPTS)}"
         ),
     )
 
