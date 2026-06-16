@@ -25,7 +25,7 @@ class DefaultEvidenceQualityChecker:
                 f"confidence {item.confidence:.2f} below {self._min_confidence}",
             )
 
-        if not item.quote or item.quote not in source_content:
+        if not item.quote or item.quote.lower() not in source_content.lower():
             return False, "quote not found in source content"
 
         if not self._check_token_overlap(item.claim, item.quote):

@@ -488,3 +488,21 @@ def test_fuzzy_quote_no_match_on_unrelated_text():
     quote = "Sparse retrieval uses inverted indexes"
     result = ResearchAgent._exact_quote_from_source(quote, source)
     assert result == ""
+
+
+def test_quality_checker_accepts_case_normalized_quote():
+    """After fuzzy matching normalizes case, quality checker should not re-reject."""
+    from deepresearch.agents.evidence_quality import DefaultEvidenceQualityChecker
+    from deepresearch.schemas.evidence import EvidenceItem
+
+    checker = DefaultEvidenceQualityChecker(min_confidence=0.3, min_token_overlap=0.1)
+    item = EvidenceItem(
+        evidence_id="E1",
+        task_id="t1",
+        claim="ReAct interleaves reasoning and acting",
+        quote="reAct interleaves reasoning and acting",
+        confidence=0.8,
+    )
+    source_content = "The ReAct interleaves reasoning and acting steps in a loop."
+    passed, reason = checker.check(item, source_content)
+    assert passed is True
