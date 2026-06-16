@@ -642,6 +642,8 @@ def benchmark_cmd(
     cfg = load_config(config_path=config_path)
     _apply_prompt_provider_override(cfg, prompt_provider)
     if max_concurrency is not None:
+        if max_concurrency < 1:
+            raise typer.BadParameter("--max-concurrency must be >= 1")
         cfg.benchmark.max_concurrency = max_concurrency
     experiment_id = (
         experiment or f"{dataset_path.stem}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"

@@ -534,6 +534,27 @@ def test_benchmark_passes_max_concurrency_to_run_benchmark(tmp_path):
     assert run_benchmark.await_args.kwargs["max_concurrency"] == 4
 
 
+def test_benchmark_rejects_invalid_max_concurrency(tmp_path):
+    dataset = tmp_path / "bench.jsonl"
+    dataset.write_text(
+        '{"id":"case-1","domain":"test","difficulty":"easy","question":"q","expected_facts":[],"required_citations":0,"tags":[]}\n',
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "benchmark",
+            str(dataset),
+            "--max-concurrency",
+            "0",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--max-concurrency must be >= 1" in result.output
+
+
 def test_benchmark_accepts_prompt_provider_option():
     """benchmark command should accept --prompt-provider flag."""
     result = runner.invoke(app, ["benchmark", "--help"])
