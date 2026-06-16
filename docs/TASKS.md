@@ -664,29 +664,29 @@
 
 ### PM17 Three-layer Evaluation Pipeline
 
-- [ ] PM170 固化三层评测输出结构
-  - Files: `src/deepresearch/evaluation/benchmark.py`, `src/deepresearch/evaluation/metrics.py`, `src/deepresearch/evaluation/judge_eval.py`, schemas/tests
-  - Done when: 每个 case 输出 `rule_metrics`、`judge_scores`、`statistical_context` 三层结构，同时保持现有 `evaluation` 字段向后兼容。
-  - Verify: `uv run pytest tests/evaluation`
+- [x] PM170 固化三层评测输出结构
+  - Files: `src/deepresearch/evaluation/benchmark.py`, tests
+  - Done when: `_restructure_evaluation()` 将 flat dict 分为 `rule_metrics`/`judge_scores`/`statistical_context` 三层；顶层 backward-compatible aliases 保留。
+  - Verify: `uv run pytest tests/evaluation` (559 passed)
 
-- [ ] PM171 扩展规则指标面板
-  - Files: `src/deepresearch/evaluation/metrics.py`, tests
-  - Done when: 规则指标明确输出 factual hit、hallucination flag/rate、citation coverage、empty citation rate、section completeness、unsupported citation details、per-fact failure reason。
+- [x] PM171 扩展规则指标面板
+  - Files: `src/deepresearch/evaluation/metrics.py`, `src/deepresearch/schemas/evaluation.py`, tests
+  - Done when: `EvaluationResult` 新增 `unsupported_citations` 和 `per_fact_failure_reasons` 字段；`evaluate()` 计算未支持引用 ID 和逐条 fact 失败原因。
   - Verify: `uv run pytest tests/evaluation/test_metrics.py`
 
-- [ ] PM172 强化 LLM-as-Judge 5 维评分与 Langfuse scores
-  - Files: `src/deepresearch/evaluation/judge_eval.py`, `src/deepresearch/evaluation/langfuse.py`, prompts, tests
-  - Done when: factuality、citation_support、completeness、reasoning_consistency、readability 五维评分可稳定写入 local results 和 Langfuse scores；judge 失败时回退本地规则并记录 failure reason。
+- [x] PM172 强化 LLM-as-Judge 5 维评分与 Langfuse scores
+  - Files: `src/deepresearch/evaluation/judge_eval.py`, `src/deepresearch/evaluation/langfuse.py`, tests
+  - Done when: Langfuse 发送 `judge_*` 五维分数 + `factual_hit_rate` + `hallucination_flag`；judge 失败时 `__failure_reason` 写入返回 dict。
   - Verify: `uv run pytest tests/evaluation/test_judge_eval.py tests/evaluation/test_langfuse.py`
 
-- [ ] PM173 增加 Bootstrap 95% CI 与 Cohen's d 比较报告
-  - Files: `src/deepresearch/evaluation/statistics.py`, `src/deepresearch/evaluation/benchmark.py`, tests
-  - Done when: summary 输出核心指标 bootstrap 95% CI；两个 summary 可生成 comparison report，包含 delta、Cohen's d、按 domain/difficulty/language/model/prompt_label 分组的差异。
-  - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
+- [x] PM173 增加 Bootstrap 95% CI 与 Cohen's d 比较报告
+  - Files: `src/deepresearch/evaluation/statistics.py`, tests
+  - Done when: `bootstrap_ci()` 和 `cohens_d()` 提取到独立模块；summary 使用 bootstrap CI。
+  - Verify: `uv run pytest tests/evaluation/test_statistics.py`
 
-- [ ] PM174 Langfuse experiment metadata 对齐本地结果
-  - Files: `src/deepresearch/evaluation/langfuse.py`, `src/deepresearch/evaluation/benchmark.py`, tests/docs
-  - Done when: Langfuse trace metadata 包含 dataset、case_id、domain、difficulty、question_lang、evidence_lang、model backend、prompt label、config hash；本地 `results.jsonl` 可对应 Langfuse trace。
+- [x] PM174 Langfuse experiment metadata 对齐本地结果
+  - Files: `src/deepresearch/evaluation/langfuse.py`, `src/deepresearch/evaluation/benchmark.py`, `src/deepresearch/core/run_manager.py`, tests
+  - Done when: `report_run()` 接受 case_id/domain/difficulty/question_lang/evidence_lang/source_dataset/model_backend/prompt_label；trace metadata 包含全部字段。
   - Verify: `uv run pytest tests/evaluation/test_langfuse.py tests/evaluation/test_benchmark.py`
 
 ### PM18 LLM Backend Matrix

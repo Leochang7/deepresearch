@@ -941,6 +941,7 @@ def test_compare_summaries():
     before = {
         "avg_task_success_rate": 0.6,
         "avg_citation_coverage": 0.5,
+        "cohens_d_easy_vs_hard": 0.1,
         "per_question_lang": {
             "en": {"avg_citation_coverage": 0.7, "count": 5},
             "zh": {"avg_citation_coverage": 0.3, "count": 3},
@@ -952,6 +953,7 @@ def test_compare_summaries():
     after = {
         "avg_task_success_rate": 0.8,
         "avg_citation_coverage": 0.7,
+        "cohens_d_easy_vs_hard": 0.3,
         "per_question_lang": {
             "en": {"avg_citation_coverage": 0.8, "count": 5},
             "zh": {"avg_citation_coverage": 0.6, "count": 3},
@@ -963,6 +965,7 @@ def test_compare_summaries():
     diff = compare_summaries(before, after)
     assert diff["avg_task_success_rate"]["delta"] == pytest.approx(0.2)
     assert diff["avg_citation_coverage"]["delta"] == pytest.approx(0.2)
+    assert diff["cohens_d_easy_vs_hard"]["delta"] == pytest.approx(0.2)
     assert diff["per_question_lang"]["zh"]["avg_citation_coverage"][
         "delta"
     ] == pytest.approx(0.3)

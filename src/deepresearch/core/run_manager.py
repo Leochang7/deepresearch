@@ -346,6 +346,10 @@ class RunManager:
             enabled=self._config.langfuse.enabled,
             host=self._config.langfuse.host,
         )
+        langfuse_metadata = dict(langfuse_metadata or {})
+        langfuse_metadata.setdefault("model_backend", self._config.llm.provider)
+        langfuse_metadata.setdefault("prompt_label", self._config.langfuse.prompt_label)
+
         langfuse.report_run(
             run_id,
             question,
@@ -360,7 +364,7 @@ class RunManager:
                 "report_profile": self._config.synthesizer.report_profile,
             },
             self._trace_summary(out / "trace.jsonl"),
-            **(langfuse_metadata or {}),
+            **langfuse_metadata,
         )
 
         # Write outputs

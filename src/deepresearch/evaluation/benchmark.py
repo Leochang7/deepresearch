@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import random
 import time
 from collections import Counter, defaultdict
 from collections.abc import Callable
@@ -13,6 +12,7 @@ from typing import Any
 from deepresearch.core.run_manager import RunManager
 from deepresearch.evaluation.judge_eval import judge_facts
 from deepresearch.evaluation.metrics import evaluate
+from deepresearch.evaluation.statistics import bootstrap_ci, cohens_d
 from deepresearch.llm.base import LLMClient
 
 
@@ -69,10 +69,15 @@ def load_dataset(path: Path) -> list[BenchmarkCase]:
 def _restructure_evaluation(evaluation: dict) -> dict:
     """Restructure flat evaluation dict into three layers while keeping backward compat."""
     rule_keys = {
-        "task_success_rate", "citation_coverage", "empty_citation_rate",
-        "report_section_completeness", "factual_hit_rate",
-        "hallucination_flag", "hallucination_details",
-        "unsupported_citations", "per_fact_failure_reasons",
+        "task_success_rate",
+        "citation_coverage",
+        "empty_citation_rate",
+        "report_section_completeness",
+        "factual_hit_rate",
+        "hallucination_flag",
+        "hallucination_details",
+        "unsupported_citations",
+        "per_fact_failure_reasons",
     }
     rule_metrics = {k: v for k, v in evaluation.items() if k in rule_keys}
     judge_scores = evaluation.get("judge_scores", {})
@@ -386,19 +391,9 @@ def _group_stats(results: list[BenchmarkResult]) -> dict[str, Any]:
 def _bootstrap_ci(
     values: list[float], n_bootstrap: int = 1000, ci: float = 0.95
 ) -> list[float]:
-    """Bootstrap confidence interval for the mean."""
-    if len(values) < 2:
-        mean = sum(values) / len(values) if values else 0.0
-        return [round(mean, 4), round(mean, 4)]
-    rng = random.Random(42)
-    means = []
-    for _ in range(n_bootstrap):
-        sample = rng.choices(values, k=len(values))
-        means.append(sum(sample) / len(sample))
-    means.sort()
-    lower_idx = int((1 - ci) / 2 * n_bootstrap)
-    upper_idx = int((1 + ci) / 2 * n_bootstrap) - 1
-    return [round(means[lower_idx], 4), round(means[upper_idx], 4)]
+    """Backward-compatible wrapper around the shared statistics module."""
+    lower, upper = bootstrap_ci(values, n_resamples=n_bootstrap, confidence=ci)
+    return [round(lower, 4), round(upper, 4)]
 
 
 def _cohens_d_between_groups(
@@ -410,17 +405,7 @@ def _cohens_d_between_groups(
         return None
     a_values = [float(r.evaluation.get(metric, 0.0)) for r in group_a]
     b_values = [float(r.evaluation.get(metric, 0.0)) for r in group_b]
-    mean_a = sum(a_values) / len(a_values)
-    mean_b = sum(b_values) / len(b_values)
-    var_a = sum((value - mean_a) ** 2 for value in a_values) / (len(a_values) - 1)
-    var_b = sum((value - mean_b) ** 2 for value in b_values) / (len(b_values) - 1)
-    pooled = (
-        ((len(a_values) - 1) * var_a + (len(b_values) - 1) * var_b)
-        / (len(a_values) + len(b_values) - 2)
-    ) ** 0.5
-    if pooled == 0:
-        return 0.0
-    return round((mean_a - mean_b) / pooled, 4)
+    return round(cohens_d(a_values, b_values), 4)
 
 
 def compare_summaries(
@@ -437,6 +422,7 @@ def compare_summaries(
         "avg_empty_citation_rate",
         "hallucination_flag_count",
         "avg_elapsed_seconds",
+        "cohens_d_easy_vs_hard",
     ]
     for key in _SCALAR_KEYS:
         b = before.get(key, 0)

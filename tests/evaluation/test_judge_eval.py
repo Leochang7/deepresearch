@@ -152,7 +152,10 @@ async def test_llm_as_judge_returns_failure_reason_on_bad_json():
 
     assert set(scores.keys()) == set(JUDGE_DIMENSIONS) | {"__failure_reason"}
     assert all(v == 0.5 for k, v in scores.items() if k != "__failure_reason")
-    assert "parse" in scores["__failure_reason"].lower() or scores["__failure_reason"] != ""
+    assert (
+        "parse" in scores["__failure_reason"].lower()
+        or scores["__failure_reason"] != ""
+    )
 
 
 @pytest.mark.asyncio

@@ -115,6 +115,27 @@ async def test_run_manager_produces_grounded_report_and_metrics(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_run_manager_populates_langfuse_model_metadata(tmp_path):
+    config = DeepResearchConfig()
+    config.llm.provider = "mimo"
+    config.langfuse.prompt_label = "staging"
+
+    with patch("deepresearch.core.run_manager.LangfuseAdapter") as adapter_cls:
+        await RunManager(
+            config,
+            MockLLM(),
+            MockRetriever(),
+            MockMemoryStore(),
+            MockEmbeddingClient(),
+            MockRerankerClient(),
+        ).run("test question", output_dir=tmp_path / "run")
+
+    kwargs = adapter_cls.return_value.report_run.call_args.kwargs
+    assert kwargs["model_backend"] == "mimo"
+    assert kwargs["prompt_label"] == "staging"
+
+
+@pytest.mark.asyncio
 async def test_run_manager_trace_covers_pipeline(tmp_path):
     result = await _manager().run("test question", output_dir=tmp_path / "run")
     events = [

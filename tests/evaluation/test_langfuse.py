@@ -95,7 +95,9 @@ def test_report_run_calls_langfuse_judge_dimension_scores():
         )
 
     score_calls = mock_trace.score.call_args_list
-    score_names = [c.kwargs.get("name") or (c.args[0] if c.args else None) for c in score_calls]
+    score_names = [
+        c.kwargs.get("name") or (c.args[0] if c.args else None) for c in score_calls
+    ]
     assert "factual_hit_rate" in score_names
     assert "hallucination_flag" in score_names
     assert "judge_factuality" in score_names
@@ -154,7 +156,9 @@ def test_report_run_calls_langfuse_v4_judge_dimension_scores():
     assert "judge_completeness" in score_names
     assert "judge_reasoning_consistency" in score_names
     # Check hallucination_flag sent as 1 (True -> int)
-    hf_call = next(c for c in score_calls if c.kwargs.get("name") == "hallucination_flag")
+    hf_call = next(
+        c for c in score_calls if c.kwargs.get("name") == "hallucination_flag"
+    )
     assert hf_call.kwargs["value"] == 1
     # 4 original + 2 (factual_hit_rate, hallucination_flag) + 5 judge dims = 11
     assert len(score_calls) == 11
@@ -189,7 +193,9 @@ def test_report_run_judge_scores_defaults_when_missing():
         )
 
     score_calls = mock_trace.score.call_args_list
-    score_names = [c.kwargs.get("name") or (c.args[0] if c.args else None) for c in score_calls]
+    score_names = [
+        c.kwargs.get("name") or (c.args[0] if c.args else None) for c in score_calls
+    ]
     # Still sends factual_hit_rate (default 0) and hallucination_flag (default 0)
     assert "factual_hit_rate" in score_names
     assert "hallucination_flag" in score_names

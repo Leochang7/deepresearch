@@ -279,9 +279,7 @@ def evaluate(
         factual_hit_rate = hits / len(expected_facts)
         fact_details = [r.model_dump() for r in results]
         per_fact_failure_reasons = [
-            {"fact": r.fact, "reason": r.reason}
-            for r in results
-            if not r.matched
+            {"fact": r.fact, "reason": r.reason} for r in results if not r.matched
         ]
 
     valid_body_citations = len(cited_ids & evidence_ids)

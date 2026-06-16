@@ -515,9 +515,7 @@ def test_evaluate_includes_unsupported_citations():
         question="Q",
         summary="S",
         sections=[
-            ReportSection(
-                title="A", content="Some claim [E1] and another [E999]"
-            )
+            ReportSection(title="A", content="Some claim [E1] and another [E999]")
         ],
     )
     result = evaluate("r1", tasks, report, evidence, None, None, None, 0)
@@ -532,9 +530,7 @@ def test_evaluate_per_fact_failure_reasons():
         run_id="r1",
         question="Q",
         summary="S",
-        sections=[
-            ReportSection(title="A", content="Nothing relevant here")
-        ],
+        sections=[ReportSection(title="A", content="Nothing relevant here")],
     )
     result = evaluate(
         "r1",
