@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Protocol
 
 from deepresearch.schemas.evidence import EvidenceItem
@@ -36,17 +37,25 @@ class DefaultEvidenceQualityChecker:
 
         return True, ""
 
-    def _check_token_overlap(self, claim: str, quote: str) -> bool:
-        claim_norm = claim.strip().lower()
-        quote_norm = quote.strip().lower()
-        if not claim_norm:
-            return False
-        if claim_norm in quote_norm or quote_norm in claim_norm:
-            return True
+    @staticmethod
+    def _tokenize_for_overlap(text: str) -> set[str]:
+        normalized = text.lower()
+        latin = set(re.findall(r"[a-z][a-z0-9]{1,}", normalized))
+        cjk_runs = re.findall(r"[㐀-鿿]+", normalized)
+        cjk: set[str] = set()
+        for run in cjk_runs:
+            cjk.update(run)
+            cjk.update(run[i:i+2] for i in range(len(run) - 1))
+        return latin | cjk
 
-        claim_tokens = set(claim_norm.split())
-        quote_tokens = set(quote_norm.split())
+    def _check_token_overlap(self, claim: str, quote: str) -> bool:
+        claim_lower = claim.lower()
+        quote_lower = quote.lower()
+        if claim_lower in quote_lower or quote_lower in claim_lower:
+            return True
+        claim_tokens = self._tokenize_for_overlap(claim)
+        quote_tokens = self._tokenize_for_overlap(quote)
         if not claim_tokens:
-            return False
+            return True
         overlap = len(claim_tokens & quote_tokens) / len(claim_tokens)
         return overlap >= self._min_token_overlap
