@@ -47,6 +47,12 @@ def _normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _detect_language(text: str) -> str:
+    if re.search(r"[㐀-鿿]", text):
+        return "zh"
+    return "en"
+
+
 def _tokenize_for_match(text: str) -> set[str]:
     latin = set(re.findall(r"[a-z][a-z0-9]{1,}", text))
     cjk_runs = re.findall(r"[㐀-鿿]+", text)
@@ -182,13 +188,21 @@ def _evaluate_fact(spec: FactSpec, text_lower: str) -> FactHitResult:
             reason=f"Expanded keyword overlap {len(expanded_matched)}/{len(expanded)} >= 50%",
         )
 
+    reason = (
+        f"Token overlap {len(matched)}/{len(tokens)} < 50%; "
+        f"expanded overlap {len(expanded_matched)}/{len(expanded)} < 50%"
+    )
+    fact_lang = _detect_language(fact_text)
+    text_lang = _detect_language(text_lower)
+    if fact_lang != text_lang:
+        reason += f"; language mismatch: fact is {fact_lang}, report is {text_lang}"
+
     return FactHitResult(
         fact=fact_text,
         matched=False,
         matched_keywords=matched,
         unmatched_keywords=unmatched,
-        reason=f"Token overlap {len(matched)}/{len(tokens)} < 50%; "
-        f"expanded overlap {len(expanded_matched)}/{len(expanded)} < 50%",
+        reason=reason,
     )
 
 

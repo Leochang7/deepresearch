@@ -458,3 +458,38 @@ def test_evaluate_fact_chinese_no_match():
     report_text = "本文介绍了自然语言处理的基本概念。"
     result = _evaluate_fact("LoRA使用低秩分解微调模型", report_text)
     assert result.matched is False
+
+
+def test_fact_failure_reason_detects_language_mismatch():
+    """Failed Chinese fact against English report should note language mismatch."""
+    from deepresearch.evaluation.metrics import _evaluate_fact
+
+    report_text = "this report discusses embeddings in detail."
+    spec = {"fact": "检索增强生成结合了检索与生成", "keywords": ["检索", "生成"]}
+    result = _evaluate_fact(spec, report_text.lower())
+    assert result.matched is False
+    assert "language" in result.reason.lower()
+
+
+def test_fact_failure_reason_no_language_mismatch_when_same_language():
+    """English fact against English report should not flag language mismatch."""
+    from deepresearch.evaluation.metrics import _evaluate_fact
+
+    report_text = "this report discusses embeddings in detail."
+    result = _evaluate_fact("quantum computing entanglement", report_text)
+    assert result.matched is False
+    assert "language" not in result.reason.lower()
+
+
+def test_detect_language_chinese():
+    from deepresearch.evaluation.metrics import _detect_language
+
+    assert _detect_language("检索增强生成") == "zh"
+    assert _detect_language("这是一个测试") == "zh"
+
+
+def test_detect_language_english():
+    from deepresearch.evaluation.metrics import _detect_language
+
+    assert _detect_language("retrieval augmented generation") == "en"
+    assert _detect_language("hello world") == "en"
