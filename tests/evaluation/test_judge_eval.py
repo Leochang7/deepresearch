@@ -58,8 +58,9 @@ async def test_llm_as_judge_fallback_on_bad_json():
     llm = MockLLM(["this is not json at all"])
     scores = await llm_as_judge(llm, "test question", _report(), _evidence())
 
-    assert set(scores.keys()) == set(JUDGE_DIMENSIONS)
-    assert all(v == 0.5 for v in scores.values())
+    assert set(JUDGE_DIMENSIONS).issubset(scores.keys())
+    assert all(v == 0.5 for dim, v in scores.items() if dim in JUDGE_DIMENSIONS)
+    assert "__failure_reason" in scores
 
 
 @pytest.mark.asyncio
@@ -142,6 +143,55 @@ async def test_judge_facts_miss_verdict():
     assert result[0]["matched"] is False
     assert result[0]["source"] == "judge"
     assert "[judge:miss]" in result[0]["reason"]
+
+
+@pytest.mark.asyncio
+async def test_llm_as_judge_returns_failure_reason_on_bad_json():
+    llm = MockLLM(["this is not json at all"])
+    scores = await llm_as_judge(llm, "test question", _report(), _evidence())
+
+    assert set(scores.keys()) == set(JUDGE_DIMENSIONS) | {"__failure_reason"}
+    assert all(v == 0.5 for k, v in scores.items() if k != "__failure_reason")
+    assert "parse" in scores["__failure_reason"].lower() or scores["__failure_reason"] != ""
+
+
+@pytest.mark.asyncio
+async def test_llm_as_judge_returns_failure_reason_on_non_dict():
+    llm = MockLLM(['"just a string"'])
+    scores = await llm_as_judge(llm, "test question", _report(), _evidence())
+
+    assert "__failure_reason" in scores
+    assert all(v == 0.5 for k, v in scores.items() if k != "__failure_reason")
+
+
+@pytest.mark.asyncio
+async def test_llm_as_judge_no_failure_reason_on_success():
+    response = json.dumps(
+        {
+            "factuality": 0.85,
+            "citation_support": 0.7,
+            "completeness": 0.9,
+            "reasoning_consistency": 0.8,
+            "readability": 0.75,
+        }
+    )
+    llm = MockLLM([response])
+    scores = await llm_as_judge(llm, "test question", _report(), _evidence())
+
+    assert "__failure_reason" not in scores
+
+
+@pytest.mark.asyncio
+async def test_llm_as_judge_failure_reason_on_exception():
+    class FailingLLM(MockLLM):
+        async def chat(self, messages, json_mode=False):
+            raise RuntimeError("API timeout")
+
+    llm = FailingLLM([])
+    scores = await llm_as_judge(llm, "test question", _report(), _evidence())
+
+    assert "__failure_reason" in scores
+    assert "API timeout" in scores["__failure_reason"]
 
 
 @pytest.mark.asyncio

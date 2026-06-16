@@ -98,6 +98,17 @@ class LangfuseAdapter:
                 name="red_issue_count",
                 value=evaluation.get("red_issue_count", 0),
             )
+            # Additional evaluation scores
+            trace.score(
+                name="factual_hit_rate",
+                value=evaluation.get("factual_hit_rate", 0),
+            )
+            trace.score(
+                name="hallucination_flag",
+                value=int(evaluation.get("hallucination_flag", False)),
+            )
+            for dim, score in evaluation.get("judge_scores", {}).items():
+                trace.score(name=f"judge_{dim}", value=score)
             trace.update(
                 output={
                     "report": report,
@@ -142,6 +153,23 @@ class LangfuseAdapter:
                 trace_id=trace_id,
                 name=score_name,
                 value=evaluation.get(score_name, 0),
+            )
+        # Additional evaluation scores
+        self._client.create_score(
+            trace_id=trace_id,
+            name="factual_hit_rate",
+            value=evaluation.get("factual_hit_rate", 0),
+        )
+        self._client.create_score(
+            trace_id=trace_id,
+            name="hallucination_flag",
+            value=int(evaluation.get("hallucination_flag", False)),
+        )
+        for dim, score in evaluation.get("judge_scores", {}).items():
+            self._client.create_score(
+                trace_id=trace_id,
+                name=f"judge_{dim}",
+                value=score,
             )
         if hasattr(observation, "end"):
             observation.end()

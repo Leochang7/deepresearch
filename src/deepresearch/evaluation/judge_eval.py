@@ -50,11 +50,19 @@ async def llm_as_judge(
             ),
         ),
     ]
-    response = await llm.chat(messages, json_mode=True)
+    try:
+        response = await llm.chat(messages, json_mode=True)
+    except Exception as exc:
+        logger.warning("Judge LLM call failed: %s", exc, exc_info=True)
+        result = dict(_DEFAULT_SCORES)
+        result["__failure_reason"] = f"LLM call failed: {exc}"
+        return result
     data = parse_json(response.content, strict=False)
     if not isinstance(data, dict):
         logger.warning("Judge returned non-dict, using default scores")
-        return dict(_DEFAULT_SCORES)
+        result = dict(_DEFAULT_SCORES)
+        result["__failure_reason"] = "Judge returned non-dict response"
+        return result
 
     scores: dict[str, float] = {}
     for dim in JUDGE_DIMENSIONS:
