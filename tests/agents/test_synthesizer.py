@@ -302,3 +302,20 @@ def test_enforce_citations_still_removes_uncited_factual_claims():
     cleaned, limitations = agent._enforce_citations(sections, evidence_map)
     assert "95% accuracy" not in cleaned[0].content
     assert any("95% accuracy" in lim for lim in limitations)
+
+
+def test_is_substantive_claim_chinese_short():
+    """Short Chinese factual claim with data should be substantive."""
+    # "BERT在GLUE上达到95%准确率" is ~15 chars but has percentage
+    assert Synthesizer._is_substantive_claim("BERT在GLUE上达到95%准确率") is True
+
+
+def test_is_substantive_claim_chinese_transition():
+    """Short Chinese transition phrase should not be substantive."""
+    assert Synthesizer._is_substantive_claim("综上所述") is False
+    assert Synthesizer._is_substantive_claim("以下是主要发现") is False
+
+
+def test_is_substantive_claim_chinese_factual_without_data():
+    """Medium-length Chinese claim without data patterns should be substantive."""
+    assert Synthesizer._is_substantive_claim("密集检索使用向量嵌入进行语义匹配") is True

@@ -26,3 +26,5 @@ Rules:
 - Claims without evidence go in Limitations, not Analysis.
 - Use clear section headings.
 - Be concise and precise.
+- Write the report in the same language as the user's question. If the question is in Chinese, write in Chinese; if in English, write in English.
+- When citing evidence from a different language, you may quote the original text or translate it, but always include the [E#] citation.

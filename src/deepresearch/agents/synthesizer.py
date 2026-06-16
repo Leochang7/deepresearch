@@ -269,25 +269,47 @@ class Synthesizer:
     def _is_substantive_claim(line: str) -> bool:
         """Return True if the line makes a factual claim that requires citation."""
         stripped = line.strip()
-        if len(stripped) < 30:
+        has_cjk = bool(re.search(r"[㐀-鿿]", stripped))
+        min_len = 10 if has_cjk else 30
+        if len(stripped) < min_len:
             return False
-        transition_patterns = [
-            r"^(this|the)\s+(section|report|analysis|discussion)\s+",
-            r"^(the\s+)?following\s+(section|analysis|discussion|comparison)\s+",
-            r"^(in\s+summary|overall|taken together|in practice)\b",
-            r"^(key findings|main findings|several themes)\s+",
-            r"^(to compare|to summarize|to frame|to organize)\b",
-        ]
-        if any(
-            re.search(pattern, stripped, flags=re.IGNORECASE)
-            for pattern in transition_patterns
+        # Chinese transition phrases
+        if has_cjk:
+            cjk_transitions = (
+                "综上所述", "总之", "以下是", "主要发现", "需要注意",
+                "此外", "另外", "同时", "接下来", "最后",
+            )
+            if any(stripped.startswith(t) for t in cjk_transitions):
+                return False
+        # English transition phrases
+        lower = stripped.lower()
+        if re.match(
+            r"^(this|the)\s+(section|report|analysis|discussion)\s+", lower
         ):
             return False
-        # Lines with specific data patterns are factual claims
+        if re.match(
+            r"^(the\s+)?following\s+(section|analysis|discussion|comparison)\s+", lower
+        ):
+            return False
+        if re.match(
+            r"^(in\s+summary|overall|taken together|in practice)\b", lower
+        ):
+            return False
+        if re.match(
+            r"^(key findings|main findings|several themes)\s+", lower
+        ):
+            return False
+        if re.match(
+            r"^(to compare|to summarize|to frame|to organize)\b", lower
+        ):
+            return False
+        # Data patterns
+        if re.search(r"\d+(\.\d+)?%|\d{4}", stripped):
+            return True
         if re.search(
-            r"\d+(\.\d+)?%|\d{4}|[A-Z][a-z]+\s(et al\.|found|showed|reported)",
-            stripped,
+            r"[A-Z][a-z]+\s(et al\.|found|showed|reported)", stripped
         ):
             return True
-        # Default: treat longer lines as claims requiring citation
+        if has_cjk and re.search(r"\d+", stripped):
+            return True
         return True
