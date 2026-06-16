@@ -27,6 +27,8 @@ class BenchmarkCase:
     tags: list[str] = field(default_factory=list)
     question_lang: str = "en"  # "en", "zh", "mixed"
     evidence_lang: str = "en"  # "en", "zh", "mixed"
+    source_dataset: str = ""
+    evaluation_focus: str = ""
 
 
 @dataclass
@@ -57,6 +59,8 @@ def load_dataset(path: Path) -> list[BenchmarkCase]:
                 tags=data.get("tags", []),
                 question_lang=data.get("question_lang", "en"),
                 evidence_lang=data.get("evidence_lang", "en"),
+                source_dataset=data.get("source_dataset", ""),
+                evaluation_focus=data.get("evaluation_focus", ""),
             )
         )
     return cases

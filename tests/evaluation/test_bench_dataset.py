@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from deepresearch.evaluation.benchmark import load_dataset
+
 _DATASET_PATH = (
     Path(__file__).resolve().parents[2]
     / "examples"
@@ -52,3 +54,28 @@ def test_domains_covered():
     cases = _load_cases()
     domains = {c["domain"] for c in cases}
     assert len(domains) >= 5
+
+
+def test_benchmark_case_has_source_dataset_field(tmp_path):
+    path = tmp_path / "test.jsonl"
+    path.write_text(
+        '{"id":"t1","domain":"test","difficulty":"easy","question":"Q",'
+        '"expected_facts":["F"],"required_citations":1,"tags":[],'
+        '"source_dataset":"researchbench_full","evaluation_focus":"factual_accuracy"}\n',
+        encoding="utf-8",
+    )
+    cases = load_dataset(path)
+    assert cases[0].source_dataset == "researchbench_full"
+    assert cases[0].evaluation_focus == "factual_accuracy"
+
+
+def test_benchmark_case_source_dataset_defaults(tmp_path):
+    path = tmp_path / "test.jsonl"
+    path.write_text(
+        '{"id":"t1","domain":"test","difficulty":"easy","question":"Q",'
+        '"expected_facts":["F"],"required_citations":1,"tags":[]}\n',
+        encoding="utf-8",
+    )
+    cases = load_dataset(path)
+    assert cases[0].source_dataset == ""
+    assert cases[0].evaluation_focus == ""
