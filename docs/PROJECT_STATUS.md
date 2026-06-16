@@ -138,8 +138,10 @@ uv run ruff check .     # lint
 
 ## 下一阶段方向
 
-- **PM16 Network Retrieval Hardening**: Tavily/MiMo Search 作为可选增强层，补真实 API 额度、限流、不可复现输出的诊断与保护。
-- **后续大型评测**: ResearchBench 35、HotpotQA 深度研究变体和多后端对比继续后置，等 PM15 large20 真实 local-corpus 指标稳定后再做。
+- **PM16 Evaluation Dataset Suite**: ResearchBench full、HotpotQA deep-research 变体、dataset manifest 和质量检查。
+- **PM17 Three-layer Evaluation Pipeline**: 规则指标、LLM-as-Judge 5 维评分、Bootstrap 95% CI、Cohen's d，并与 Langfuse scores/metadata 对齐。
+- **PM18 LLM Backend Matrix**: DeepSeek、MiMo、vLLM、OpenAI-compatible 后端热切换和按模型分组的 benchmark summary。
+- **PM19 One-command Experiment Scripts**: local mock、真实 local-corpus、模型对比、prompt label 对比、multilingual 回归和 full suite 汇总脚本。
 
 ## 仓库结构
 

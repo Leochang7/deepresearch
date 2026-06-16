@@ -639,3 +639,106 @@
   - Files: `docs/REAL_BENCHMARK_GUIDE.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/WORKLOG.md`, tests
   - Done when: 文档说明 PM15 large benchmark 的离线 mock 和真实 local-corpus 命令；测试验证 large20 dataset 可加载、语言场景分组存在、mock sample 离线可跑。
   - Verify: `uv run pytest tests/evaluation/test_benchmark.py` (27 passed); `uv run ruff check src/deepresearch/evaluation/benchmark.py tests/evaluation/test_benchmark.py`
+
+### PM16 Evaluation Dataset Suite
+
+- [x] PM160 设计完整评测数据集 schema 与目录规范
+  - Files: `src/deepresearch/evaluation/benchmark.py`, tests
+  - Done when: BenchmarkCase 新增 `source_dataset` 和 `evaluation_focus` 字段（默认空字符串）；`load_dataset()` 正确解析新字段；所有 dataset 共用同一 loader。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py tests/evaluation/test_bench_dataset.py` (542 passed)
+
+- [x] PM161 建立 ResearchBench full 本地数据集
+  - Files: `examples/bench/researchbench_full.jsonl`, `examples/corpus/researchbench_full/`, tests
+  - Done when: 32 个深度研究 case，覆盖 12 个领域；中英混合（en=20, zh=12）；每题有 dict-format expected facts + keywords + aliases；20+ 篇 local corpus 文档。
+  - Verify: `uv run pytest tests/evaluation/test_bench_dataset.py`
+
+- [x] PM162 建立 HotpotQA deep-research 变体
+  - Files: `examples/bench/hotpotqa_deepresearch.jsonl`, `examples/corpus/hotpotqa_deepresearch/`, tests
+  - Done when: 8 个多跳 case（5 bridge_entity + 3 comparison）；10 篇 corpus 文档提供多跳证据；`source_dataset="hotpotqa_deepresearch"`。
+  - Verify: `uv run pytest tests/evaluation/test_bench_dataset.py`
+
+- [x] PM163 增加 dataset manifest 与质量检查
+  - Files: `examples/bench/manifest.json`, `src/deepresearch/evaluation/datasets.py`, tests
+  - Done when: `load_manifest()` 列出所有 dataset 元数据；`validate_dataset()` 检查重复 id、缺字段、空 expected_facts；manifest.json 自动生成。
+  - Verify: `uv run pytest tests/evaluation/test_bench_dataset.py` (14 passed)
+
+### PM17 Three-layer Evaluation Pipeline
+
+- [ ] PM170 固化三层评测输出结构
+  - Files: `src/deepresearch/evaluation/benchmark.py`, `src/deepresearch/evaluation/metrics.py`, `src/deepresearch/evaluation/judge_eval.py`, schemas/tests
+  - Done when: 每个 case 输出 `rule_metrics`、`judge_scores`、`statistical_context` 三层结构，同时保持现有 `evaluation` 字段向后兼容。
+  - Verify: `uv run pytest tests/evaluation`
+
+- [ ] PM171 扩展规则指标面板
+  - Files: `src/deepresearch/evaluation/metrics.py`, tests
+  - Done when: 规则指标明确输出 factual hit、hallucination flag/rate、citation coverage、empty citation rate、section completeness、unsupported citation details、per-fact failure reason。
+  - Verify: `uv run pytest tests/evaluation/test_metrics.py`
+
+- [ ] PM172 强化 LLM-as-Judge 5 维评分与 Langfuse scores
+  - Files: `src/deepresearch/evaluation/judge_eval.py`, `src/deepresearch/evaluation/langfuse.py`, prompts, tests
+  - Done when: factuality、citation_support、completeness、reasoning_consistency、readability 五维评分可稳定写入 local results 和 Langfuse scores；judge 失败时回退本地规则并记录 failure reason。
+  - Verify: `uv run pytest tests/evaluation/test_judge_eval.py tests/evaluation/test_langfuse.py`
+
+- [ ] PM173 增加 Bootstrap 95% CI 与 Cohen's d 比较报告
+  - Files: `src/deepresearch/evaluation/statistics.py`, `src/deepresearch/evaluation/benchmark.py`, tests
+  - Done when: summary 输出核心指标 bootstrap 95% CI；两个 summary 可生成 comparison report，包含 delta、Cohen's d、按 domain/difficulty/language/model/prompt_label 分组的差异。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
+
+- [ ] PM174 Langfuse experiment metadata 对齐本地结果
+  - Files: `src/deepresearch/evaluation/langfuse.py`, `src/deepresearch/evaluation/benchmark.py`, tests/docs
+  - Done when: Langfuse trace metadata 包含 dataset、case_id、domain、difficulty、question_lang、evidence_lang、model backend、prompt label、config hash；本地 `results.jsonl` 可对应 Langfuse trace。
+  - Verify: `uv run pytest tests/evaluation/test_langfuse.py tests/evaluation/test_benchmark.py`
+
+### PM18 LLM Backend Matrix
+
+- [ ] PM180 统一 OpenAI-compatible 后端配置
+  - Files: `src/deepresearch/llm/openai_compatible.py`, `src/deepresearch/config.py`, `.env.example`, `config.example.toml`, tests/docs
+  - Done when: 支持 OpenAI-compatible provider，用 `base_url/api_key_env/model/api_key_header` 配置 OpenAI、vLLM 或其它兼容后端；MiMo/DeepSeek 保持现有专用 client。
+  - Verify: `uv run pytest tests/llm tests/test_config.py`
+
+- [ ] PM181 支持后端热切换和 CLI 覆盖
+  - Files: `src/deepresearch/cli.py`, `src/deepresearch/core/run_manager.py`, config/tests
+  - Done when: `run`/`benchmark` 可用 `--llm-provider`、`--llm-model` 或 config matrix 切换 DeepSeek/MiMo/vLLM/OpenAI-compatible；切换不影响 Retriever/Memory/Evaluator。
+  - Verify: `uv run pytest tests/test_cli.py tests/core/test_run_manager.py tests/llm`
+
+- [ ] PM182 增加 model backend matrix 配置文件
+  - Files: `examples/configs/models/*.toml`, docs/tests
+  - Done when: 提供 MiMo、DeepSeek、OpenAI-compatible、vLLM 四类示例配置；不包含真实密钥；doctor 可检查当前后端。
+  - Verify: `uv run pytest tests/test_config.py tests/test_doctor.py`
+
+- [ ] PM183 Benchmark summary 按模型后端分组
+  - Files: `src/deepresearch/evaluation/benchmark.py`, tests
+  - Done when: summary 输出 `per_model_backend` 和 `per_model_name`；Langfuse metadata 同步写入 backend/model/prompt_label。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
+
+### PM19 One-command Experiment Scripts
+
+- [ ] PM190 建立实验脚本入口与配置规范
+  - Files: `scripts/experiments/`, `examples/experiments/`, docs/tests
+  - Done when: 所有实验脚本都是 `deepresearch benchmark` 的薄封装，统一输出到 `outputs/experiments/<experiment_id>/`，不复制业务逻辑。
+  - Verify: `uv run pytest tests/test_cli.py`
+
+- [ ] PM191 实现 local mock smoke 实验脚本
+  - Files: `scripts/experiments/exp_local_mock.ps1`, `scripts/experiments/exp_local_mock.sh`, docs
+  - Done when: 一键跑 mock/local corpus smoke，用于 CI 和本地快速验收。
+  - Verify: 文档人工检查；脚本 dry-run 或 mock run。
+
+- [ ] PM192 实现真实 local-corpus 模型对比实验脚本
+  - Files: `scripts/experiments/exp_model_compare.*`, `examples/configs/models/`, docs
+  - Done when: 可对同一 dataset 依次运行 MiMo、DeepSeek、OpenAI-compatible/vLLM 配置，并生成 comparison summary。
+  - Verify: real experiments require explicit `.env`; default tests remain offline。
+
+- [ ] PM193 实现 prompt label 对比实验脚本
+  - Files: `scripts/experiments/exp_prompt_ablation.*`, docs
+  - Done when: 可比较 `production` vs `staging`/`dev` prompt label，结果写入本地 comparison 和 Langfuse experiment metadata。
+  - Verify: mock/local smoke；real mode requires Langfuse keys。
+
+- [ ] PM194 实现 multilingual large20 回归实验脚本
+  - Files: `scripts/experiments/exp_multilingual_large20.*`, docs
+  - Done when: 一键跑 `multilingual_large20`，输出 per-language-scenario、citation/factual hit 回归摘要，并可上报 Langfuse。
+  - Verify: mock sample in default tests; full real run explicit。
+
+- [ ] PM195 实现完整评测套件汇总脚本
+  - Files: `scripts/experiments/exp_full_suite.*`, `src/deepresearch/evaluation/compare.py`, docs/tests
+  - Done when: 可按 manifest 串行/并行运行多个 dataset，生成总览 `suite_summary.json` 和 `comparison.json`；失败 case 不阻塞整套实验。
+  - Verify: `uv run pytest tests/evaluation tests/test_cli.py`

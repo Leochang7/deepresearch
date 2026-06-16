@@ -56,3 +56,4 @@
 - 2026-06-16: 更新 Langfuse 配置示例：`.env.example` 明确 trace 与 prompt provider 开关，`config.example.toml` 补齐 prompt_provider/prompt_label 并对齐当前 2560 维 embedding 与 `bge-reranker-v2-m3`；`docs/CONFIGURATION.md` 说明 `.env`、`config.toml` 和 CLI 的优先级关系，以及接入 Langfuse prompts 的推荐命令。
 - 2026-06-16: 接入真实 Langfuse SDK：新增 `langfuse` 依赖并适配 Langfuse v4 `get_prompt/create_prompt/start_observation/create_score` API；`deepresearch doctor --real` 增加 Langfuse SDK、keys、host/auth 和 prompt provider 配置检查。
 - 2026-06-16: 增强 Langfuse doctor prompt 检查：当 prompt provider 非 local 时，`doctor --real` 会验证 planner/researcher/synthesizer/red_agent/blue_agent/judge_eval/fact_judge 共 7 个 runtime prompts 在指定 label 下可拉取并 compile；真实 `.env` 验证通过，输出 `prompts=7`。
+- 2026-06-16: 更新完整评测体系规划进 `docs/TASKS.md`：PM16 dataset suite、PM17 三层评测流水线、PM18 四类 LLM 后端矩阵、PM19 一键实验脚本；Langfuse 定位为 prompt/trace/score/experiment 可视化层，本地仍负责 dataset、runner、metrics 和统计分析。
