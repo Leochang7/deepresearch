@@ -154,7 +154,7 @@ def test_report_run_calls_langfuse_v4_judge_dimension_scores():
     assert "judge_completeness" in score_names
     assert "judge_reasoning_consistency" in score_names
     # Check hallucination_flag sent as 1 (True -> int)
-    hf_call = [c for c in score_calls if c.kwargs.get("name") == "hallucination_flag"][0]
+    hf_call = next(c for c in score_calls if c.kwargs.get("name") == "hallucination_flag")
     assert hf_call.kwargs["value"] == 1
     # 4 original + 2 (factual_hit_rate, hallucination_flag) + 5 judge dims = 11
     assert len(score_calls) == 11
