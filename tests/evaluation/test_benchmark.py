@@ -799,3 +799,29 @@ async def test_run_benchmark_results_in_case_order(tmp_path):
     )
 
     assert [r.case_id for r in results] == ["c-slow", "c-fast1", "c-fast2"]
+
+
+def test_load_dataset_with_language_fields(tmp_path):
+    path = tmp_path / "test.jsonl"
+    path.write_text(
+        '{"id":"c1","domain":"test","difficulty":"easy","question":"什么是RAG?",'
+        '"expected_facts":["RAG结合检索和生成"],"required_citations":1,"tags":[],'
+        '"question_lang":"zh","evidence_lang":"zh"}\n',
+        encoding="utf-8",
+    )
+    cases = load_dataset(path)
+    assert cases[0].question_lang == "zh"
+    assert cases[0].evidence_lang == "zh"
+
+
+def test_load_dataset_language_fields_default_en(tmp_path):
+    path = tmp_path / "test.jsonl"
+    path.write_text(
+        '{"id":"c1","domain":"test","difficulty":"easy","question":"What is RAG?",'
+        '"expected_facts":["RAG combines retrieval and generation"],'
+        '"required_citations":1,"tags":[]}\n',
+        encoding="utf-8",
+    )
+    cases = load_dataset(path)
+    assert cases[0].question_lang == "en"
+    assert cases[0].evidence_lang == "en"

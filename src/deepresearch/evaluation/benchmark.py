@@ -25,6 +25,8 @@ class BenchmarkCase:
     expected_facts: list[str | dict] = field(default_factory=list)
     required_citations: int = 0
     tags: list[str] = field(default_factory=list)
+    question_lang: str = "en"  # "en", "zh", "mixed"
+    evidence_lang: str = "en"  # "en", "zh", "mixed"
 
 
 @dataclass
@@ -53,6 +55,8 @@ def load_dataset(path: Path) -> list[BenchmarkCase]:
                 expected_facts=data.get("expected_facts", []),
                 required_citations=data.get("required_citations", 0),
                 tags=data.get("tags", []),
+                question_lang=data.get("question_lang", "en"),
+                evidence_lang=data.get("evidence_lang", "en"),
             )
         )
     return cases
