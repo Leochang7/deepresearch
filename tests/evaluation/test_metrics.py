@@ -380,3 +380,56 @@ class TestEvaluator:
         result = evaluate("r1", tasks, report, evidence, expected_facts=facts)
         assert len(result.fact_details) == 2
         assert result.fact_details[0]["source"] == "rule"
+
+
+def test_citation_coverage_with_fuzzy_evidence():
+    """End-to-end: fuzzy-extracted evidence cited in report body yields high coverage."""
+    tasks = [
+        TaskNode(
+            task_id="t1",
+            description="research embeddings",
+            status=TaskState.SUCCEEDED,
+        ),
+    ]
+    evidence = [
+        EvidenceItem(
+            evidence_id="E1",
+            task_id="t1",
+            claim="embeddings capture semantic meaning",
+            quote="embeddings capture semantic meaning",
+            confidence=0.8,
+        ),
+        EvidenceItem(
+            evidence_id="E2",
+            task_id="t1",
+            claim="dense vectors encode text",
+            quote="dense vectors encode text into fixed dimensions",
+            confidence=0.7,
+        ),
+        EvidenceItem(
+            evidence_id="E3",
+            task_id="t1",
+            claim="transformers outperform tfidf",
+            quote="transformer embeddings outperform TF-IDF",
+            confidence=0.75,
+        ),
+    ]
+    report = ResearchReport(
+        run_id="test-run",
+        question="How do embeddings work?",
+        summary="This report covers embeddings [E1] and vectors [E2].",
+        sections=[
+            ReportSection(
+                title="Analysis",
+                content=(
+                    "Embeddings [E1] capture semantics.\n"
+                    "Dense vectors [E2] encode text.\n"
+                    "Transformers [E3] outperform older methods."
+                ),
+            ),
+        ],
+        references=[],
+    )
+    result = evaluate("run-1", tasks, report, evidence)
+    assert result.citation_coverage >= 0.7
+    assert result.hallucination_flag is False
