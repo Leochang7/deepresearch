@@ -825,3 +825,97 @@ def test_load_dataset_language_fields_default_en(tmp_path):
     cases = load_dataset(path)
     assert cases[0].question_lang == "en"
     assert cases[0].evidence_lang == "en"
+
+
+def test_summary_includes_language_breakdown():
+    """Summary should include per_question_lang and per_evidence_lang grouping."""
+    results = [
+        BenchmarkResult(
+            case_id="c1",
+            run_id="r1",
+            question="What is RAG?",
+            domain="rag",
+            difficulty="easy",
+            evaluation={
+                "task_success_rate": 1.0,
+                "citation_coverage": 0.8,
+                "empty_citation_rate": 0.0,
+                "report_section_completeness": 1.0,
+                "factual_hit_rate": 1.0,
+                "hallucination_flag": False,
+            },
+            budget={},
+            elapsed_seconds=1.0,
+        ),
+        BenchmarkResult(
+            case_id="c2",
+            run_id="r2",
+            question="什么是RAG?",
+            domain="cross_lingual",
+            difficulty="medium",
+            evaluation={
+                "task_success_rate": 0.5,
+                "citation_coverage": 0.6,
+                "empty_citation_rate": 0.1,
+                "report_section_completeness": 0.8,
+                "factual_hit_rate": 0.5,
+                "hallucination_flag": False,
+            },
+            budget={},
+            elapsed_seconds=2.0,
+        ),
+    ]
+
+    cases = [
+        BenchmarkCase(
+            id="c1",
+            domain="rag",
+            difficulty="easy",
+            question="What is RAG?",
+            expected_facts=[],
+            required_citations=0,
+            tags=[],
+            question_lang="en",
+            evidence_lang="en",
+        ),
+        BenchmarkCase(
+            id="c2",
+            domain="cross_lingual",
+            difficulty="medium",
+            question="什么是RAG?",
+            expected_facts=[],
+            required_citations=0,
+            tags=[],
+            question_lang="zh",
+            evidence_lang="mixed",
+        ),
+    ]
+
+    summary = _build_summary(results, total_elapsed=3.0, cases=cases)
+
+    assert "per_question_lang" in summary
+    assert "en" in summary["per_question_lang"]
+    assert "zh" in summary["per_question_lang"]
+    assert summary["per_question_lang"]["en"]["count"] == 1
+    assert summary["per_question_lang"]["zh"]["count"] == 1
+
+    assert "per_evidence_lang" in summary
+    assert "en" in summary["per_evidence_lang"]
+    assert "mixed" in summary["per_evidence_lang"]
+    assert summary["per_evidence_lang"]["en"]["count"] == 1
+    assert summary["per_evidence_lang"]["mixed"]["count"] == 1
+
+
+def test_summary_language_breakdown_without_cases():
+    """When no cases are passed, per_question_lang and per_evidence_lang should still be present but empty."""
+    results = [
+        BenchmarkResult(
+            "c1", "r1", "q1", "d", "m",
+            {"task_success_rate": 1.0, "citation_coverage": 0.8,
+             "factual_hit_rate": 0.9, "report_section_completeness": 1.0},
+            {}, 1.0,
+        ),
+    ]
+    summary = _build_summary(results, total_elapsed=1.0)
+    assert summary["per_question_lang"] == {}
+    assert summary["per_evidence_lang"] == {}

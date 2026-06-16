@@ -84,7 +84,7 @@ async def run_benchmark(
     )
 
     results = list(gathered)
-    summary = _write_results(output_dir, results, time.monotonic() - start)
+    summary = _write_results(output_dir, results, time.monotonic() - start, cases=cases)
     return results, summary
 
 
@@ -168,13 +168,14 @@ def _write_results(
     output_dir: Path,
     results: list[BenchmarkResult],
     total_elapsed: float,
+    cases: list[BenchmarkCase] | None = None,
 ) -> dict[str, Any]:
     results_path = output_dir / "results.jsonl"
     with open(results_path, "w", encoding="utf-8") as f:
         for result in results:
             f.write(json.dumps(asdict(result), ensure_ascii=False) + "\n")
 
-    summary = _build_summary(results, total_elapsed)
+    summary = _build_summary(results, total_elapsed, cases=cases)
     summary_path = output_dir / "summary.json"
     summary_path.write_text(
         json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
@@ -183,7 +184,9 @@ def _write_results(
 
 
 def _build_summary(
-    results: list[BenchmarkResult], total_elapsed: float
+    results: list[BenchmarkResult],
+    total_elapsed: float,
+    cases: list[BenchmarkCase] | None = None,
 ) -> dict[str, Any]:
     if not results:
         return {"total_cases": 0}
@@ -237,6 +240,8 @@ def _build_summary(
         "per_fact_failure_reasons": per_fact_failure_reasons,
         "per_domain": {},
         "per_difficulty": {},
+        "per_question_lang": {},
+        "per_evidence_lang": {},
         "cohens_d_easy_vs_hard": _cohens_d_between_groups(
             [r for r in results if r.difficulty == "easy"],
             [r for r in results if r.difficulty == "hard"],
@@ -253,6 +258,22 @@ def _build_summary(
             by_group[getattr(r, group_key)].append(r)
         for group_val, group_results in by_group.items():
             summary[group_name][group_val] = _group_stats(group_results)
+
+    # Language-scenario breakdowns (require cases metadata)
+    if cases:
+        case_lookup: dict[str, BenchmarkCase] = {c.id: c for c in cases}
+        for lang_field, group_name in [
+            ("question_lang", "per_question_lang"),
+            ("evidence_lang", "per_evidence_lang"),
+        ]:
+            by_lang: dict[str, list[BenchmarkResult]] = defaultdict(list)
+            for r in results:
+                case = case_lookup.get(r.case_id)
+                if case is not None:
+                    lang_val = getattr(case, lang_field, "en")
+                    by_lang[lang_val].append(r)
+            for lang_val, lang_results in by_lang.items():
+                summary[group_name][lang_val] = _group_stats(lang_results)
 
     return summary
 
