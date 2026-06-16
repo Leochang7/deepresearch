@@ -923,6 +923,59 @@ def test_summary_language_breakdown_without_cases():
     assert summary["per_language_scenario"] == {}
 
 
+def test_summary_includes_per_model_backend():
+    results = [
+        BenchmarkResult(
+            case_id="c1",
+            run_id="r1",
+            question="Q1",
+            domain="d",
+            difficulty="easy",
+            evaluation={
+                "task_success_rate": 0.8,
+                "citation_coverage": 0.7,
+                "factual_hit_rate": 0.9,
+                "report_section_completeness": 1.0,
+            },
+            budget={},
+            elapsed_seconds=1.0,
+        ),
+    ]
+    cases = [
+        BenchmarkCase(
+            id="c1",
+            domain="d",
+            difficulty="easy",
+            question="Q1",
+            expected_facts=[],
+            required_citations=0,
+            tags=[],
+            model_backend="mimo",
+            model_name="mimo-v2.5-pro",
+        ),
+    ]
+    summary = _build_summary(results, 1.0, cases=cases)
+    assert "per_model_backend" in summary
+    assert "mimo" in summary["per_model_backend"]
+    assert "per_model_name" in summary
+    assert "mimo-v2.5-pro" in summary["per_model_name"]
+
+
+def test_summary_per_model_backend_without_cases():
+    """When no cases are passed, per_model_backend and per_model_name should be empty dicts."""
+    results = [
+        BenchmarkResult(
+            "c1", "r1", "q1", "d", "easy",
+            {"task_success_rate": 1.0, "citation_coverage": 0.8,
+             "factual_hit_rate": 0.9, "report_section_completeness": 1.0},
+            {}, 1.0,
+        ),
+    ]
+    summary = _build_summary(results, 1.0)
+    assert summary["per_model_backend"] == {}
+    assert summary["per_model_name"] == {}
+
+
 def test_compare_summaries():
     from deepresearch.evaluation.benchmark import compare_summaries
 

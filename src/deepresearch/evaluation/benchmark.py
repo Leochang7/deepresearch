@@ -29,6 +29,8 @@ class BenchmarkCase:
     evidence_lang: str = "en"  # "en", "zh", "mixed"
     source_dataset: str = ""
     evaluation_focus: str = ""
+    model_backend: str = ""
+    model_name: str = ""
 
 
 @dataclass
@@ -61,6 +63,8 @@ def load_dataset(path: Path) -> list[BenchmarkCase]:
                 evidence_lang=data.get("evidence_lang", "en"),
                 source_dataset=data.get("source_dataset", ""),
                 evaluation_focus=data.get("evaluation_focus", ""),
+                model_backend=data.get("model_backend", ""),
+                model_name=data.get("model_name", ""),
             )
         )
     return cases
@@ -293,6 +297,8 @@ def _build_summary(
         "per_question_lang": {},
         "per_evidence_lang": {},
         "per_language_scenario": {},
+        "per_model_backend": {},
+        "per_model_name": {},
         "cohens_d_easy_vs_hard": _group_cohens_d(
             [r for r in results if r.difficulty == "easy"],
             [r for r in results if r.difficulty == "hard"],
@@ -334,6 +340,21 @@ def _build_summary(
                 by_scenario[scenario].append(r)
         for scenario, scenario_results in by_scenario.items():
             summary["per_language_scenario"][scenario] = _group_stats(scenario_results)
+
+        # Group by model backend / model name
+        by_backend: dict[str, list[BenchmarkResult]] = defaultdict(list)
+        by_model: dict[str, list[BenchmarkResult]] = defaultdict(list)
+        for r in results:
+            case = case_lookup.get(r.case_id)
+            if case:
+                if case.model_backend:
+                    by_backend[case.model_backend].append(r)
+                if case.model_name:
+                    by_model[case.model_name].append(r)
+        for backend, backend_results in by_backend.items():
+            summary["per_model_backend"][backend] = _group_stats(backend_results)
+        for model, model_results in by_model.items():
+            summary["per_model_name"][model] = _group_stats(model_results)
 
     return summary
 
@@ -432,6 +453,8 @@ def compare_summaries(
         "per_question_lang",
         "per_evidence_lang",
         "per_language_scenario",
+        "per_model_backend",
+        "per_model_name",
     ):
         b_groups = before.get(group_key, {})
         a_groups = after.get(group_key, {})
