@@ -447,7 +447,10 @@ def test_evaluate_fact_chinese_keyword_overlap():
     from deepresearch.evaluation.metrics import _evaluate_fact
 
     report_text = "本文介绍了向量检索和密集检索的原理与应用。"
-    spec = {"fact": "密集检索使用向量嵌入进行语义匹配", "keywords": ["密集检索", "向量", "语义"]}
+    spec = {
+        "fact": "密集检索使用向量嵌入进行语义匹配",
+        "keywords": ["密集检索", "向量", "语义"],
+    }
     result = _evaluate_fact(spec, report_text)
     assert result.matched is True
 

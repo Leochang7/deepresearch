@@ -548,9 +548,11 @@ def test_fuzzy_quote_matches_with_punctuation_difference():
 def test_quality_checker_accepts_chinese_claim_and_quote():
     from deepresearch.agents.evidence_quality import DefaultEvidenceQualityChecker
     from deepresearch.schemas.evidence import EvidenceItem
+
     checker = DefaultEvidenceQualityChecker(min_confidence=0.3, min_token_overlap=0.1)
     item = EvidenceItem(
-        evidence_id="E1", task_id="t1",
+        evidence_id="E1",
+        task_id="t1",
         claim="检索增强生成结合了检索和生成",
         quote="RAG（检索增强生成）结合了检索与生成的方法",
         confidence=0.8,
@@ -563,9 +565,11 @@ def test_quality_checker_accepts_chinese_claim_and_quote():
 def test_quality_checker_rejects_unrelated_chinese():
     from deepresearch.agents.evidence_quality import DefaultEvidenceQualityChecker
     from deepresearch.schemas.evidence import EvidenceItem
+
     checker = DefaultEvidenceQualityChecker(min_confidence=0.3, min_token_overlap=0.1)
     item = EvidenceItem(
-        evidence_id="E1", task_id="t1",
+        evidence_id="E1",
+        task_id="t1",
         claim="深度学习需要大量计算资源",
         quote="检索增强生成结合了检索和生成",
         confidence=0.8,

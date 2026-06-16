@@ -13,13 +13,15 @@ def load_manifest(bench_dir: Path) -> dict:
             continue
         domains = {c.get("domain", "") for c in cases}
         languages = {c.get("question_lang", "en") for c in cases}
-        datasets.append({
-            "name": path.stem,
-            "path": str(path),
-            "case_count": len(cases),
-            "domains": sorted(domains),
-            "question_languages": sorted(languages),
-        })
+        datasets.append(
+            {
+                "name": path.stem,
+                "path": path.as_posix(),
+                "case_count": len(cases),
+                "domains": sorted(domains),
+                "question_languages": sorted(languages),
+            }
+        )
     return {"datasets": datasets, "total_cases": sum(d["case_count"] for d in datasets)}
 
 
@@ -31,7 +33,15 @@ def validate_dataset(path: Path) -> list[str]:
         errors.append(f"No cases found in {path.name}")
         return errors
 
-    required = {"id", "domain", "difficulty", "question", "expected_facts"}
+    required = {
+        "id",
+        "domain",
+        "difficulty",
+        "question",
+        "expected_facts",
+        "required_citations",
+        "tags",
+    }
     ids_seen: set[str] = set()
     for i, case in enumerate(cases, 1):
         missing = required - set(case.keys())

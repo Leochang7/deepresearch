@@ -2,7 +2,7 @@
   "datasets": [
     {
       "name": "crosslingual_smoke10",
-      "path": "examples\\bench\\crosslingual_smoke10.jsonl",
+      "path": "examples/bench/crosslingual_smoke10.jsonl",
       "case_count": 10,
       "domains": [
         "cross_lingual",
@@ -22,7 +22,7 @@
     },
     {
       "name": "crosslingual_smoke3",
-      "path": "examples\\bench\\crosslingual_smoke3.jsonl",
+      "path": "examples/bench/crosslingual_smoke3.jsonl",
       "case_count": 3,
       "domains": [
         "cross_lingual"
@@ -34,7 +34,7 @@
     },
     {
       "name": "hotpotqa_deepresearch",
-      "path": "examples\\bench\\hotpotqa_deepresearch.jsonl",
+      "path": "examples/bench/hotpotqa_deepresearch.jsonl",
       "case_count": 8,
       "domains": [
         "education",
@@ -49,7 +49,7 @@
     },
     {
       "name": "multilingual_large20",
-      "path": "examples\\bench\\multilingual_large20.jsonl",
+      "path": "examples/bench/multilingual_large20.jsonl",
       "case_count": 20,
       "domains": [
         "cross_lingual",
@@ -74,7 +74,7 @@
     },
     {
       "name": "researchbench_full",
-      "path": "examples\\bench\\researchbench_full.jsonl",
+      "path": "examples/bench/researchbench_full.jsonl",
       "case_count": 32,
       "domains": [
         "agent_orchestration",
@@ -97,7 +97,7 @@
     },
     {
       "name": "researchbench_mini",
-      "path": "examples\\bench\\researchbench_mini.jsonl",
+      "path": "examples/bench/researchbench_mini.jsonl",
       "case_count": 12,
       "domains": [
         "deployment",
@@ -117,7 +117,7 @@
     },
     {
       "name": "researchbench_smoke5",
-      "path": "examples\\bench\\researchbench_smoke5.jsonl",
+      "path": "examples/bench/researchbench_smoke5.jsonl",
       "case_count": 5,
       "domains": [
         "embeddings",

@@ -70,8 +70,7 @@ class LangfusePromptProvider:
             ) from exc
         if not result:
             raise PromptProviderError(
-                f"Langfuse prompt deepresearch/{name} with label "
-                f"{self._label} is empty"
+                f"Langfuse prompt deepresearch/{name} with label {self._label} is empty"
             )
         return result
 

@@ -276,43 +276,40 @@ class Synthesizer:
         # Chinese transition phrases
         if has_cjk:
             cjk_transitions = (
-                "综上所述", "总之", "以下是", "主要发现", "需要注意",
-                "此外", "另外", "同时", "接下来", "最后",
+                "综上所述",
+                "总之",
+                "以下是",
+                "主要发现",
+                "需要注意",
+                "此外",
+                "另外",
+                "同时",
+                "接下来",
+                "最后",
             )
             if any(
-                stripped == t
-                or re.fullmatch(rf"{re.escape(t)}[，,。:：\s]*", stripped)
+                stripped == t or re.fullmatch(rf"{re.escape(t)}[，,。:：\s]*", stripped)
                 for t in cjk_transitions
             ):
                 return False
         # English transition phrases
         lower = stripped.lower()
-        if re.match(
-            r"^(this|the)\s+(section|report|analysis|discussion)\s+", lower
-        ):
+        if re.match(r"^(this|the)\s+(section|report|analysis|discussion)\s+", lower):
             return False
         if re.match(
             r"^(the\s+)?following\s+(section|analysis|discussion|comparison)\s+", lower
         ):
             return False
-        if re.match(
-            r"^(in\s+summary|overall|taken together|in practice)\b", lower
-        ):
+        if re.match(r"^(in\s+summary|overall|taken together|in practice)\b", lower):
             return False
-        if re.match(
-            r"^(key findings|main findings|several themes)\s+", lower
-        ):
+        if re.match(r"^(key findings|main findings|several themes)\s+", lower):
             return False
-        if re.match(
-            r"^(to compare|to summarize|to frame|to organize)\b", lower
-        ):
+        if re.match(r"^(to compare|to summarize|to frame|to organize)\b", lower):
             return False
         # Data patterns
         if re.search(r"\d+(\.\d+)?%|\d{4}", stripped):
             return True
-        if re.search(
-            r"[A-Z][a-z]+\s(et al\.|found|showed|reported)", stripped
-        ):
+        if re.search(r"[A-Z][a-z]+\s(et al\.|found|showed|reported)", stripped):
             return True
         if has_cjk and re.search(r"\d+", stripped):
             return True

@@ -49,7 +49,9 @@ def test_langfuse_provider_fetches_prompt():
     provider = LangfusePromptProvider(client=mock_client, label="production")
     result = provider.get("planner")
 
-    mock_client.prompt.get.assert_called_once_with(name="deepresearch/planner", label="production")
+    mock_client.prompt.get.assert_called_once_with(
+        name="deepresearch/planner", label="production"
+    )
     assert result == "Langfuse planner prompt"
 
 
@@ -114,7 +116,9 @@ def test_langfuse_with_fallback_uses_langfuse_when_available():
     mock_client.prompt.get.return_value = mock_prompt
 
     local = LocalPromptProvider(prompts_dir=Path("/empty"))
-    provider = LangfuseWithFallbackProvider(client=mock_client, local=local, label="prod")
+    provider = LangfuseWithFallbackProvider(
+        client=mock_client, local=local, label="prod"
+    )
     assert provider.get("planner") == "remote prompt"
 
 

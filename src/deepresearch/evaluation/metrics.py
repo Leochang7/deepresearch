@@ -15,7 +15,11 @@ _ABBREVIATIONS: dict[str, list[str]] = {
     "large language model": ["llm"],
     "large language models": ["llm"],
     "大语言模型": ["llm"],
-    "rag": ["retrieval-augmented generation", "retrieval augmented generation", "检索增强生成"],
+    "rag": [
+        "retrieval-augmented generation",
+        "retrieval augmented generation",
+        "检索增强生成",
+    ],
     "retrieval-augmented generation": ["rag"],
     "检索增强生成": ["rag"],
     "cot": ["chain-of-thought", "chain of thought", "思维链"],

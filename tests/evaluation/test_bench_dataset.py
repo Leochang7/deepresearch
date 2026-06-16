@@ -107,6 +107,7 @@ def test_researchbench_full_dataset():
 
 def test_manifest_lists_all_datasets():
     from deepresearch.evaluation.datasets import load_manifest
+
     manifest = load_manifest(Path("examples/bench"))
     dataset_names = {d["name"] for d in manifest["datasets"]}
     assert "researchbench_full" in dataset_names
@@ -116,12 +117,14 @@ def test_manifest_lists_all_datasets():
 
 def test_validate_dataset_no_errors():
     from deepresearch.evaluation.datasets import validate_dataset
+
     errors = validate_dataset(Path("examples/bench/researchbench_full.jsonl"))
     assert errors == []
 
 
 def test_validate_dataset_duplicate_ids(tmp_path):
     from deepresearch.evaluation.datasets import validate_dataset
+
     path = tmp_path / "dup.jsonl"
     path.write_text(
         '{"id":"d1","domain":"t","difficulty":"easy","question":"Q",'
@@ -136,6 +139,7 @@ def test_validate_dataset_duplicate_ids(tmp_path):
 
 def test_validate_dataset_empty_expected_facts(tmp_path):
     from deepresearch.evaluation.datasets import validate_dataset
+
     path = tmp_path / "empty.jsonl"
     path.write_text(
         '{"id":"d1","domain":"t","difficulty":"easy","question":"Q",'
@@ -147,11 +151,10 @@ def test_validate_dataset_empty_expected_facts(tmp_path):
 
 
 def test_generate_manifest_json():
-    import json
-
     from deepresearch.evaluation.datasets import load_manifest
+
     manifest = load_manifest(Path("examples/bench"))
     assert manifest["total_cases"] >= 40
     manifest_path = Path("examples/bench/manifest.json")
-    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-    assert manifest_path.exists()
+    existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert existing_manifest == manifest

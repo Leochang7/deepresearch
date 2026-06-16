@@ -45,7 +45,7 @@ class DefaultEvidenceQualityChecker:
         cjk: set[str] = set()
         for run in cjk_runs:
             cjk.update(run)
-            cjk.update(run[i:i+2] for i in range(len(run) - 1))
+            cjk.update(run[i : i + 2] for i in range(len(run) - 1))
         return latin | cjk
 
     def _check_token_overlap(self, claim: str, quote: str) -> bool:

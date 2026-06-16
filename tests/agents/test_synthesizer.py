@@ -87,7 +87,11 @@ async def test_unknown_citation_is_removed_and_added_to_limitations():
 
 @pytest.mark.asyncio
 async def test_uncited_claim_is_moved_to_limitations():
-    llm = MockLLM(["## Analysis\nSupported [E1].\nMachine learning models achieved state-of-the-art results in 2023."])
+    llm = MockLLM(
+        [
+            "## Analysis\nSupported [E1].\nMachine learning models achieved state-of-the-art results in 2023."
+        ]
+    )
 
     report = await Synthesizer(llm).synthesize(
         "r1", "question", [_task()], [_evidence()]
@@ -98,7 +102,8 @@ async def test_uncited_claim_is_moved_to_limitations():
     )
     assert "state-of-the-art results" not in analysis.content
     assert any(
-        item == "Uncited claim in Analysis: Machine learning models achieved state-of-the-art results in 2023."
+        item
+        == "Uncited claim in Analysis: Machine learning models achieved state-of-the-art results in 2023."
         for item in report.limitations
     )
 
@@ -213,7 +218,14 @@ async def test_synthesizer_with_comparison_profile():
 def test_synthesizer_prompt_instructs_citing_all_evidence():
     """The synthesizer prompt should tell the LLM to cite all provided evidence."""
     from pathlib import Path
-    prompt_path = Path(__file__).resolve().parents[2] / "src" / "deepresearch" / "prompts" / "synthesizer.md"
+
+    prompt_path = (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "deepresearch"
+        / "prompts"
+        / "synthesizer.md"
+    )
     content = prompt_path.read_text()
     assert "Cite ALL provided evidence" in content
     assert "multiple evidence items" in content
@@ -319,9 +331,7 @@ def test_is_substantive_claim_chinese_transition():
 def test_is_substantive_claim_chinese_transition_with_fact():
     """Chinese transition prefixes should not hide uncited factual claims."""
     assert (
-        Synthesizer._is_substantive_claim(
-            "此外，密集检索使用向量嵌入进行语义匹配"
-        )
+        Synthesizer._is_substantive_claim("此外，密集检索使用向量嵌入进行语义匹配")
         is True
     )
 

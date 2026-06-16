@@ -30,7 +30,6 @@ class TestDeepResearchConfig:
         assert hasattr(cfg, "evidence_quality")
         assert hasattr(cfg, "fusion")
 
-
     def test_benchmark_config_defaults(self):
         from deepresearch.config import BenchmarkConfig
 

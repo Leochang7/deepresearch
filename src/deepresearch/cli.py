@@ -669,7 +669,9 @@ def benchmark_cmd(
 
     _results, summary = asyncio.run(
         run_benchmark(
-            cases, make_manager, output_dir=output_dir,
+            cases,
+            make_manager,
+            output_dir=output_dir,
             max_concurrency=cfg.benchmark.max_concurrency,
         )
     )
