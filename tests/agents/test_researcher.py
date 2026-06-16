@@ -556,7 +556,7 @@ def test_quality_checker_accepts_chinese_claim_and_quote():
         confidence=0.8,
     )
     source_content = "RAG（检索增强生成）结合了检索与生成的方法用于问答。"
-    passed, reason = checker.check(item, source_content)
+    passed, _reason = checker.check(item, source_content)
     assert passed is True
 
 
