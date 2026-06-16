@@ -271,14 +271,21 @@ def evaluate(
 
     factual_hit_rate = 0.0
     fact_details: list[dict] = []
+    per_fact_failure_reasons: list[dict] = []
     if expected_facts:
         body_lower = body_text.lower()
         results = [_evaluate_fact(fact, body_lower) for fact in expected_facts]
         hits = sum(1 for r in results if r.matched)
         factual_hit_rate = hits / len(expected_facts)
         fact_details = [r.model_dump() for r in results]
+        per_fact_failure_reasons = [
+            {"fact": r.fact, "reason": r.reason}
+            for r in results
+            if not r.matched
+        ]
 
     valid_body_citations = len(cited_ids & evidence_ids)
+    unsupported_citations = sorted(cited_ids - evidence_ids)
     hallucination_flag = empty_citation_rate > 0.5
     hallucination_details: list[str] = []
     if hallucination_flag:
@@ -304,6 +311,8 @@ def evaluate(
         hallucination_flag=hallucination_flag,
         hallucination_details=hallucination_details,
         fact_details=fact_details,
+        unsupported_citations=unsupported_citations,
+        per_fact_failure_reasons=per_fact_failure_reasons,
     )
 
 

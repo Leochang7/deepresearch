@@ -496,3 +496,55 @@ def test_detect_language_english():
 
     assert _detect_language("retrieval augmented generation") == "en"
     assert _detect_language("hello world") == "en"
+
+
+def test_evaluate_includes_unsupported_citations():
+    """evaluate() should list citation IDs in report that don't map to evidence."""
+    tasks = [TaskNode(task_id="t1", description="d", status=TaskState.SUCCEEDED)]
+    evidence = [
+        EvidenceItem(
+            evidence_id="E1",
+            task_id="t1",
+            claim="c",
+            quote="q",
+            confidence=0.9,
+        )
+    ]
+    report = ResearchReport(
+        run_id="r1",
+        question="Q",
+        summary="S",
+        sections=[
+            ReportSection(
+                title="A", content="Some claim [E1] and another [E999]"
+            )
+        ],
+    )
+    result = evaluate("r1", tasks, report, evidence, None, None, None, 0)
+    assert "E999" in result.unsupported_citations
+    assert "E1" not in result.unsupported_citations
+
+
+def test_evaluate_per_fact_failure_reasons():
+    """evaluate() should include per-fact failure reasons for unmatched facts."""
+    tasks = [TaskNode(task_id="t1", description="d", status=TaskState.SUCCEEDED)]
+    report = ResearchReport(
+        run_id="r1",
+        question="Q",
+        summary="S",
+        sections=[
+            ReportSection(title="A", content="Nothing relevant here")
+        ],
+    )
+    result = evaluate(
+        "r1",
+        tasks,
+        report,
+        [],
+        None,
+        None,
+        ["Fact A that should match", "Fact B that should match"],
+        0,
+    )
+    assert len(result.per_fact_failure_reasons) >= 1
+    assert all("fact" in r and "reason" in r for r in result.per_fact_failure_reasons)

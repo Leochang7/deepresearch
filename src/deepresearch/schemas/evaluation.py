@@ -26,5 +26,7 @@ class EvaluationResult(BaseModel):
     hallucination_details: list[str] = Field(default_factory=list)
     judge_scores: dict[str, float] = Field(default_factory=dict)
     fact_details: list[dict] = Field(default_factory=list)
+    unsupported_citations: list[str] = Field(default_factory=list)
+    per_fact_failure_reasons: list[dict] = Field(default_factory=list)
     created_at: str = ""
     metadata: dict = Field(default_factory=dict)
