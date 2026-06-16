@@ -504,7 +504,7 @@ def test_quality_checker_accepts_case_normalized_quote():
         confidence=0.8,
     )
     source_content = "The ReAct interleaves reasoning and acting steps in a loop."
-    passed, reason = checker.check(item, source_content)
+    passed, _reason = checker.check(item, source_content)
     assert passed is True
 
 
