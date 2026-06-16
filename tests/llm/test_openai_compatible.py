@@ -1,5 +1,7 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
 from deepresearch.llm.openai_compatible import OpenAICompatibleLLMClient
 
 
@@ -28,7 +30,7 @@ async def test_chat_sends_bearer_auth():
     }
     mock_response.raise_for_status = MagicMock()
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response):
         result = await client.chat([{"role": "user", "content": "Hi"}])
         assert result.content == "Hello"
 
