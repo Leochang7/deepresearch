@@ -168,11 +168,18 @@ def run(
     corpus: str | None = typer.Option(
         None, help="Local corpus directory for mock/local retrieval"
     ),
+    prompt_provider: str | None = typer.Option(
+        None,
+        "--prompt-provider",
+        help="Prompt source: local, langfuse, langfuse_with_local_fallback",
+    ),
 ) -> None:
     """Run a deep research task."""
     from deepresearch.core.run_manager import RunManager
 
     cfg = load_config(config_path=config_path)
+    if prompt_provider:
+        cfg.langfuse.prompt_provider = prompt_provider
     corpus_path = Path(corpus) if corpus else None
     components = _build_runtime(
         cfg,
@@ -502,6 +509,57 @@ def doctor(
     typer.echo("\nAll checks passed.")
 
 
+@app.command(name="prompts")
+def prompts_cmd(
+    action: str = typer.Argument(help="Action: push"),
+    label: str = typer.Option("staging", "--label", "-l", help="Langfuse prompt label"),
+    config_path: str | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Manage prompts (push to Langfuse)."""
+    if action != "push":
+        typer.echo(f"Unknown action: {action}. Use 'push'.", err=True)
+        raise typer.Exit(1)
+
+    cfg = load_config(config_path=config_path)
+    if not cfg.langfuse.enabled:
+        typer.echo(
+            "Langfuse is not enabled. Set DEEPRESEARCH_LANGFUSE_ENABLED=1.", err=True
+        )
+        raise typer.Exit(1)
+
+    from deepresearch.prompts.provider import LocalPromptProvider
+
+    prompts_dir = Path(__file__).resolve().parent / "prompts"
+    local = LocalPromptProvider(prompts_dir)
+    names = local.list_names()
+
+    from deepresearch.evaluation.langfuse import LangfuseAdapter
+
+    adapter = LangfuseAdapter(
+        enabled=True,
+        public_key=os.environ.get("LANGFUSE_PUBLIC_KEY", ""),
+        secret_key=os.environ.get("LANGFUSE_SECRET_KEY", ""),
+        host=cfg.langfuse.host,
+    )
+    client = adapter._client
+
+    for name in names:
+        content = local.get(name)
+        prompt_name = f"deepresearch/{name}"
+        try:
+            client.prompt.create(
+                name=prompt_name,
+                prompt=content,
+                label=label,
+                config={"type": "text"},
+            )
+            typer.echo(f"  pushed: {prompt_name} (label={label})")
+        except Exception as exc:
+            typer.echo(f"  failed: {prompt_name} - {exc}", err=True)
+
+    typer.echo(f"\nPushed {len(names)} prompts with label '{label}'.")
+
+
 @app.command(name="benchmark")
 def benchmark_cmd(
     dataset: str = typer.Argument(help="Path to benchmark JSONL dataset"),
@@ -520,6 +578,11 @@ def benchmark_cmd(
     ),
     limit: int | None = typer.Option(
         None, "--limit", help="Run only the first N benchmark cases after filtering"
+    ),
+    prompt_provider: str | None = typer.Option(
+        None,
+        "--prompt-provider",
+        help="Prompt source: local, langfuse, langfuse_with_local_fallback",
     ),
 ) -> None:
     """Run benchmark suite and produce results.jsonl + summary.json."""
@@ -544,6 +607,8 @@ def benchmark_cmd(
     typer.echo(f"Loaded {len(cases)} benchmark cases from {dataset}")
 
     cfg = load_config(config_path=config_path)
+    if prompt_provider:
+        cfg.langfuse.prompt_provider = prompt_provider
     experiment_id = (
         experiment or f"{dataset_path.stem}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     )

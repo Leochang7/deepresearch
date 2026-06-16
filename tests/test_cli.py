@@ -416,3 +416,23 @@ def test_benchmark_passes_corpus_to_build_runtime(tmp_path):
         manager_factory()
 
     assert build.call_args.kwargs["corpus"] == corpus
+
+
+def test_prompts_push_requires_langfuse_enabled(monkeypatch):
+    """prompts push should fail if Langfuse is not enabled."""
+    monkeypatch.setenv("DEEPRESEARCH_LANGFUSE_ENABLED", "false")
+    result = runner.invoke(app, ["prompts", "push"])
+    assert result.exit_code != 0
+    assert "not enabled" in result.output.lower() or "langfuse" in result.output.lower()
+
+
+def test_run_accepts_prompt_provider_option():
+    """run command should accept --prompt-provider flag."""
+    result = runner.invoke(app, ["run", "--help"])
+    assert "prompt-provider" in result.output
+
+
+def test_benchmark_accepts_prompt_provider_option():
+    """benchmark command should accept --prompt-provider flag."""
+    result = runner.invoke(app, ["benchmark", "--help"])
+    assert "prompt-provider" in result.output
