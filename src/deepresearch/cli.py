@@ -552,7 +552,9 @@ def benchmark_cmd(
 
     def make_manager() -> RunManager:
         corpus_path = Path(corpus) if corpus else None
-        components = _build_runtime(cfg, mode=mode, retriever_name=retriever, corpus=corpus_path)
+        components = _build_runtime(
+            cfg, mode=mode, retriever_name=retriever, corpus=corpus_path
+        )
         return RunManager(cfg, *components)
 
     _results, summary = asyncio.run(

@@ -96,6 +96,61 @@ async def test_run_benchmark_mock(tmp_path):
     assert first["case_id"] == "bench-1"
 
 
+@pytest.mark.asyncio
+async def test_run_benchmark_writes_results_after_each_case(tmp_path):
+    cases = [
+        BenchmarkCase(
+            id="done",
+            domain="test",
+            difficulty="easy",
+            question="Completed question",
+        ),
+        BenchmarkCase(
+            id="boom",
+            domain="test",
+            difficulty="easy",
+            question="Failing question",
+        ),
+    ]
+    task = TaskNode(task_id="t1", description="task", status=TaskState.SUCCEEDED)
+    report = ResearchReport(
+        run_id="r1",
+        question="Completed question",
+        summary="summary",
+        sections=[ReportSection(title="Analysis", content="content")],
+    )
+
+    class FakeManager:
+        calls = 0
+
+        async def run(self, question, *, output_dir):
+            output_dir.mkdir(parents=True)
+            FakeManager.calls += 1
+            if FakeManager.calls == 2:
+                raise RuntimeError("case failed")
+            return SimpleNamespace(
+                run_id="run-done",
+                plan_tasks=[task],
+                report=report,
+                evaluation=EvaluationResult(run_id="run-done"),
+                budget=None,
+                judge_rounds=[],
+            )
+
+    output_dir = tmp_path / "bench"
+    with pytest.raises(RuntimeError, match="case failed"):
+        await run_benchmark(cases, lambda: FakeManager(), output_dir=output_dir)
+
+    results_path = output_dir / "results.jsonl"
+    summary_path = output_dir / "summary.json"
+    assert results_path.exists()
+    assert summary_path.exists()
+    lines = results_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0])["case_id"] == "done"
+    assert json.loads(summary_path.read_text(encoding="utf-8"))["total_cases"] == 1
+
+
 def test_summary_includes_difficulty_breakdown():
     results = [
         BenchmarkResult(

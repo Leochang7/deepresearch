@@ -83,3 +83,16 @@ class TestTavilyWebSearchRetriever:
         await retriever.retrieve(["q1", "q2", "q3"])
 
         assert peak_active == 3
+
+    @pytest.mark.asyncio
+    async def test_provider_error_returns_empty_results(self, retriever):
+        with patch("httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post.side_effect = Exception("provider unavailable")
+            mock_cls.return_value = mock_client
+
+            results = await retriever.retrieve(["query"])
+
+        assert results == []

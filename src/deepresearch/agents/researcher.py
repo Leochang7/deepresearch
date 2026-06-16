@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import re
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -406,19 +407,40 @@ class ResearchAgent:
         data = parse_json(response.content, strict=False)
         raw_evidence = self._extract_evidence_list(data)
         if not raw_evidence:
-            return []
+            fallback = self._fallback_evidence_from_chunks(task, chunks)
+            if fallback:
+                self._report_progress(
+                    "evidence_fallback_used", {"evidence_count": len(fallback)}
+                )
+            return fallback
 
         evidence: list[EvidenceItem] = []
+        quality_rejected = False
         for raw in raw_evidence:
             if not isinstance(raw, dict):
                 continue
-            source = source_map.get(str(raw.get("source_id", "")))
+            source = self._source_from_raw(source_map, raw.get("source_id"))
             if source is None:
                 source = self._match_source_by_url(source_map, raw.get("source_url"))
             if source is None:
+                self._report_progress(
+                    "evidence_rejected",
+                    {
+                        "reason": "unknown_source",
+                        "source_id": str(raw.get("source_id", "")),
+                    },
+                )
                 continue
             quote = str(raw.get("quote", "")).strip()
-            if not quote or quote not in source.content:
+            quote = self._exact_quote_from_source(quote, source.content)
+            if not quote:
+                self._report_progress(
+                    "evidence_rejected",
+                    {
+                        "reason": "quote_not_found",
+                        "source_id": str(raw.get("source_id", "")),
+                    },
+                )
                 continue
             item = EvidenceItem(
                 evidence_id=str(raw.get("evidence_id") or f"E{uuid.uuid4().hex[:8]}"),
@@ -440,13 +462,149 @@ class ResearchAgent:
             )
             passes, reason = self._quality_checker.check(item, source.content)
             if not passes:
+                quality_rejected = True
                 self._report_progress(
                     "evidence_quality_rejected",
                     {"evidence_id": item.evidence_id, "reason": reason},
                 )
                 continue
             evidence.append(item)
+        if not evidence and not quality_rejected:
+            fallback = self._fallback_evidence_from_chunks(task, chunks)
+            if fallback:
+                self._report_progress(
+                    "evidence_fallback_used", {"evidence_count": len(fallback)}
+                )
+            return fallback
         return evidence
+
+    def _fallback_evidence_from_chunks(
+        self,
+        task: TaskNode,
+        chunks: list[SourceChunk],
+        *,
+        max_items: int = 3,
+    ) -> list[EvidenceItem]:
+        keywords = self._task_keywords(task)
+        evidence: list[EvidenceItem] = []
+        for index, chunk in enumerate(chunks, start=1):
+            quote = self._best_sentence(chunk.content, keywords)
+            if not quote:
+                continue
+            item = EvidenceItem(
+                evidence_id=f"E{len(evidence) + 1}",
+                task_id=task.task_id,
+                claim=quote,
+                quote=quote,
+                citation=chunk.title or chunk.source_url or chunk.document_id,
+                source_url=chunk.source_url or None,
+                confidence=0.45,
+                retrieved_at=chunk.retrieved_at,
+                metadata={
+                    "source_id": f"S{index}",
+                    "chunk_id": chunk.chunk_id,
+                    "document_id": chunk.document_id,
+                    "retrieved_at": chunk.retrieved_at,
+                    "fallback": "sentence_from_ranked_chunk",
+                },
+            )
+            passes, reason = self._quality_checker.check(item, chunk.content)
+            if not passes:
+                self._report_progress(
+                    "evidence_quality_rejected",
+                    {"evidence_id": item.evidence_id, "reason": reason},
+                )
+                continue
+            evidence.append(item)
+            if len(evidence) >= max_items:
+                break
+        return evidence
+
+    @staticmethod
+    def _task_keywords(task: TaskNode) -> set[str]:
+        text = f"{task.description} {task.goal}".lower()
+        return {
+            token
+            for token in re.findall(r"[a-zA-Z][a-zA-Z0-9_-]{3,}", text)
+            if token
+            not in {
+                "what",
+                "when",
+                "where",
+                "which",
+                "with",
+                "from",
+                "into",
+                "main",
+                "extract",
+                "evidence",
+                "research",
+                "analyze",
+                "analysis",
+            }
+        }
+
+    @staticmethod
+    def _best_sentence(content: str, keywords: set[str]) -> str:
+        sentences = [
+            sentence.strip()
+            for sentence in re.split(r"(?<=[.!?。！？])\s+", content)
+            if sentence.strip()
+        ]
+        if not sentences:
+            text = content.strip()
+            return text[:500].strip() if len(text) >= 40 else ""
+
+        def score(sentence: str) -> tuple[int, int]:
+            normalized = sentence.lower()
+            keyword_hits = sum(1 for keyword in keywords if keyword in normalized)
+            return keyword_hits, min(len(sentence), 500)
+
+        ranked = sorted(sentences, key=score, reverse=True)
+        for sentence in ranked:
+            keyword_hits, _ = score(sentence)
+            if keywords and keyword_hits == 0:
+                continue
+            if len(sentence) >= 40:
+                return sentence[:500].strip()
+        return ""
+
+    @staticmethod
+    def _source_from_raw(
+        source_map: dict[str, SourceChunk], source_id: object
+    ) -> SourceChunk | None:
+        if source_id is None:
+            return None
+        value = str(source_id).strip()
+        candidates = [
+            value,
+            value.strip("[](){}"),
+            value.upper(),
+            value.strip("[](){}").upper(),
+        ]
+        for candidate in candidates:
+            if candidate in source_map:
+                return source_map[candidate]
+        match = re.search(r"S\s*(\d+)", value, flags=re.IGNORECASE)
+        if match:
+            return source_map.get(f"S{match.group(1)}")
+        return None
+
+    @staticmethod
+    def _exact_quote_from_source(quote: str, source_content: str) -> str:
+        if not quote:
+            return ""
+        if quote in source_content:
+            return quote
+
+        quote_tokens = quote.split()
+        if not quote_tokens:
+            return ""
+        pattern = r"\s+".join(re.escape(token) for token in quote_tokens)
+        match = re.search(pattern, source_content, flags=re.IGNORECASE)
+        if match:
+            return source_content[match.start() : match.end()]
+        return ""
 
     @staticmethod
     def _match_source_by_url(

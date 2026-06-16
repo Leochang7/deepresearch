@@ -5,8 +5,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from deepresearch.agents.researcher import ResearchAgent
-from deepresearch.core.dag import DAG
-from deepresearch.core.executor import DAGExecutor
 from deepresearch.embeddings.mock import MockEmbeddingClient
 from deepresearch.llm.mock import MockLLM
 from deepresearch.memory.store import MockMemoryStore
@@ -110,7 +108,7 @@ async def test_evidence_source_is_bound_to_selected_chunk():
         }
     )
     agent, _, _ = _agent(llm=MockLLM([query_response, evidence_response]))
-    task = TaskNode(task_id="t1", description="extract", goal="extract evidence")
+    task = TaskNode(task_id="t1", description="LLM agent tools", goal="")
 
     result = await agent.execute(task, run_id="run-1")
     evidence = result["evidence"][0]
@@ -120,6 +118,35 @@ async def test_evidence_source_is_bound_to_selected_chunk():
     assert evidence["source_url"] == "https://example.com/source"
     assert evidence["confidence"] == 1.0
     assert evidence["retrieved_at"] == "2026-06-16T00:00:00Z"
+    assert evidence["metadata"]["source_id"] == "S1"
+
+
+@pytest.mark.asyncio
+async def test_evidence_accepts_bracketed_source_id_and_whitespace_quote():
+    query_response = json.dumps({"queries": ["agent evidence"]})
+    evidence_response = json.dumps(
+        {
+            "evidence": [
+                {
+                    "evidence_id": "E1",
+                    "source_id": "[S1]",
+                    "claim": "LLM agents coordinate tools and memory",
+                    "quote": "LLM agents coordinate tools\nand memory",
+                    "confidence": 0.9,
+                }
+            ]
+        }
+    )
+    agent, _, _ = _agent(llm=MockLLM([query_response, evidence_response]))
+
+    result = await agent.execute(
+        TaskNode(task_id="t1", description="extract", goal="extract evidence"),
+        run_id="run-1",
+    )
+
+    assert result["evidence_count"] == 1
+    evidence = result["evidence"][0]
+    assert evidence["quote"] == "LLM agents coordinate tools and memory"
     assert evidence["metadata"]["source_id"] == "S1"
 
 
@@ -172,7 +199,75 @@ async def test_json_array_evidence_response_is_supported():
 
 
 @pytest.mark.asyncio
-async def test_unknown_source_id_is_rejected_and_triggers_replan_fields():
+async def test_empty_evidence_response_uses_grounded_sentence_fallback():
+    llm = MockLLM(
+        [
+            json.dumps({"queries": ["agent evidence"]}),
+            json.dumps({"evidence": []}),
+        ]
+    )
+    agent, _, _ = _agent(llm=llm)
+
+    result = await agent.execute(
+        TaskNode(task_id="t1", description="LLM agent tools", goal="Find evidence"),
+        run_id="run-1",
+    )
+
+    assert result["evidence_count"] >= 1
+    evidence = result["evidence"][0]
+    assert evidence["quote"] in (
+        "LLM agents coordinate tools and memory to complete complex tasks."
+    )
+    assert evidence["claim"] == evidence["quote"]
+    assert evidence["confidence"] == 0.45
+    assert evidence["metadata"]["fallback"] == "sentence_from_ranked_chunk"
+
+
+@pytest.mark.asyncio
+async def test_empty_evidence_fallback_requires_keyword_match():
+    llm = MockLLM(
+        [
+            json.dumps({"queries": ["unrelated"]}),
+            json.dumps({"evidence": []}),
+        ]
+    )
+    document = _document().model_copy(
+        update={
+            "content": (
+                "This document discusses gardening schedules and soil moisture. "
+                "It does not cover the requested technical topic."
+            )
+        }
+    )
+    agent = ResearchAgent(
+        llm,
+        MockRetriever([document]),
+        MockMemoryStore(),
+        MockEmbeddingClient(),
+        MockRerankerClient(),
+        fetcher=AsyncMock(
+            fetch=AsyncMock(
+                return_value=FetchResult(
+                    url="https://example.com/source",
+                    title="Unrelated",
+                    content=document.content,
+                    success=True,
+                )
+            )
+        ),
+    )
+
+    result = await agent.execute(
+        TaskNode(task_id="t1", description="quantum compiler optimization", goal=""),
+        run_id="run-1",
+    )
+
+    assert result["evidence_count"] == 0
+    assert result["information_insufficient"] is True
+
+
+@pytest.mark.asyncio
+async def test_unknown_source_id_falls_back_to_grounded_sentence():
     llm = MockLLM(
         [
             json.dumps({"queries": ["agent evidence"]}),
@@ -196,14 +291,13 @@ async def test_unknown_source_id_is_rejected_and_triggers_replan_fields():
     result = await agent.execute(task, run_id="run-1")
     entries = await memory.snapshot("run-1")
 
-    assert result["evidence"] == []
-    assert result["evidence_count"] == 0
-    assert result["information_insufficient"] is True
-    assert all(entry.source_type == "chunk" for entry in entries)
+    assert result["evidence_count"] >= 1
+    assert result["information_insufficient"] is False
+    assert any(entry.source_type == "memory" for entry in entries)
 
 
 @pytest.mark.asyncio
-async def test_quote_not_present_in_source_is_rejected():
+async def test_quote_not_present_in_source_uses_grounded_sentence_fallback():
     llm = MockLLM(
         [
             json.dumps({"queries": ["agent evidence"]}),
@@ -224,17 +318,13 @@ async def test_quote_not_present_in_source_is_rejected():
     agent, _, _ = _agent(llm=llm)
 
     result = await agent.execute(
-        TaskNode(task_id="t1", description="extract", goal="verify quote"),
+        TaskNode(task_id="t1", description="LLM agent tools", goal=""),
         run_id="run-1",
     )
 
-    assert result["evidence_count"] == 0
-    assert result["information_insufficient"] is True
-
-    task = TaskNode(task_id="t1", description="extract", result=result)
-    request = DAGExecutor(DAG([task]), AsyncMock()).check_replan()
-    assert request is not None
-    assert request.trigger == "information_insufficient"
+    assert result["evidence_count"] >= 1
+    assert result["information_insufficient"] is False
+    assert result["evidence"][0]["metadata"]["fallback"] == "sentence_from_ranked_chunk"
 
 
 @pytest.mark.asyncio

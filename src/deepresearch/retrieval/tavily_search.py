@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from typing import Any
 
@@ -8,6 +9,8 @@ import httpx
 
 from deepresearch.retrieval.base import Retriever
 from deepresearch.schemas.evidence import RetrievedDocument
+
+logger = logging.getLogger(__name__)
 
 
 class TavilyWebSearchRetriever(Retriever):
@@ -72,4 +75,5 @@ class TavilyWebSearchRetriever(Retriever):
                 if attempt < self._max_retries:
                     continue
 
-        raise last_error  # type: ignore[misc]
+        logger.warning("Tavily search failed for query %r: %s", query, last_error)
+        return []

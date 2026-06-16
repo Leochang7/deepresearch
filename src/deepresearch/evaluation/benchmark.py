@@ -125,21 +125,28 @@ async def run_benchmark(
             elapsed_seconds=round(elapsed, 3),
         )
         results.append(result)
+        _write_results(output_dir, results, time.monotonic() - start)
 
-    # Write results.jsonl
+    summary = _write_results(output_dir, results, time.monotonic() - start)
+    return results, summary
+
+
+def _write_results(
+    output_dir: Path,
+    results: list[BenchmarkResult],
+    total_elapsed: float,
+) -> dict[str, Any]:
     results_path = output_dir / "results.jsonl"
     with open(results_path, "w", encoding="utf-8") as f:
         for result in results:
             f.write(json.dumps(asdict(result), ensure_ascii=False) + "\n")
 
-    # Build and write summary.json
-    summary = _build_summary(results, time.monotonic() - start)
+    summary = _build_summary(results, total_elapsed)
     summary_path = output_dir / "summary.json"
     summary_path.write_text(
         json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-
-    return results, summary
+    return summary
 
 
 def _build_summary(

@@ -116,6 +116,7 @@ curl http://localhost:19530/healthz
 # Tavily 额度/限流
 # trace.jsonl 中出现 HTTP 432 时，切换到 --retriever local 或 MiMo Search；
 # benchmark 主路径不要依赖 Tavily 免费额度。
+# Tavily adapter 会在 provider 错误后返回空结果，不让单次搜索错误直接打断 DAG。
 
 # Embedding 维度不匹配
 uv run deepresearch doctor --real  # 会检查 dim
@@ -148,6 +149,8 @@ Remove `--config examples/configs/benchmark_smoke.toml` to use default settings 
 ## PM7 Smoke Benchmark（事实覆盖率校准）
 
 PM7 将 `factual_hit_rate` 从粗糙字符串匹配升级为 fact-level 规则 + 可选 LLM 语义判定。5-case smoke 使用 `examples/bench/researchbench_smoke5.jsonl`，包含 dict 格式的 `expected_facts`（含 `keywords` / `aliases`）。
+
+Benchmark runner 会在每个 case 完成后增量写出 `results.jsonl` 和 `summary.json`。长时间真实 run 如果中断，已完成 case 的 benchmark 级结果仍会保留。
 
 ### 运行命令
 
