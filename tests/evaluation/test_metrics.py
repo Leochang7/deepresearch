@@ -243,3 +243,140 @@ class TestEvaluator:
         )
         assert result.hallucination_flag is True
         assert "required at least 2" in result.hallucination_details[-1]
+
+    def test_fact_hit_result_model(self):
+        from deepresearch.schemas.evaluation import FactHitResult
+
+        result = FactHitResult(
+            fact="test fact",
+            matched=True,
+            matched_keywords=["test", "fact"],
+            unmatched_keywords=[],
+            reason="Full phrase match",
+            source="rule",
+        )
+        data = result.model_dump()
+        assert data["fact"] == "test fact"
+        assert data["matched"] is True
+        assert data["source"] == "rule"
+
+    def test_evaluate_fact_with_keyword_groups(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="ReAct is a method that interleaves reasoning steps with actions [E1]",
+            sections=[],
+        )
+        facts = [
+            {
+                "fact": "ReAct interleaves reasoning and acting steps",
+                "keywords": ["ReAct", "reasoning", "acting"],
+            }
+        ]
+        result = evaluate("r1", tasks, report, evidence, expected_facts=facts)
+        assert result.factual_hit_rate == 1.0
+        assert result.fact_details[0]["matched"] is True
+
+    def test_evaluate_fact_with_abbreviations(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="Large language models are powerful tools for many applications [E1]",
+            sections=[],
+        )
+        facts = ["LLM tools for applications"]
+        result = evaluate("r1", tasks, report, evidence, expected_facts=facts)
+        assert result.factual_hit_rate == 1.0
+        assert result.fact_details[0]["matched"] is True
+
+    def test_evaluate_fact_normalization(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="Parameter-Efficient Fine-Tuning (PEFT) reduces memory cost [E1]",
+            sections=[],
+        )
+        facts = ["parameter efficient fine tuning reduces memory cost"]
+        result = evaluate("r1", tasks, report, evidence, expected_facts=facts)
+        assert result.factual_hit_rate == 1.0
+
+    def test_evaluate_fact_miss(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="Some completely unrelated content [E1]",
+            sections=[],
+        )
+        facts = ["quantum computing entanglement superposition"]
+        result = evaluate("r1", tasks, report, evidence, expected_facts=facts)
+        assert result.factual_hit_rate == 0.0
+        assert result.fact_details[0]["matched"] is False
+        assert "overlap" in result.fact_details[0]["reason"].lower()
+
+    def test_backward_compatible_list_of_strings(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="Summary with claim 1 and claim 2 and source1",
+            sections=[
+                ReportSection(
+                    title="Analysis",
+                    content="Background with claim 1 and source2 [E1]",
+                ),
+            ],
+        )
+        facts = ["claim 1", "claim 2", "source1"]
+        result = evaluate("r1", tasks, report, evidence, expected_facts=facts)
+        assert result.factual_hit_rate == 1.0
+        assert len(result.fact_details) == 3
+
+    def test_evaluate_returns_fact_details(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="Summary with fact one [E1]",
+            sections=[],
+        )
+        facts = ["fact one", "fact two"]
+        result = evaluate("r1", tasks, report, evidence, expected_facts=facts)
+        assert len(result.fact_details) == 2
+        assert result.fact_details[0]["fact"] == "fact one"
+        assert result.fact_details[1]["fact"] == "fact two"
+
+    def test_fact_details_empty_when_no_facts(self, tasks, evidence, report):
+        result = evaluate("r1", tasks, report, evidence)
+        assert result.fact_details == []
+
+    def test_evaluate_fact_with_aliases(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="Tool use via function calls is supported by modern models [E1]",
+            sections=[],
+        )
+        facts = [
+            {
+                "fact": "Function calling is supported by OpenAI and Anthropic models",
+                "aliases": ["tool use", "function call"],
+            }
+        ]
+        result = evaluate("r1", tasks, report, evidence, expected_facts=facts)
+        assert result.fact_details[0]["matched"] is True
+
+    def test_evaluate_fact_with_mixed_formats(self, tasks, evidence):
+        report = ResearchReport(
+            run_id="r1",
+            question="test",
+            summary="ReAct reasoning acting toolformer self-supervised [E1]",
+            sections=[],
+        )
+        facts: list[str | dict] = [
+            "ReAct interleaves reasoning and acting steps",
+            {
+                "fact": "Function calling is supported by OpenAI and Anthropic",
+                "keywords": ["function", "calling"],
+            },
+        ]
+        result = evaluate("r1", tasks, report, evidence, expected_facts=facts)
+        assert len(result.fact_details) == 2
+        assert result.fact_details[0]["source"] == "rule"

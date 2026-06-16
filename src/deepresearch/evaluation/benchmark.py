@@ -3,14 +3,16 @@ from __future__ import annotations
 import json
 import random
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 from deepresearch.core.run_manager import RunManager
+from deepresearch.evaluation.judge_eval import judge_facts
 from deepresearch.evaluation.metrics import evaluate
+from deepresearch.llm.base import LLMClient
 
 
 @dataclass
@@ -19,7 +21,7 @@ class BenchmarkCase:
     domain: str
     difficulty: str
     question: str
-    expected_facts: list[str] = field(default_factory=list)
+    expected_facts: list[str | dict] = field(default_factory=list)
     required_citations: int = 0
     tags: list[str] = field(default_factory=list)
 
@@ -60,6 +62,7 @@ async def run_benchmark(
     manager_factory: Callable[[], RunManager],
     *,
     output_dir: Path,
+    llm: LLMClient | None = None,
 ) -> tuple[list[BenchmarkResult], dict[str, Any]]:
     output_dir.mkdir(parents=True, exist_ok=True)
     results: list[BenchmarkResult] = []
@@ -91,6 +94,25 @@ async def run_benchmark(
             required_citations=case.required_citations,
         )
         evaluation.judge_scores = run_result.evaluation.judge_scores
+
+        # Run fact-level semantic judge if LLM available
+        judge_llm = llm or getattr(manager, "_llm", None)
+        if judge_llm is not None and evaluation.fact_details:
+            unmatched = [d for d in evaluation.fact_details if not d.get("matched")]
+            if unmatched:
+                updated_details = await judge_facts(
+                    judge_llm,
+                    case.question,
+                    run_result.report,
+                    evidence,
+                    evaluation.fact_details,
+                )
+                evaluation.fact_details = updated_details
+                judge_hits = sum(1 for d in updated_details if d.get("matched"))
+                if updated_details:
+                    evaluation.factual_hit_rate = round(
+                        judge_hits / len(updated_details), 4
+                    )
 
         result = BenchmarkResult(
             case_id=case.id,
@@ -144,6 +166,15 @@ def _build_summary(
         else {}
     )
 
+    # Fact coverage distribution
+    fact_coverage_dist = _fact_coverage_distribution(results)
+
+    # Per-failure-reason aggregation
+    per_fact_failure_reasons = _aggregate_failure_reasons(results)
+
+    # Check if any result has fact_details
+    fact_details_included = any(r.evaluation.get("fact_details") for r in results)
+
     summary: dict[str, Any] = {
         "total_cases": len(results),
         "total_elapsed_seconds": round(total_elapsed, 3),
@@ -161,6 +192,9 @@ def _build_summary(
         "bootstrap_95_ci": _bootstrap_ci(success_rates),
         "factual_hit_rate_bootstrap_95_ci": _bootstrap_ci(factual_rates),
         "avg_judge_scores": avg_judge_scores,
+        "fact_details_included": fact_details_included,
+        "fact_coverage_distribution": fact_coverage_dist,
+        "per_fact_failure_reasons": per_fact_failure_reasons,
         "per_domain": {},
         "per_difficulty": {},
         "cohens_d_easy_vs_hard": _cohens_d_between_groups(
@@ -181,6 +215,42 @@ def _build_summary(
             summary[group_name][group_val] = _group_stats(group_results)
 
     return summary
+
+
+def _fact_coverage_distribution(
+    results: list[BenchmarkResult],
+) -> dict[str, int]:
+    distribution: Counter[str] = Counter()
+    for r in results:
+        details = r.evaluation.get("fact_details", [])
+        if not details:
+            continue
+        total = len(details)
+        hits = sum(1 for d in details if d.get("matched"))
+        if hits == total:
+            distribution["all_hit"] += 1
+        elif hits == 0:
+            distribution["all_miss"] += 1
+        else:
+            distribution["partial"] += 1
+    return dict(distribution)
+
+
+def _aggregate_failure_reasons(
+    results: list[BenchmarkResult],
+) -> list[dict[str, Any]]:
+    reason_counter: Counter[str] = Counter()
+    for r in results:
+        for detail in r.evaluation.get("fact_details", []):
+            if not detail.get("matched"):
+                reason = detail.get("reason", "unknown")
+                # Truncate long reasons for aggregation
+                short_reason = reason[:100]
+                reason_counter[short_reason] += 1
+    return [
+        {"reason": reason, "count": count}
+        for reason, count in reason_counter.most_common(20)
+    ]
 
 
 def _group_stats(results: list[BenchmarkResult]) -> dict[str, Any]:

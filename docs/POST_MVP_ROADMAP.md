@@ -195,8 +195,46 @@ Memory 需要避免“collection 维度/模型混用”再次发生。
 
 详细设计见 [Langfuse Evaluation Plan](EVALUATION_LANGFUSE_PLAN.md)。
 
+### P7：真实 benchmark 质量校准
+
+PM6 已经让 benchmark runner、Langfuse adapter、规则指标、LLM-as-Judge 和统计摘要可运行。下一步不是继续增加新 Agent 或 Web UI，而是校准真实 benchmark 的质量判断，让指标能解释真实报告。
+
+当前真实 `rb-002` 复测显示执行链路已经恢复：
+
+- `task_success_rate = 1.0`
+- `citation_coverage = 0.7143`
+- `empty_citation_rate = 0.0`
+- `hallucination_flag = false`
+
+但 `factual_hit_rate = 0.0`，原因是当前指标主要依赖 expected fact 与报告正文的字符串/token overlap。真实报告经常会用不同表述覆盖同一事实，导致“语义上覆盖、规则上 miss”。因此 PM7 的目标是把事实覆盖率从粗糙字符串命中升级为 fact-level 可解释评测。
+
+PM7 范围：
+
+- 将每条 `expected_facts` 拆成独立 fact item。
+- 本地规则支持关键词组、别名、归一化和命中原因。
+- 增加 fact-level semantic judge，输出 `hit/miss/uncertain`。
+- 每条 fact 记录 supporting evidence ids 和 miss reason。
+- `results.jsonl` 输出 per-fact 明细。
+- `summary.json` 聚合 per-case failure reason、domain/difficulty breakdown 和事实覆盖分布。
+- 真实 smoke 先跑 5 个 case，再考虑跑完整 mini dataset。
+
+PM7 不做：
+
+- 不扩充到大规模 35 题 benchmark。
+- 不做 Web dashboard。
+- 不把 Langfuse 作为必需依赖。
+- 不为了提高分数放宽 citation/hallucination 规则。
+
+验收标准：
+
+- 默认 `uv run pytest` 仍然离线通过。
+- `uv run deepresearch doctor --real` 全绿。
+- 真实 5-case benchmark 能解释每个 case 的主要失败原因。
+- `factual_hit_rate` 不再因为同义改写系统性归零。
+- Langfuse 可选开启时能记录 fact-level scores。
+
 ## 2. 推荐下一步
 
-下一步优先做 `doctor` 命令。它能把本次真实验收中踩到的 embedding 维度、reranker 模型名、Milvus collection schema、服务连通性问题系统化解决。
+下一步优先做 PM7：真实 benchmark 质量校准。
 
-完成 `doctor` 后，再做 RRF。RRF 会直接提升多 query、多 retriever 场景下的资料召回质量。
+原因是 PM0-PM6 已经完成真实环境自检、RRF/MMR、引用质量、replan、trace inspect、memory schema、Langfuse benchmark foundation 和统计摘要。当前瓶颈不再是“能不能跑”，而是“跑出来的质量指标是否可信”。先把 fact-level 评测校准好，再继续跑真实 5-case/12-case benchmark，才能判断 Red-Blue、检索、Memory 和 replan 的改动是否真的提升质量。

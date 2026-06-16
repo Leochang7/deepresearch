@@ -256,6 +256,75 @@ async def test_run_benchmark_recomputes_case_aware_metrics(tmp_path):
     assert results[0].evaluation["judge_scores"] == {"factuality": 0.7}
 
 
+@pytest.mark.asyncio
+async def test_run_benchmark_uses_manager_llm_for_fact_judge(tmp_path):
+    case = BenchmarkCase(
+        id="case-judge",
+        domain="test",
+        difficulty="easy",
+        question="What is tested?",
+        expected_facts=["semantic coverage fact"],
+        required_citations=1,
+    )
+    evidence = {
+        "evidence_id": "E1",
+        "task_id": "t1",
+        "claim": "semantic coverage",
+        "quote": "semantic coverage quote",
+        "citation": "source",
+        "confidence": 0.9,
+    }
+    task = TaskNode(
+        task_id="t1",
+        description="task",
+        status=TaskState.SUCCEEDED,
+        result={"evidence": [evidence]},
+    )
+    report = ResearchReport(
+        run_id="r1",
+        question=case.question,
+        summary="The report uses different wording [E1].",
+        sections=[ReportSection(title="Analysis", content="Different wording [E1].")],
+    )
+    llm = MockLLM(
+        [
+            json.dumps(
+                {
+                    "verdict": "hit",
+                    "supporting_evidence_ids": ["E1"],
+                    "reason": "Semantic judge finds the fact covered",
+                }
+            )
+        ]
+    )
+
+    class FakeManager:
+        def __init__(self) -> None:
+            self._llm = llm
+
+        async def run(self, question, *, output_dir):
+            output_dir.mkdir(parents=True)
+            return SimpleNamespace(
+                run_id="run-judge",
+                plan_tasks=[task],
+                report=report,
+                evaluation=EvaluationResult(run_id="run-judge"),
+                budget=None,
+                judge_rounds=[],
+            )
+
+    results, _summary = await run_benchmark(
+        [case],
+        lambda: FakeManager(),
+        output_dir=tmp_path / "bench",
+    )
+
+    detail = results[0].evaluation["fact_details"][0]
+    assert results[0].evaluation["factual_hit_rate"] == 1.0
+    assert detail["source"] == "judge"
+    assert detail["supporting_evidence_ids"] == ["E1"]
+
+
 def test_summary_includes_cohens_d_when_groups_are_available():
     results = [
         BenchmarkResult(
@@ -273,3 +342,156 @@ def test_summary_includes_cohens_d_when_groups_are_available():
     ]
     summary = _build_summary(results, 4.0)
     assert summary["cohens_d_easy_vs_hard"] > 0
+
+
+def test_summary_includes_fact_coverage_distribution():
+    results = [
+        BenchmarkResult(
+            "c1",
+            "r1",
+            "q1",
+            "d",
+            "m",
+            {
+                "task_success_rate": 1.0,
+                "factual_hit_rate": 1.0,
+                "citation_coverage": 0.9,
+                "report_section_completeness": 1.0,
+                "fact_details": [
+                    {"fact": "f1", "matched": True, "reason": "ok"},
+                    {"fact": "f2", "matched": True, "reason": "ok"},
+                ],
+            },
+            {},
+            1.0,
+        ),
+        BenchmarkResult(
+            "c2",
+            "r2",
+            "q2",
+            "d",
+            "m",
+            {
+                "task_success_rate": 0.5,
+                "factual_hit_rate": 0.0,
+                "citation_coverage": 0.5,
+                "report_section_completeness": 0.8,
+                "fact_details": [
+                    {"fact": "f3", "matched": False, "reason": "miss"},
+                ],
+            },
+            {},
+            2.0,
+        ),
+        BenchmarkResult(
+            "c3",
+            "r3",
+            "q3",
+            "d",
+            "m",
+            {
+                "task_success_rate": 1.0,
+                "factual_hit_rate": 0.5,
+                "citation_coverage": 0.8,
+                "report_section_completeness": 1.0,
+                "fact_details": [
+                    {"fact": "f4", "matched": True, "reason": "ok"},
+                    {"fact": "f5", "matched": False, "reason": "miss"},
+                ],
+            },
+            {},
+            1.5,
+        ),
+    ]
+    summary = _build_summary(results, 4.5)
+    dist = summary["fact_coverage_distribution"]
+    assert dist["all_hit"] == 1
+    assert dist["all_miss"] == 1
+    assert dist["partial"] == 1
+    assert summary["fact_details_included"] is True
+
+
+def test_summary_fact_details_included_false_when_no_details():
+    results = [
+        BenchmarkResult(
+            "c1",
+            "r1",
+            "q1",
+            "d",
+            "m",
+            {
+                "task_success_rate": 1.0,
+                "factual_hit_rate": 0.0,
+                "citation_coverage": 0.9,
+                "report_section_completeness": 1.0,
+            },
+            {},
+            1.0,
+        )
+    ]
+    summary = _build_summary(results, 1.0)
+    assert summary["fact_details_included"] is False
+
+
+def test_summary_per_fact_failure_reasons():
+    results = [
+        BenchmarkResult(
+            "c1",
+            "r1",
+            "q1",
+            "d",
+            "m",
+            {
+                "task_success_rate": 1.0,
+                "factual_hit_rate": 0.0,
+                "citation_coverage": 0.9,
+                "report_section_completeness": 1.0,
+                "fact_details": [
+                    {
+                        "fact": "f1",
+                        "matched": False,
+                        "reason": "Token overlap 1/5 < 50%",
+                    },
+                    {
+                        "fact": "f2",
+                        "matched": False,
+                        "reason": "Token overlap 0/4 < 50%",
+                    },
+                ],
+            },
+            {},
+            1.0,
+        )
+    ]
+    summary = _build_summary(results, 1.0)
+    failure_reasons = summary["per_fact_failure_reasons"]
+    assert len(failure_reasons) > 0
+    assert failure_reasons[0]["count"] >= 1
+
+
+def test_load_dataset_with_dict_format_facts():
+    import tempfile
+
+    data = (
+        '{"id": "d-1", "domain": "test", "difficulty": "easy", '
+        '"question": "q", '
+        '"expected_facts": ['
+        '{"fact": "fact A", "keywords": ["key1", "key2"]}, '
+        '"plain fact B"'
+        '], "required_citations": 1, "tags": []}\n'
+    )
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
+    ) as f:
+        f.write(data)
+        tmp_path = Path(f.name)
+
+    try:
+        cases = load_dataset(tmp_path)
+        assert len(cases) == 1
+        assert len(cases[0].expected_facts) == 2
+        assert isinstance(cases[0].expected_facts[0], dict)
+        assert cases[0].expected_facts[0]["fact"] == "fact A"
+        assert isinstance(cases[0].expected_facts[1], str)
+    finally:
+        tmp_path.unlink()

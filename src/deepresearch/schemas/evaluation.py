@@ -3,6 +3,16 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+class FactHitResult(BaseModel):
+    fact: str
+    matched: bool
+    matched_keywords: list[str] = Field(default_factory=list)
+    unmatched_keywords: list[str] = Field(default_factory=list)
+    reason: str = ""
+    source: str = "rule"  # "rule" or "judge"
+    supporting_evidence_ids: list[str] = Field(default_factory=list)
+
+
 class EvaluationResult(BaseModel):
     run_id: str
     task_success_rate: float = 0.0
@@ -15,5 +25,6 @@ class EvaluationResult(BaseModel):
     hallucination_flag: bool = False
     hallucination_details: list[str] = Field(default_factory=list)
     judge_scores: dict[str, float] = Field(default_factory=dict)
+    fact_details: list[dict] = Field(default_factory=list)
     created_at: str = ""
     metadata: dict = Field(default_factory=dict)

@@ -11,6 +11,7 @@ from deepresearch.schemas.report import ResearchReport
 logger = logging.getLogger(__name__)
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "judge_eval.md"
+_FACT_JUDGE_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "fact_judge.md"
 
 JUDGE_DIMENSIONS = [
     "factuality",
@@ -64,6 +65,98 @@ async def llm_as_judge(
         except (TypeError, ValueError):
             scores[dim] = 0.5
     return scores
+
+
+async def judge_facts(
+    llm: LLMClient,
+    question: str,
+    report: ResearchReport,
+    evidence: list[EvidenceItem],
+    fact_details: list[dict],
+) -> list[dict]:
+    """Evaluate unmatched facts using LLM semantic judge.
+
+    Only facts with matched=False are sent to the LLM.
+    Returns updated fact_details with judge verdicts merged in.
+    """
+    system_prompt = (
+        _FACT_JUDGE_PROMPT_PATH.read_text(encoding="utf-8")
+        if _FACT_JUDGE_PROMPT_PATH.exists()
+        else ""
+    )
+    report_text = _format_report(report)
+    evidence_text = "\n".join(
+        f'[{e.evidence_id}] {e.claim}: "{e.quote}" ({e.citation})' for e in evidence
+    )
+    valid_evidence_ids = {e.evidence_id for e in evidence}
+
+    updated: list[dict] = []
+    for detail in fact_details:
+        if detail.get("matched"):
+            updated.append(detail)
+            continue
+
+        fact = detail.get("fact", "")
+        try:
+            messages = [
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(
+                    role="user",
+                    content=(
+                        f"Question: {question}\n\n"
+                        f"Report:\n{report_text}\n\n"
+                        f"Evidence:\n{evidence_text}\n\n"
+                        f"Fact to verify: {fact}\n\n"
+                        "Does the report support this fact?"
+                    ),
+                ),
+            ]
+            response = await llm.chat(messages, json_mode=True)
+            data = parse_json(response.content, strict=False)
+            if not isinstance(data, dict):
+                logger.warning(
+                    "Fact judge returned non-dict for '%s', using rule result",
+                    fact[:50],
+                )
+                updated.append(detail)
+                continue
+
+            verdict = data.get("verdict")
+            if verdict not in {"hit", "miss", "uncertain"}:
+                logger.warning(
+                    "Fact judge returned invalid verdict for '%s', using rule result",
+                    fact[:50],
+                )
+                updated.append(detail)
+                continue
+            supporting_ids = data.get("supporting_evidence_ids", [])
+            reason = data.get("reason", "")
+            valid_supporting_ids = (
+                [
+                    str(eid)
+                    for eid in supporting_ids
+                    if isinstance(eid, str) and eid in valid_evidence_ids
+                ]
+                if isinstance(supporting_ids, list)
+                else []
+            )
+
+            merged = dict(detail)
+            merged["source"] = "judge"
+            merged["matched"] = verdict == "hit"
+            merged["reason"] = f"[judge:{verdict}] {reason}"
+            merged["supporting_evidence_ids"] = valid_supporting_ids
+            updated.append(merged)
+
+        except Exception:
+            logger.warning(
+                "Fact judge failed for '%s', falling back to rule result",
+                fact[:50],
+                exc_info=True,
+            )
+            updated.append(dict(detail))
+
+    return updated
 
 
 def _format_report(report: ResearchReport) -> str:

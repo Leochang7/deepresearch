@@ -4,7 +4,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 
 ## 当前状态
 
-所有 MVP 和 Post-MVP 任务已完成（T000–PM065）。
+MVP 和 PM0-PM6 已完成。PM7 的事实级 benchmark 评测能力已完成并通过离线验证；真实 5-case smoke 需要 Milvus Standalone，当前因本机 Docker/Milvus 未启动而保持待验证。
 
 ## 已完成能力
 
@@ -13,7 +13,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 - **Research Agent**: per-query 检索 → fetch → chunk → embedding → Milvus → RRF 融合 → rerank → MMR 选择 → evidence 提取
 - **Synthesizer**: 将 evidence 合成为带引用的 Markdown 报告，支持 5 种 report profile
 - **Red-Blue Review**: Red Agent 发现问题 → Blue Agent 修复 → Judge 评分，最多 3 轮
-- **Evaluator**: 9 个指标（task_success_rate, citation_coverage, empty_citation_rate, report_section_completeness, factual_hit_rate, hallucination_flag, red/blue counts, judge_scores）
+- **Evaluator**: 9 个核心指标（task_success_rate, citation_coverage, empty_citation_rate, report_section_completeness, factual_hit_rate, hallucination_flag, red/blue counts, judge_scores）+ fact-level 明细（fact_details, fact_coverage_distribution, per_fact_failure_reasons）
 
 ### 检索质量
 - 多 query 并行检索 + document-level RRF 融合（rrf_k=60）
@@ -37,6 +37,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 ### 评测闭环
 - ResearchBench mini: 12 个 benchmark case，覆盖 10 个领域
 - Benchmark runner: `deepresearch benchmark <dataset> --mode mock|real`
+- Fact-level judge: 规则匹配 + 可选 LLM semantic verdict，输出每条事实命中/遗漏/幻觉原因
 - 统计分析: per-domain/difficulty 分组、Bootstrap 95% CI、Cohen's d
 - LLM-as-Judge 5 维评分: factuality, citation_support, completeness, reasoning_consistency, readability
 - 冲突检测: same_source_different_claim, opposite_conclusion, contradictory_value
@@ -53,6 +54,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 | PM4 | ✅ 完成 | inspect --timeline + MVP 验收文档 |
 | PM5 | ✅ 完成 | Memory schema version + 轻量冲突检测 |
 | PM6 | ✅ 完成 | Langfuse 集成 + ResearchBench mini + benchmark runner + LLM-as-Judge + 统计分析 |
+| PM7 | 部分完成 | 事实级 benchmark 评测、5-case smoke dataset、失败原因分析已完成；真实 5-case smoke 因 Docker/Milvus 未启动待验证 |
 
 ## 真实环境运行
 
@@ -86,6 +88,9 @@ export LANGFUSE_SECRET_KEY=sk-...
 
 # 运行 benchmark
 uv run deepresearch benchmark examples/bench/researchbench_mini.jsonl --mode real --output outputs/bench-real
+
+# PM7 5-case smoke（需要 doctor --real 通过）
+uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl --mode real --output outputs/bench-smoke5-real --experiment pm7-smoke5-real
 ```
 
 产出:
@@ -97,7 +102,7 @@ uv run deepresearch benchmark examples/bench/researchbench_mini.jsonl --mode rea
 ### 离线测试
 
 ```bash
-uv run pytest           # 全量离线测试（409 tests）
+uv run pytest           # 全量离线测试（435 passed, 1 skipped）
 uv run ruff check .     # lint
 ```
 
@@ -106,12 +111,14 @@ uv run ruff check .     # lint
 - **检索质量**: Tavily 结果偏向英文；中文查询效果较差
 - **LLM 幻觉**: Synthesizer 可能生成"通过引用检查但过度解读 evidence"的 claim
 - **Milvus Standalone 必需**: 不支持 Milvus Lite（嵌入式）；需要 Docker 或 standalone 部署
+- **PM7 真实 smoke 待跑**: 当前本机 Docker engine 未启动，`uv run deepresearch doctor --real` 无法连接 `localhost:19530`
 - **单轮执行**: 无交互式 refinement；pipeline 一次跑完
 - **Benchmark 串行**: benchmark runner 顺序执行每个 case，无并行
 - **Langfuse 可选**: 未安装 langfuse 包时自动降级为 no-op，不影响核心功能
 
 ## 下一阶段方向
 
+- **完成 PM7 真实 smoke**: 启动 Docker/Milvus 后运行 `doctor --real` 和 `researchbench_smoke5` real benchmark
 - **并行 benchmark**: benchmark runner 支持 asyncio.gather 并发执行多个 case
 - **Hybrid retrieval**: Milvus vector search + BM25 keyword search 混合检索
 - **Interactive mode**: 支持用户在 synthesis 前审查 evidence 并提供反馈
@@ -136,9 +143,9 @@ src/deepresearch/
 ├── config.py
 └── doctor.py
 
-tests/               # 409 tests, 100% 离线可跑
+tests/               # 435 passed, 1 skipped, 100% 离线可跑
 examples/
-├── bench/           # researchbench_mini.jsonl (12 cases)
+├── bench/           # researchbench_mini.jsonl (12 cases), researchbench_smoke5.jsonl (5 cases)
 └── corpus/          # 本地资料集示例
 docs/                # PRD, MVP plan, configuration, post-MVP roadmap, acceptance
 ```

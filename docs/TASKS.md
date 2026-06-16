@@ -438,3 +438,31 @@
   - Files: `examples/bench/`, `src/deepresearch/evaluation/`, docs
   - Done when: 在 pipeline 稳定后扩展到 ResearchBench 11 领域/35 题、HotpotQA 深度研究变体、Bootstrap 95% CI、Cohen's d 和多后端实验脚本。
   - Verify: `uv run pytest tests/evaluation`; real experiments use explicit integration/e2e commands
+
+### PM7 真实 benchmark 质量校准
+
+- [x] PM070 改进 factual hit 规则指标
+  - Files: `src/deepresearch/evaluation/metrics.py`, `src/deepresearch/schemas/evaluation.py`, tests
+  - Done when: `expected_facts` 不再只靠整句 token overlap；支持 fact-level keyword groups、normalized aliases 和命中原因输出。
+  - Verify: `uv run pytest tests/evaluation/test_metrics.py`
+
+- [x] PM071 增加 fact-level semantic judge
+  - Files: `src/deepresearch/evaluation/judge_eval.py`, `src/deepresearch/prompts/`, tests
+  - Done when: 每条 expected fact 输出 `hit/miss/uncertain`、supporting evidence ids 和 reason；LLM judge 失败时回退本地规则。
+  - Verify: `uv run pytest tests/evaluation`
+
+- [x] PM072 benchmark 输出 per-fact 与 per-case failure reason
+  - Files: `src/deepresearch/evaluation/benchmark.py`, `examples/bench/`, tests
+  - Done when: `results.jsonl` 和 `summary.json` 包含 fact hit 明细、失败类型、失败阶段和可读诊断摘要。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
+
+- [ ] PM073 跑真实 5-case benchmark smoke
+  - Files: `outputs/bench-real-*` ignored, `docs/REAL_BENCHMARK_GUIDE.md`
+  - Done when: 使用真实 MiMo/Tavily/embedding/reranker/Milvus 跑 5 个 case，记录 task_success_rate、citation_coverage、factual_hit_rate、hallucination_flag 和失败原因。
+  - Verify: `uv run deepresearch doctor --real`; `uv run deepresearch benchmark <5-case-jsonl> --mode real --output outputs/bench-real --experiment pm7-smoke`
+  - Blocked: 当前 Docker Desktop/engine 未运行，`deepresearch doctor --real` 的 Milvus check 无法连接 `localhost:19530`。已完成 `pm7-mock-review` 离线 5-case smoke，真实 smoke 需先启动 Milvus Standalone。
+
+- [x] PM074 更新项目状态与真实评测说明
+  - Files: `docs/PROJECT_STATUS.md`, `docs/REAL_BENCHMARK_GUIDE.md`, `docs/WORKLOG.md`
+  - Done when: 文档说明当前 benchmark 能力边界、指标解释方式、复现实验命令和下一步优化依据；真实 PM7 smoke 结果待 PM073 完成后补充。
+  - Verify: 文档人工检查
