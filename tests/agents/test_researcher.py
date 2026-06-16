@@ -479,7 +479,8 @@ def test_fuzzy_quote_matches_with_punctuation_difference():
     source = "LoRA, or low-rank adaptation, decomposes weight updates."
     quote = "LoRA or low-rank adaptation decomposes weight updates"
     result = ResearchAgent._exact_quote_from_source(quote, source)
-    assert result != ""
+    assert "LoRA" in result
+    assert "decomposes weight updates" in result
 
 
 def test_fuzzy_quote_no_match_on_unrelated_text():

@@ -31,6 +31,55 @@ from deepresearch.retrieval.fusion import (
 from deepresearch.schemas.evidence import EvidenceItem, RetrievedDocument
 from deepresearch.schemas.task import TaskNode
 
+
+def _normalize_text(text: str) -> str:
+    """Lowercase, strip punctuation, and collapse whitespace."""
+    text = text.lower()
+    text = re.sub(r"[^\w\s]", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _normalize_with_char_map(text: str) -> tuple[str, list[int]]:
+    """Normalize text and return ``(normalized_string, char_map)``.
+
+    ``char_map[i]`` gives the original index in *text* that produced
+    normalized character *i*.
+    """
+    lowered = text.lower()
+    norm_chars: list[str] = []
+    char_map: list[int] = []
+    for orig_idx, ch in enumerate(lowered):
+        if ch.isalnum() or ch == " ":
+            norm_chars.append(ch)
+            char_map.append(orig_idx)
+        else:
+            # Punctuation becomes a space placeholder
+            norm_chars.append(" ")
+            char_map.append(orig_idx)
+
+    collapsed = re.sub(r"\s+", " ", "".join(norm_chars)).strip()
+    if not collapsed:
+        return "", []
+
+    # Build the collapsed-char map: keep only the first mapping for each
+    # run of whitespace, and every non-space mapping.
+    result_map: list[int] = []
+    prev_was_space = False
+    for i, ch in enumerate(norm_chars):
+        is_space = ch == " "
+        if is_space:
+            if not prev_was_space and result_map:
+                # This is the boundary between words — record mapping
+                result_map.append(char_map[i])
+            prev_was_space = True
+        else:
+            result_map.append(char_map[i])
+            prev_was_space = False
+
+    result_map = result_map[: len(collapsed)]
+    return collapsed, result_map
+
+
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "researcher.md"
 
 
@@ -605,23 +654,18 @@ class ResearchAgent:
         if match:
             return source_content[match.start() : match.end()]
 
-        # Fuzzy: normalize both sides (lower, collapse whitespace, strip punctuation)
-        def _normalize(text: str) -> str:
-            text = text.lower()
-            text = re.sub(r"[^\w\s]", " ", text)
-            return re.sub(r"\s+", " ", text).strip()
-
-        norm_source = _normalize(source_content)
-        norm_quote = _normalize(quote)
-        if norm_quote in norm_source:
-            norm_tokens = norm_quote.split()
-            src_tokens = norm_source.split()
-            for i in range(len(src_tokens) - len(norm_tokens) + 1):
-                if src_tokens[i : i + len(norm_tokens)] == norm_tokens:
-                    original_tokens = source_content.split()
-                    end = min(i + len(norm_tokens), len(original_tokens))
-                    return " ".join(original_tokens[i:end])
-        return ""
+        # Fuzzy: normalize both sides, find match, map back via char offsets
+        norm_source, char_map = _normalize_with_char_map(source_content)
+        norm_quote = _normalize_text(quote)
+        if not norm_quote:
+            return ""
+        start = norm_source.find(norm_quote)
+        if start == -1:
+            return ""
+        end = start + len(norm_quote)
+        orig_start = char_map[start]
+        orig_end = char_map[end - 1] + 1  # inclusive end
+        return source_content[orig_start:orig_end]
 
     @staticmethod
     def _match_source_by_url(
