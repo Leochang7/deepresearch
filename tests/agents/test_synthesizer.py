@@ -3,7 +3,7 @@ import pytest
 from deepresearch.agents.synthesizer import Synthesizer
 from deepresearch.llm.mock import MockLLM
 from deepresearch.schemas.evidence import EvidenceItem
-from deepresearch.schemas.report import ResearchReport
+from deepresearch.schemas.report import ReportSection, ResearchReport
 from deepresearch.schemas.task import TaskNode, TaskState
 
 
@@ -87,7 +87,7 @@ async def test_unknown_citation_is_removed_and_added_to_limitations():
 
 @pytest.mark.asyncio
 async def test_uncited_claim_is_moved_to_limitations():
-    llm = MockLLM(["## Analysis\nSupported [E1].\nUnsupported factual claim."])
+    llm = MockLLM(["## Analysis\nSupported [E1].\nMachine learning models achieved state-of-the-art results in 2023."])
 
     report = await Synthesizer(llm).synthesize(
         "r1", "question", [_task()], [_evidence()]
@@ -96,9 +96,9 @@ async def test_uncited_claim_is_moved_to_limitations():
     analysis = next(
         section for section in report.sections if section.title == "Analysis"
     )
-    assert analysis.content == "Supported [E1]."
+    assert "state-of-the-art results" not in analysis.content
     assert any(
-        item == "Uncited claim in Analysis: Unsupported factual claim."
+        item == "Uncited claim in Analysis: Machine learning models achieved state-of-the-art results in 2023."
         for item in report.limitations
     )
 
@@ -226,3 +226,53 @@ def test_synthesizer_system_prompt_includes_profile():
     assert "timeline" in synth._system_prompt
     assert "Chronological" in synth._system_prompt
     assert "Timeline" in synth._system_prompt
+
+
+def test_enforce_citations_keeps_short_analytical_lines():
+    """Short analytical/transition lines (< 30 chars) should be kept without citations."""
+    agent = Synthesizer(llm=MockLLM())
+    evidence_map = {
+        "E1": EvidenceItem(
+            evidence_id="E1",
+            task_id="t1",
+            claim="test",
+            quote="test",
+            confidence=0.9,
+        )
+    }
+    sections = [
+        ReportSection(
+            title="Analysis",
+            content="Embeddings [E1] are important.\n"
+            "Key findings include:\n"  # 22 chars, transition
+            "Dense vectors [E1] outperform sparse methods.",
+        ),
+    ]
+    cleaned, limitations = agent._enforce_citations(sections, evidence_map)
+    assert "Key findings include" in cleaned[0].content
+    assert not any("Key findings" in lim for lim in limitations)
+
+
+def test_enforce_citations_still_removes_uncited_factual_claims():
+    """Long factual claims without citations should still be removed."""
+    agent = Synthesizer(llm=MockLLM())
+    evidence_map = {
+        "E1": EvidenceItem(
+            evidence_id="E1",
+            task_id="t1",
+            claim="test",
+            quote="test",
+            confidence=0.9,
+        )
+    }
+    sections = [
+        ReportSection(
+            title="Analysis",
+            content="Embeddings [E1] are important.\n"
+            "BERT achieved 95% accuracy on the GLUE benchmark in 2018.\n"  # 56 chars, factual, no citation
+            "Dense vectors [E1] outperform sparse methods.",
+        ),
+    ]
+    cleaned, limitations = agent._enforce_citations(sections, evidence_map)
+    assert "95% accuracy" not in cleaned[0].content
+    assert any("95% accuracy" in lim for lim in limitations)

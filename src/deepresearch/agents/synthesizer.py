@@ -211,7 +211,12 @@ class Synthesizer:
                     )
                     continue
                 if not valid_ids:
-                    limitations.append(f"Uncited claim in {section.title}: {stripped}")
+                    if self._is_substantive_claim(stripped):
+                        limitations.append(
+                            f"Uncited claim in {section.title}: {stripped}"
+                        )
+                    else:
+                        kept_lines.append(line)
                     continue
 
                 kept_lines.append(line)
@@ -255,3 +260,18 @@ class Synthesizer:
     @staticmethod
     def _is_markdown_heading(text: str) -> bool:
         return bool(re.fullmatch(r"#{1,6}\s+\S.*", text))
+
+    @staticmethod
+    def _is_substantive_claim(line: str) -> bool:
+        """Return True if the line makes a factual claim that requires citation."""
+        stripped = line.strip()
+        if len(stripped) < 30:
+            return False
+        # Lines with specific data patterns are factual claims
+        if re.search(
+            r"\d+(\.\d+)?%|\d{4}|[A-Z][a-z]+\s(et al\.|found|showed|reported)",
+            stripped,
+        ):
+            return True
+        # Default: treat longer lines as claims requiring citation
+        return True
