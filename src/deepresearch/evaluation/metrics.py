@@ -11,20 +11,24 @@ from deepresearch.schemas.task import TaskNode, TaskState
 FactSpec = str | dict[str, Any]
 
 _ABBREVIATIONS: dict[str, list[str]] = {
-    "llm": ["large language model", "large language models"],
+    "llm": ["large language model", "large language models", "大语言模型"],
     "large language model": ["llm"],
     "large language models": ["llm"],
-    "rag": ["retrieval-augmented generation", "retrieval augmented generation"],
+    "大语言模型": ["llm"],
+    "rag": ["retrieval-augmented generation", "retrieval augmented generation", "检索增强生成"],
     "retrieval-augmented generation": ["rag"],
-    "cot": ["chain-of-thought", "chain of thought"],
+    "检索增强生成": ["rag"],
+    "cot": ["chain-of-thought", "chain of thought", "思维链"],
     "chain-of-thought": ["cot"],
+    "思维链": ["cot"],
     "rlhf": [
         "reinforcement learning from human feedback",
         "reinforcement learning with human feedback",
     ],
     "reinforcement learning from human feedback": ["rlhf"],
-    "lora": ["low-rank adaptation", "low rank adaptation"],
+    "lora": ["low-rank adaptation", "low rank adaptation", "低秩适配"],
     "low-rank adaptation": ["lora"],
+    "低秩适配": ["lora"],
     "bert": ["bidirectional encoder representations from transformers"],
     "tf-idf": ["term frequency inverse document frequency"],
     "kv-cache": ["key value cache", "kv cache"],
@@ -32,6 +36,8 @@ _ABBREVIATIONS: dict[str, list[str]] = {
     "gpt": ["generative pre-trained transformer", "generative pretrained transformer"],
     "vae": ["variational autoencoder", "variational auto-encoder"],
     "gan": ["generative adversarial network"],
+    "self-attention": ["自注意力"],
+    "自注意力": ["self-attention"],
 }
 
 
@@ -39,6 +45,16 @@ def _normalize_text(text: str) -> str:
     text = re.sub(r"[^\w\s-]", " ", text)
     text = text.lower()
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _tokenize_for_match(text: str) -> set[str]:
+    latin = set(re.findall(r"[a-z][a-z0-9]{1,}", text))
+    cjk_runs = re.findall(r"[㐀-鿿]+", text)
+    cjk: set[str] = set()
+    for run in cjk_runs:
+        cjk.update(run)
+        cjk.update(run[i : i + 2] for i in range(len(run) - 1))
+    return latin | cjk
 
 
 def _expand_abbreviations(tokens: list[str]) -> set[str]:
@@ -77,8 +93,9 @@ def _evaluate_fact(spec: FactSpec, text_lower: str) -> FactHitResult:
     norm_text = _normalize_text(text_lower)
     norm_fact = _normalize_text(fact_text)
 
-    # Tokenize: words longer than 2 chars
-    tokens = [t for t in norm_fact.split() if len(t) > 2]
+    # Tokenize: CJK unigram+bigram + Latin words longer than 2 chars
+    tokens = sorted(_tokenize_for_match(norm_fact) - {""})
+    tokens = [t for t in tokens if len(t) > 1 or re.match(r"[㐀-鿿]", t)]
     if not tokens:
         return FactHitResult(
             fact=fact_text, matched=False, reason="No meaningful tokens"
@@ -94,11 +111,20 @@ def _evaluate_fact(spec: FactSpec, text_lower: str) -> FactHitResult:
             reason="Full phrase match",
         )
 
-    # Build expanded keyword set
-    norm_extra = [_normalize_text(kw) for kw in extra_keywords]
-    expanded = _expand_abbreviations(tokens + norm_extra)
+    # Build expanded keyword set from Latin tokens only; CJK extra keywords
+    # are checked as whole substrings below (not tokenized)
+    latin_tokens = [t for t in tokens if re.match(r"[a-z]", t)]
+    cjk_extra: list[str] = []
+    latin_extra: list[str] = []
+    for kw in extra_keywords:
+        norm_kw = _normalize_text(kw)
+        if re.search(r"[㐀-鿿]", norm_kw):
+            cjk_extra.append(norm_kw)
+        else:
+            latin_extra.append(norm_kw)
+    expanded = _expand_abbreviations(latin_tokens + latin_extra)
 
-    # Check each token
+    # Check each token against text (use substring check for CJK)
     matched: list[str] = []
     unmatched: list[str] = []
     for t in tokens:
@@ -106,6 +132,15 @@ def _evaluate_fact(spec: FactSpec, text_lower: str) -> FactHitResult:
             matched.append(t)
         else:
             unmatched.append(t)
+
+    # Check extra CJK keywords as whole substrings
+    cjk_extra_matched: list[str] = []
+    cjk_extra_unmatched: list[str] = []
+    for kw in cjk_extra:
+        if kw in norm_text:
+            cjk_extra_matched.append(kw)
+        else:
+            cjk_extra_unmatched.append(kw)
 
     # Check expanded keywords (including extras)
     expanded_matched: list[str] = []
@@ -126,7 +161,18 @@ def _evaluate_fact(spec: FactSpec, text_lower: str) -> FactHitResult:
             reason=f"Token overlap {len(matched)}/{len(tokens)} >= 50%",
         )
 
-    # Match path 3: >=50% expanded keywords (including extras/abbreviations)
+    # Match path 3: extra CJK keywords hit (if any CJK keywords provided, at
+    # least one must match in the text)
+    if cjk_extra and cjk_extra_matched:
+        return FactHitResult(
+            fact=fact_text,
+            matched=True,
+            matched_keywords=matched + cjk_extra_matched,
+            unmatched_keywords=unmatched,
+            reason=f"CJK keyword match {len(cjk_extra_matched)}/{len(cjk_extra)}",
+        )
+
+    # Match path 4: >=50% expanded keywords (Latin abbreviations etc.)
     if len(expanded) > 0 and len(expanded_matched) / len(expanded) >= 0.5:
         return FactHitResult(
             fact=fact_text,

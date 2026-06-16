@@ -433,3 +433,28 @@ def test_citation_coverage_with_fuzzy_evidence():
     result = evaluate("run-1", tasks, report, evidence)
     assert result.citation_coverage >= 0.7
     assert result.hallucination_flag is False
+
+
+def test_evaluate_fact_chinese_phrase_match():
+    from deepresearch.evaluation.metrics import _evaluate_fact
+
+    report_text = "rag（检索增强生成）结合了检索与生成的方法。"
+    result = _evaluate_fact("检索增强生成结合检索和生成", report_text)
+    assert result.matched is True
+
+
+def test_evaluate_fact_chinese_keyword_overlap():
+    from deepresearch.evaluation.metrics import _evaluate_fact
+
+    report_text = "本文介绍了向量检索和密集检索的原理与应用。"
+    spec = {"fact": "密集检索使用向量嵌入进行语义匹配", "keywords": ["密集检索", "向量", "语义"]}
+    result = _evaluate_fact(spec, report_text)
+    assert result.matched is True
+
+
+def test_evaluate_fact_chinese_no_match():
+    from deepresearch.evaluation.metrics import _evaluate_fact
+
+    report_text = "本文介绍了自然语言处理的基本概念。"
+    result = _evaluate_fact("LoRA使用低秩分解微调模型", report_text)
+    assert result.matched is False
