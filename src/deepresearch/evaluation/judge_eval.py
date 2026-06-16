@@ -5,13 +5,13 @@ from pathlib import Path
 
 from deepresearch.core.json_repair import parse_json
 from deepresearch.llm.base import LLMClient, LLMMessage
+from deepresearch.prompts.provider import LocalPromptProvider, PromptProvider
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ResearchReport
 
 logger = logging.getLogger(__name__)
 
-_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "judge_eval.md"
-_FACT_JUDGE_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "fact_judge.md"
+_DEFAULT_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 JUDGE_DIMENSIONS = [
     "factuality",
@@ -29,11 +29,11 @@ async def llm_as_judge(
     question: str,
     report: ResearchReport,
     evidence: list[EvidenceItem],
+    prompt_provider: PromptProvider | None = None,
 ) -> dict[str, float]:
     """Score a report on 5 dimensions using LLM."""
-    system_prompt = (
-        _PROMPT_PATH.read_text(encoding="utf-8") if _PROMPT_PATH.exists() else ""
-    )
+    provider = prompt_provider or LocalPromptProvider(_DEFAULT_PROMPTS_DIR)
+    system_prompt = provider.get("judge_eval")
     report_text = _format_report(report)
     evidence_text = "\n".join(
         f'[{e.evidence_id}] {e.claim}: "{e.quote}" ({e.citation})' for e in evidence
@@ -73,17 +73,15 @@ async def judge_facts(
     report: ResearchReport,
     evidence: list[EvidenceItem],
     fact_details: list[dict],
+    prompt_provider: PromptProvider | None = None,
 ) -> list[dict]:
     """Evaluate unmatched facts using LLM semantic judge.
 
     Only facts with matched=False are sent to the LLM.
     Returns updated fact_details with judge verdicts merged in.
     """
-    system_prompt = (
-        _FACT_JUDGE_PROMPT_PATH.read_text(encoding="utf-8")
-        if _FACT_JUDGE_PROMPT_PATH.exists()
-        else ""
-    )
+    provider = prompt_provider or LocalPromptProvider(_DEFAULT_PROMPTS_DIR)
+    system_prompt = provider.get("fact_judge")
     report_text = _format_report(report)
     evidence_text = "\n".join(
         f'[{e.evidence_id}] {e.claim}: "{e.quote}" ({e.citation})' for e in evidence

@@ -17,6 +17,7 @@ from deepresearch.core.json_repair import parse_json
 from deepresearch.embeddings.base import EmbeddingClient
 from deepresearch.llm.base import LLMClient, LLMMessage
 from deepresearch.memory.store import MemoryEntry, MemoryStore
+from deepresearch.prompts.provider import LocalPromptProvider, PromptProvider
 from deepresearch.rerankers.base import RerankerClient
 from deepresearch.retrieval.base import Retriever
 from deepresearch.retrieval.chunking import chunk_text
@@ -80,7 +81,7 @@ def _normalize_with_char_map(text: str) -> tuple[str, list[int]]:
     return collapsed, result_map
 
 
-_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "researcher.md"
+_DEFAULT_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,7 @@ class ResearchAgent:
         max_mmr_results: int = 12,
         fetch_concurrency: int = 5,
         progress: Callable[[str, dict[str, Any]], None] | None = None,
+        prompt_provider: PromptProvider | None = None,
     ) -> None:
         self._llm = llm
         self._retriever = retriever
@@ -137,9 +139,8 @@ class ResearchAgent:
         self._max_mmr_results = max_mmr_results
         self._fetch_concurrency = fetch_concurrency
         self._progress = progress
-        self._system_prompt = (
-            _PROMPT_PATH.read_text(encoding="utf-8") if _PROMPT_PATH.exists() else ""
-        )
+        provider = prompt_provider or LocalPromptProvider(_DEFAULT_PROMPTS_DIR)
+        self._system_prompt = provider.get("researcher")
 
     async def execute(self, task: TaskNode, *, run_id: str = "") -> dict:
         queries = await self._generate_queries(task)

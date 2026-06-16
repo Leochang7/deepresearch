@@ -6,17 +6,21 @@ from pathlib import Path
 from deepresearch.core.dag import DAG, CycleError
 from deepresearch.core.json_repair import parse_json
 from deepresearch.llm.base import LLMClient, LLMMessage
+from deepresearch.prompts.provider import LocalPromptProvider, PromptProvider
 from deepresearch.schemas.task import ResearchPlan, TaskNode
 
-_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "planner.md"
+_DEFAULT_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 
 class PlannerAgent:
-    def __init__(self, llm: LLMClient) -> None:
+    def __init__(
+        self,
+        llm: LLMClient,
+        prompt_provider: PromptProvider | None = None,
+    ) -> None:
         self._llm = llm
-        self._system_prompt = (
-            _PROMPT_PATH.read_text(encoding="utf-8") if _PROMPT_PATH.exists() else ""
-        )
+        provider = prompt_provider or LocalPromptProvider(_DEFAULT_PROMPTS_DIR)
+        self._system_prompt = provider.get("planner")
 
     async def plan(self, question: str) -> ResearchPlan:
         messages = [
