@@ -4,7 +4,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 
 ## 当前状态
 
-MVP、PM0-PM9 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化，强化 evidence 抽取、引用提示和 citation enforcement。
+MVP、PM0-PM10 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management。
 
 ## 已完成能力
 
@@ -32,6 +32,7 @@ MVP、PM0-PM9 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8
 - 配置优先级: CLI > file > env > default
 - Budget 追踪: LLM calls, search, fetch, chunks, embedding, rerank, elapsed time
 - Langfuse 可选集成（无 key 时自动 no-op）
+- PromptProvider: local / langfuse / langfuse_with_local_fallback，支持 prompt push bootstrap
 - 完整 trace（JSONL）+ memory snapshot 导出
 
 ### 评测闭环
@@ -57,6 +58,7 @@ MVP、PM0-PM9 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8
 | PM7 | 部分完成 | 事实级 benchmark 评测、5-case smoke dataset、失败原因分析已完成；联网 smoke 因 MiMo Search 计费和 Tavily 额度/432 不再作为主线 |
 | PM8 | ✅ 完成 | Local Corpus 可复现真实评测：真实模型 + 真实 Milvus + 本地资料集，5-case smoke 跑通且无 hallucination flag |
 | PM9 | ✅ 完成 | PM086 优化 citation coverage：模糊 quote 匹配、fallback evidence 放宽、引用提示增强和非事实过渡句保留 |
+| PM10 | ✅ 完成 | Langfuse Prompt Management：统一 PromptProvider、Langfuse strict/fallback provider、prompt push CLI、run/benchmark provider override |
 
 ## 真实环境运行
 
@@ -113,7 +115,7 @@ PM8 验收结果：
 ### 离线测试
 
 ```bash
-uv run pytest           # 全量离线测试（435 passed, 1 skipped）
+uv run pytest           # 全量离线测试（482 passed, 1 skipped）
 uv run ruff check .     # lint
 ```
 
@@ -126,7 +128,7 @@ uv run ruff check .     # lint
 - **PM7 联网 smoke 不稳定**: 实时搜索导致成本、额度、排序和网络波动，不适合作为稳定验收路径
 - **单轮执行**: 无交互式 refinement；pipeline 一次跑完
 - **Benchmark 串行**: benchmark runner 顺序执行每个 case，无并行
-- **Langfuse 可选**: 未安装 langfuse 包时自动降级为 no-op，不影响核心功能
+- **Langfuse 可选**: 评测追踪默认 no-op；严格 prompt provider 需要 Langfuse SDK 和密钥，fallback provider 可回退本地 prompt
 
 ## 下一阶段方向
 
@@ -146,7 +148,7 @@ src/deepresearch/
 ├── evaluation/      # metrics, benchmark, judge_eval, langfuse
 ├── llm/             # base, mock, mimo, deepseek
 ├── memory/          # store, milvus_store, conflict
-├── prompts/         # planner, researcher, synthesizer, red/blue, judge_eval
+├── prompts/         # prompt templates and PromptProvider implementations
 ├── rerankers/       # base, mock, openai_compatible
 ├── retrieval/       # base, mock, tavily, mimo, local_dataset, fetcher, chunking, dedup, fusion
 ├── schemas/         # task, evidence, report, evaluation
@@ -154,7 +156,7 @@ src/deepresearch/
 ├── config.py
 └── doctor.py
 
-tests/               # 435 passed, 1 skipped, 100% 离线可跑
+tests/               # 482 passed, 1 skipped, 100% 离线可跑
 examples/
 ├── bench/           # researchbench_mini.jsonl (12 cases), researchbench_smoke5.jsonl (5 cases)
 └── corpus/          # 本地资料集示例

@@ -46,3 +46,6 @@
 - 2026-06-16: 开始 PM091 Roadmap 收敛：新增 `docs/ROADMAP.md` 作为路线图唯一维护入口，准备将 MVP/Post-MVP/实现计划历史文档移入 `docs/archive/`。
 - 2026-06-16: 完成 PM091 Roadmap 收敛：`docs/ROADMAP.md` 成为路线图唯一维护入口；`MVP_AND_ROADMAP.md`、`POST_MVP_ROADMAP.md`、`IMPLEMENTATION_PLAN.md` 移入 `docs/archive/`；README、docs 入口和 AGENTS 文档分层已更新。
 - 2026-06-16: Review 并补齐 PM086：同步 TASKS/PROJECT_STATUS/ROADMAP，修复 Synthesizer citation enforcement 对长过渡句过严的问题，保留非事实性 section-framing lines；默认测试 `uv run pytest tests/ -x -q` 通过。
+- 2026-06-16: 更新 PM10 Langfuse Prompt Management 规划：明确 Langfuse 作为 runtime prompt 主源，本地 `src/deepresearch/prompts/*.md` 保留为离线 fallback、测试基线和 bootstrap seed；新增 PromptProvider、Langfuse provider/fallback 和 prompt push CLI 任务。
+- 2026-06-16: PM10 实现完成：新增 `PromptProvider`、`LocalPromptProvider`、`LangfusePromptProvider`、`LangfuseWithFallbackProvider`，Agent/Judge 统一通过 provider 获取 prompt；`run`/`benchmark` 支持 `--prompt-provider`，`prompts push` 支持将本地 prompt bootstrap 到 Langfuse。
+- 2026-06-16: Review 并修复 PM10：`LocalPromptProvider` 支持默认 prompt 目录；严格 `langfuse` provider 对远程失败或空 prompt 快速失败；fallback provider 回退本地 prompt；CLI 非 local provider override 自动开启 Langfuse；`prompts push` 对缺 client 或部分失败返回非 0。验证：`uv run pytest tests/prompts tests/test_cli.py tests/core/test_run_manager.py` 49 passed，`uv run ruff check .` 通过，`uv run pytest tests/ -x -q` 482 passed, 1 skipped。

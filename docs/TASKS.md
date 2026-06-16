@@ -456,7 +456,7 @@
   - Done when: `results.jsonl` 和 `summary.json` 包含 fact hit 明细、失败类型、失败阶段和可读诊断摘要。
   - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
 
-- [ ] PM073 跑真实 5-case benchmark smoke
+- [x] PM073 跑真实 5-case benchmark smoke
   - Files: `outputs/bench-real-*` ignored, `docs/REAL_BENCHMARK_GUIDE.md`
   - Done when: 使用真实 MiMo/Tavily/embedding/reranker/Milvus 跑 5 个 case，记录 task_success_rate、citation_coverage、factual_hit_rate、hallucination_flag 和失败原因。
   - Verify: `uv run deepresearch doctor --real`; `uv run deepresearch benchmark <5-case-jsonl> --mode real --output outputs/bench-real --experiment pm7-smoke`
@@ -517,3 +517,25 @@
   - Files: `src/deepresearch/agents/researcher.py`, `src/deepresearch/agents/synthesizer.py`, `src/deepresearch/agents/evidence_quality.py`, `src/deepresearch/prompts/synthesizer.md`, tests
   - Done when: 模糊 quote 匹配（大小写/标点不敏感）、quality checker 大小写不敏感检查、fallback 放宽（min 25 chars, max 5 items）、synthesizer prompt 要求引用所有 evidence、`_enforce_citations` 保留非事实性分析语句；集成测试断言 `citation_coverage >= 0.7`。
   - Verify: `uv run pytest tests/ -x -q` (458 passed, 1 skipped); local-corpus 5-case real benchmark 复测。
+
+### PM10 Langfuse Prompt Management
+
+- [x] PM100 实现统一 PromptProvider
+  - Files: `src/deepresearch/prompts/provider.py`, `src/deepresearch/config.py`, `src/deepresearch/agents/`, `src/deepresearch/evaluation/judge_eval.py`, tests, docs
+  - Done when: Agent 和 judge 不再直接 `read_text()` prompt 文件，而是通过 `PromptProvider.get(name)` 获取 prompt；默认 `LocalPromptProvider` 继续读取 `src/deepresearch/prompts/*.md`，默认离线测试不依赖 Langfuse。
+  - Verify: `uv run pytest tests/prompts tests/agents tests/evaluation`; `uv run pytest` 无 Langfuse key 仍通过。
+
+- [x] PM101 接入 LangfusePromptProvider 与本地 fallback
+  - Files: `src/deepresearch/prompts/provider.py`, `src/deepresearch/core/run_manager.py`, `src/deepresearch/config.py`, tests
+  - Done when: 支持 `local`、`langfuse`、`langfuse_with_local_fallback` 三种 provider；Langfuse prompt 使用稳定名称 `deepresearch/<prompt_name>` 和 label 获取；严格 provider 失败时快速失败，fallback provider 失败时回退本地 prompt；RunManager 根据配置创建 provider 并传递给所有 agent。
+  - Verify: `uv run pytest tests/prompts tests/test_config.py tests/core/test_run_manager.py`; 默认 `uv run pytest` 离线通过。
+
+- [x] PM102 增加 prompt bootstrap/push CLI
+  - Files: `src/deepresearch/cli.py`, tests
+  - Done when: 支持 `uv run deepresearch prompts push --label staging` 将本地 prompt 初始导入 Langfuse；`run` 和 `benchmark` 支持 `--prompt-provider` 选项。
+  - Verify: `uv run pytest tests/test_cli.py`。
+
+- [x] PM103 Review 修复 Langfuse prompt provider 失败语义
+  - Files: `src/deepresearch/prompts/provider.py`, `src/deepresearch/core/run_manager.py`, `src/deepresearch/cli.py`, tests, docs
+  - Done when: `LocalPromptProvider` 可默认读取仓库 prompt；严格 `langfuse` provider 不再返回空 prompt；fallback 只捕获 prompt provider 错误；`--prompt-provider` 非 local 时会开启 Langfuse；`prompts push` 在缺少 client 或部分失败时返回非 0。
+  - Verify: `uv run pytest tests/prompts tests/test_cli.py tests/core/test_run_manager.py` (49 passed); `uv run ruff check .`; `uv run pytest tests/ -x -q` (482 passed, 1 skipped)。

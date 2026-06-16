@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-MVP、PM0-PM8 已完成。系统已经跑通：
+MVP、PM0-PM10 已完成。系统已经跑通：
 
 ```text
 Planner -> DAG Executor -> Research Agent -> Retriever -> Memory -> Synthesizer -> Red/Blue/Judge -> Evaluator
@@ -29,21 +29,19 @@ PM8 5-case local-corpus real smoke 结果：
 - `avg_factual_hit_rate = 1.0`
 - `hallucination_flag_count = 0`
 
-## 当前完成：PM9 引用覆盖率优化
+## 当前完成：PM10 Langfuse Prompt Management
 
-PM9 的目标是把“能答对”推进到“答得可审计”。当前事实覆盖率和幻觉控制已经达标，PM086 已针对报告中部分事实没有被充分绑定到 evidence 引用的问题完成优化。
+PM10 的目标是让 Langfuse 管理 runtime prompts，同时保留本地 prompt 文件作为离线 fallback、测试基线和 bootstrap seed。当前已完成 PromptProvider 抽象、Langfuse strict/fallback provider、prompt push CLI，以及 `run` / `benchmark` 的 provider override。
 
 完成项：
 
-- PM086：提升 local-corpus smoke citation coverage
-- 改动：模糊 quote 匹配、quality checker 大小写不敏感检查、fallback evidence 放宽、Synthesizer 引用提示增强、非事实性过渡句保留
-- 验证：`uv run pytest tests/ -x -q` 通过
+- PM100：统一 PromptProvider，Agent/Judge 不再直接读取 prompt 文件。
+- PM101：接入 `local`、`langfuse`、`langfuse_with_local_fallback` 三种 provider。
+- PM102：增加 `uv run deepresearch prompts push --label staging`，并支持 `--prompt-provider`。
+- PM103：Review 修复 strict/fallback 失败语义、CLI override 和 prompt push 失败处理。
+- 验证：`uv run pytest tests/ -x -q` 通过，`uv run ruff check .` 通过。
 
-后续如继续优化引用质量，优先排查：
-
-1. 分析新 benchmark 输出中 coverage 仍低的 case，重点看 embeddings 和 rag。
-2. 区分问题来源：evidence 抽取不足、Synthesizer 引用遗漏、Evaluator 判定过严。
-3. 优先修正 evidence 与 citation 链路，不先扩大 benchmark 规模。
+PM9 引用覆盖率优化已完成，后续如继续优化引用质量，优先分析新 benchmark 输出中 coverage 仍低的 case，区分 evidence 抽取不足、Synthesizer 引用遗漏和 Evaluator 判定过严。
 
 ## 后续方向
 
@@ -114,6 +112,8 @@ Tavily 和 MiMo Search 保持 optional retriever adapter：
 - PM6：Langfuse adapter、ResearchBench mini、benchmark runner、LLM-as-Judge。
 - PM7：fact-level 规则指标、semantic judge、per-fact failure reason。
 - PM8：local corpus 可复现真实评测，联网搜索降级为增强层。
+- PM9：local-corpus smoke citation coverage 优化。
+- PM10：Langfuse Prompt Management、PromptProvider、prompt push CLI。
 
 ## 历史文档
 

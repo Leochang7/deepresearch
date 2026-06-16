@@ -118,6 +118,13 @@ oscillation_window = 2
 [synthesizer]
 report_profile = "tech_research"
 
+[langfuse]
+enabled = false
+host = "https://cloud.langfuse.com"
+experiment_name = "deepresearch"
+prompt_provider = "local" # local | langfuse | langfuse_with_local_fallback
+prompt_label = "production"
+
 [evidence_quality]
 min_confidence = 0.3
 min_token_overlap = 0.1
@@ -148,6 +155,10 @@ DEEPRESEARCH_RERANKER_BASE_URL=
 DEEPRESEARCH_RERANKER_API_KEY=
 DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m3
 DEEPRESEARCH_REPORT_PROFILE=tech_research
+
+DEEPRESEARCH_PROMPT_PROVIDER=local
+DEEPRESEARCH_PROMPT_LABEL=production
+
 DEEPRESEARCH_EVIDENCE_MIN_CONFIDENCE=0.3
 DEEPRESEARCH_EVIDENCE_MIN_TOKEN_OVERLAP=0.1
 DEEPRESEARCH_RRF_K=60
@@ -181,6 +192,34 @@ Langfuse 是可选评测追踪能力。默认关闭；开启时需要提供
 `LANGFUSE_PUBLIC_KEY` 和 `LANGFUSE_SECRET_KEY`。缺少密钥或未安装
 Langfuse SDK 时，系统只记录 warning 并继续本地 run，不影响默认离线测试。
 
+PM10 已增加 Langfuse Prompt Management。runtime prompt 可由 Langfuse 管理，
+本地 `src/deepresearch/prompts/*.md` 保留为离线 fallback、测试基线和
+bootstrap seed。prompt provider 配置当前归属于 `[langfuse]`：
+
+```toml
+[langfuse]
+enabled = false
+prompt_provider = "local" # local | langfuse | langfuse_with_local_fallback
+prompt_label = "production"
+```
+
+Prompt 命名约定：
+
+- `deepresearch/planner`
+- `deepresearch/researcher`
+- `deepresearch/synthesizer`
+- `deepresearch/red_agent`
+- `deepresearch/blue_agent`
+- `deepresearch/judge_eval`
+- `deepresearch/fact_judge`
+
+环境 label 使用 `production`、`staging`、`dev`。默认
+`prompt_provider = "local"`，确保 `uv run pytest` 不依赖 Langfuse。严格
+`langfuse` provider 获取失败或返回空 prompt 时快速失败；
+`langfuse_with_local_fallback` 获取失败时回退本地文件。`run` 和
+`benchmark` 可用 `--prompt-provider` 临时覆盖 provider，非 local provider
+会自动开启 Langfuse 配置。
+
 ## 4. CLI
 
 ```bash
@@ -191,6 +230,7 @@ uv run deepresearch index-corpus
 uv run deepresearch eval <run_id>
 uv run deepresearch inspect <run_id>
 uv run deepresearch config
+uv run deepresearch prompts push --label staging
 ```
 
 ## 5. MiMo 调用约定

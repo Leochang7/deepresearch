@@ -42,6 +42,7 @@ Benchmark Dataset -> deepresearch run -> local metrics -> Langfuse trace/score -
 - Experiment run 记录。
 - Score 记录。
 - 不同模型、检索策略、prompt 版本的横向对比。
+- Runtime prompt 版本、label 和发布管理（PM10 已完成）。
 - 人工 review 和标注入口。
 
 ## 3. 分阶段实现
@@ -113,6 +114,52 @@ Judge 输出必须是 JSON，并复用现有 JSON fallback。
 - Cohen's d。
 - MiMo / DeepSeek / vLLM / OpenAI 多后端对比。
 - 6 项一键实验脚本。
+
+### PM10：Prompt Management（已完成）
+
+Prompt Management 的目标是让 Langfuse 管理所有 runtime prompts，同时保留本地 prompt 文件作为离线 fallback、测试基线和 bootstrap seed。
+
+架构：
+
+```text
+PromptProvider
+├── LocalPromptProvider        # 读 src/deepresearch/prompts/*.md
+├── LangfusePromptProvider     # 从 Langfuse 拉 production/staging/dev label
+└── FallbackPromptProvider     # Langfuse 失败时回退 local
+```
+
+迁移结果：
+
+- Agent 和 judge 不再直接读取 `_PROMPT_PATH.read_text(...)`。
+- 统一使用 `prompt_provider.get("planner")`、`get("researcher")`、`get("synthesizer")` 等稳定名称。
+- Langfuse 中 prompt 使用 `deepresearch/<prompt_name>` 命名。
+- 默认 provider 为 `local`，默认测试不依赖 Langfuse。
+- 严格 `langfuse` provider 获取失败或返回空 prompt 时快速失败。
+- `langfuse_with_local_fallback` 获取失败时回退本地 prompt。
+
+配置：
+
+```toml
+[langfuse]
+enabled = false
+prompt_provider = "local"
+prompt_label = "production"
+```
+
+CLI：
+
+```bash
+uv run deepresearch prompts push --label staging
+uv run deepresearch run "..." --mode real --prompt-provider langfuse
+```
+
+验收标准：
+
+- 默认 `uv run pytest` 无 Langfuse key、无网络也能通过。
+- 本地 prompt 文件仍完整保留。
+- 开启 Langfuse provider 时，runtime prompt 可按 label 获取。
+- 远程 prompt 获取失败时，`langfuse_with_local_fallback` 能回退到本地 prompt。
+- Langfuse trace 能记录 prompt 名称、label/version 和实验配置摘要。
 
 ## 4. 非目标
 
