@@ -154,6 +154,22 @@ def _build_runtime(
     return llm, retriever, memory, embedding, reranker
 
 
+def _apply_prompt_provider_override(
+    cfg: DeepResearchConfig, prompt_provider: str | None
+) -> None:
+    if not prompt_provider:
+        return
+    allowed = {"local", "langfuse", "langfuse_with_local_fallback"}
+    if prompt_provider not in allowed:
+        raise typer.BadParameter(
+            "--prompt-provider must be one of: "
+            "local, langfuse, langfuse_with_local_fallback"
+        )
+    cfg.langfuse.prompt_provider = prompt_provider
+    if prompt_provider != "local":
+        cfg.langfuse.enabled = True
+
+
 @app.command()
 def run(
     question: str = typer.Argument(help="Research question"),
@@ -178,8 +194,7 @@ def run(
     from deepresearch.core.run_manager import RunManager
 
     cfg = load_config(config_path=config_path)
-    if prompt_provider:
-        cfg.langfuse.prompt_provider = prompt_provider
+    _apply_prompt_provider_override(cfg, prompt_provider)
     corpus_path = Path(corpus) if corpus else None
     components = _build_runtime(
         cfg,
@@ -542,7 +557,16 @@ def prompts_cmd(
         host=cfg.langfuse.host,
     )
     client = adapter._client
+    if client is None:
+        typer.echo(
+            "Langfuse client is unavailable. Check LANGFUSE_PUBLIC_KEY, "
+            "LANGFUSE_SECRET_KEY, LANGFUSE_HOST, and the langfuse package.",
+            err=True,
+        )
+        raise typer.Exit(1)
 
+    succeeded = 0
+    failed = 0
     for name in names:
         content = local.get(name)
         prompt_name = f"deepresearch/{name}"
@@ -554,10 +578,14 @@ def prompts_cmd(
                 config={"type": "text"},
             )
             typer.echo(f"  pushed: {prompt_name} (label={label})")
+            succeeded += 1
         except Exception as exc:
             typer.echo(f"  failed: {prompt_name} - {exc}", err=True)
+            failed += 1
 
-    typer.echo(f"\nPushed {len(names)} prompts with label '{label}'.")
+    typer.echo(f"\nPushed {succeeded}/{len(names)} prompts with label '{label}'.")
+    if failed:
+        raise typer.Exit(1)
 
 
 @app.command(name="benchmark")
@@ -607,8 +635,7 @@ def benchmark_cmd(
     typer.echo(f"Loaded {len(cases)} benchmark cases from {dataset}")
 
     cfg = load_config(config_path=config_path)
-    if prompt_provider:
-        cfg.langfuse.prompt_provider = prompt_provider
+    _apply_prompt_provider_override(cfg, prompt_provider)
     experiment_id = (
         experiment or f"{dataset_path.stem}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     )

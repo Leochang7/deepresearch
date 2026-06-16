@@ -1,5 +1,5 @@
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -22,6 +22,58 @@ def _manager(memory: MockMemoryStore | None = None) -> RunManager:
         MockEmbeddingClient(),
         MockRerankerClient(),
     )
+
+
+def test_build_prompt_provider_fallback_constructs_local_provider(monkeypatch):
+    config = DeepResearchConfig()
+    config.langfuse.enabled = True
+    config.langfuse.prompt_provider = "langfuse_with_local_fallback"
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+    fake_client = MagicMock()
+
+    with patch.dict(
+        "sys.modules",
+        {"langfuse": MagicMock(Langfuse=MagicMock(return_value=fake_client))},
+    ):
+        provider = RunManager(
+            config,
+            MockLLM(),
+            MockRetriever(),
+            MockMemoryStore(),
+            MockEmbeddingClient(),
+            MockRerankerClient(),
+        )._build_prompt_provider()
+
+    assert provider is not None
+    assert provider.get("planner")
+
+
+def test_build_prompt_provider_strict_langfuse_raises_on_missing_prompt(monkeypatch):
+    config = DeepResearchConfig()
+    config.langfuse.enabled = True
+    config.langfuse.prompt_provider = "langfuse"
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+    fake_client = MagicMock()
+    fake_client.prompt.get.side_effect = Exception("not found")
+
+    with patch.dict(
+        "sys.modules",
+        {"langfuse": MagicMock(Langfuse=MagicMock(return_value=fake_client))},
+    ):
+        provider = RunManager(
+            config,
+            MockLLM(),
+            MockRetriever(),
+            MockMemoryStore(),
+            MockEmbeddingClient(),
+            MockRerankerClient(),
+        )._build_prompt_provider()
+
+    assert provider is not None
+    with pytest.raises(Exception, match="deepresearch/planner"):
+        provider.get("planner")
 
 
 @pytest.mark.asyncio

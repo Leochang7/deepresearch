@@ -5,6 +5,7 @@ from deepresearch.prompts.provider import (
     LangfuseWithFallbackProvider,
     LocalPromptProvider,
     PromptProvider,
+    PromptProviderError,
 )
 
 
@@ -51,14 +52,36 @@ def test_langfuse_provider_fetches_prompt():
     assert result == "Langfuse planner prompt"
 
 
-def test_langfuse_provider_returns_empty_on_error():
+def test_langfuse_provider_raises_on_error():
     from unittest.mock import MagicMock
 
     mock_client = MagicMock()
     mock_client.prompt.get.side_effect = Exception("not found")
 
     provider = LangfusePromptProvider(client=mock_client)
-    assert provider.get("nonexistent") == ""
+    try:
+        provider.get("nonexistent")
+    except PromptProviderError as exc:
+        assert "deepresearch/nonexistent" in str(exc)
+    else:
+        raise AssertionError("Expected PromptProviderError")
+
+
+def test_langfuse_provider_raises_on_empty_prompt():
+    from unittest.mock import MagicMock
+
+    mock_client = MagicMock()
+    mock_prompt = MagicMock()
+    mock_prompt.compile.return_value = ""
+    mock_client.prompt.get.return_value = mock_prompt
+
+    provider = LangfusePromptProvider(client=mock_client)
+    try:
+        provider.get("planner")
+    except PromptProviderError as exc:
+        assert "is empty" in str(exc)
+    else:
+        raise AssertionError("Expected PromptProviderError")
 
 
 def test_langfuse_with_fallback_uses_langfuse_when_available():

@@ -3,6 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+_DEFAULT_PROMPTS_DIR = Path(__file__).parent
+
+
+class PromptProviderError(RuntimeError):
+    """Raised when a strict prompt provider cannot return a prompt."""
+
 
 @runtime_checkable
 class PromptProvider(Protocol):
@@ -20,7 +26,7 @@ class PromptProvider(Protocol):
 class LocalPromptProvider:
     """Reads prompt .md files from a local directory."""
 
-    def __init__(self, prompts_dir: Path | str) -> None:
+    def __init__(self, prompts_dir: Path | str = _DEFAULT_PROMPTS_DIR) -> None:
         self._dir = Path(prompts_dir)
 
     def get(self, name: str) -> str:
@@ -48,9 +54,18 @@ class LangfusePromptProvider:
                 name=f"deepresearch/{name}",
                 label=self._label,
             )
-            return prompt.compile()
-        except Exception:
-            return ""
+            result = prompt.compile()
+        except Exception as exc:
+            raise PromptProviderError(
+                f"Failed to load Langfuse prompt deepresearch/{name} "
+                f"with label {self._label}: {exc}"
+            ) from exc
+        if not result:
+            raise PromptProviderError(
+                f"Langfuse prompt deepresearch/{name} with label "
+                f"{self._label} is empty"
+            )
+        return result
 
     def list_names(self) -> list[str]:
         return []
@@ -69,9 +84,10 @@ class LangfuseWithFallbackProvider:
         self._local = local
 
     def get(self, name: str) -> str:
-        result = self._langfuse.get(name)
-        if result:
-            return result
+        try:
+            return self._langfuse.get(name)
+        except PromptProviderError:
+            pass
         return self._local.get(name)
 
     def list_names(self) -> list[str]:

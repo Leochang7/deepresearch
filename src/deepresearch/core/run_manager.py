@@ -459,7 +459,20 @@ class RunManager:
         provider_name = cfg.prompt_provider
         label = cfg.prompt_label
 
-        if provider_name == "local" or not cfg.enabled:
+        if provider_name == "local":
+            return None
+        if provider_name not in {"langfuse", "langfuse_with_local_fallback"}:
+            raise ValueError(
+                "Unsupported prompt provider: "
+                f"{provider_name}. Expected local, langfuse, or "
+                "langfuse_with_local_fallback."
+            )
+        if not cfg.enabled:
+            logger.warning(
+                "Prompt provider '%s' requested while Langfuse is disabled. "
+                "Falling back to local prompts.",
+                provider_name,
+            )
             return None
 
         public_key = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
@@ -496,7 +509,6 @@ class RunManager:
                 label=label,
             )
 
-        # provider_name == "langfuse"
         from deepresearch.prompts.provider import LangfusePromptProvider
 
         return LangfusePromptProvider(client=client, label=label)

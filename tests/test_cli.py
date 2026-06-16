@@ -418,12 +418,72 @@ def test_benchmark_passes_corpus_to_build_runtime(tmp_path):
     assert build.call_args.kwargs["corpus"] == corpus
 
 
+def test_run_prompt_provider_override_enables_langfuse(tmp_path):
+    output = tmp_path / "run"
+    manager_instance = SimpleNamespace(
+        run=AsyncMock(
+            return_value=SimpleNamespace(
+                run_id="run-1",
+                output_dir=output,
+                evaluation=SimpleNamespace(task_success_rate=1),
+            )
+        )
+    )
+
+    with (
+        patch("deepresearch.cli._build_runtime", return_value=(1, 2, 3, 4, 5)),
+        patch(
+            "deepresearch.core.run_manager.RunManager",
+            return_value=manager_instance,
+        ) as manager_cls,
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "run",
+                "question",
+                "--mode",
+                "mock",
+                "--output",
+                str(output),
+                "--prompt-provider",
+                "langfuse_with_local_fallback",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    cfg = manager_cls.call_args.args[0]
+    assert cfg.langfuse.enabled is True
+    assert cfg.langfuse.prompt_provider == "langfuse_with_local_fallback"
+
+
+def test_run_rejects_unknown_prompt_provider():
+    result = runner.invoke(
+        app,
+        ["run", "question", "--prompt-provider", "unknown"],
+    )
+
+    assert result.exit_code != 0
+    assert "prompt-provider" in result.output
+
+
 def test_prompts_push_requires_langfuse_enabled(monkeypatch):
     """prompts push should fail if Langfuse is not enabled."""
     monkeypatch.setenv("DEEPRESEARCH_LANGFUSE_ENABLED", "false")
     result = runner.invoke(app, ["prompts", "push"])
     assert result.exit_code != 0
     assert "not enabled" in result.output.lower() or "langfuse" in result.output.lower()
+
+
+def test_prompts_push_fails_when_client_unavailable(monkeypatch):
+    monkeypatch.setenv("DEEPRESEARCH_LANGFUSE_ENABLED", "true")
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+    monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+
+    result = runner.invoke(app, ["prompts", "push"])
+
+    assert result.exit_code != 0
+    assert "client is unavailable" in result.output.lower()
 
 
 def test_run_accepts_prompt_provider_option():
