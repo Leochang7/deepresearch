@@ -93,6 +93,18 @@ def _build_runtime(
             default_top_p=cfg.llm.top_p,
             default_max_completion_tokens=cfg.llm.max_completion_tokens,
         )
+    elif cfg.llm.provider == "openai_compatible":
+        from deepresearch.llm.openai_compatible import OpenAICompatibleLLMClient
+
+        llm = OpenAICompatibleLLMClient(
+            base_url=cfg.llm.base_url,
+            api_key=_required_env(cfg.llm.api_key_env),
+            model=cfg.llm.model,
+            api_key_header=cfg.llm.api_key_header,
+            default_temperature=cfg.llm.temperature,
+            default_top_p=cfg.llm.top_p,
+            default_max_completion_tokens=cfg.llm.max_completion_tokens,
+        )
     else:
         raise typer.BadParameter(f"Unsupported LLM provider: {cfg.llm.provider}")
 
