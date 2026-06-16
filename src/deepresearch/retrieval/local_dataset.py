@@ -2,10 +2,40 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from deepresearch.retrieval.base import Retriever
 from deepresearch.schemas.evidence import RetrievedDocument
+
+_STOPWORDS = {
+    "about",
+    "after",
+    "also",
+    "and",
+    "are",
+    "been",
+    "being",
+    "can",
+    "does",
+    "from",
+    "have",
+    "how",
+    "into",
+    "main",
+    "models",
+    "that",
+    "the",
+    "their",
+    "these",
+    "this",
+    "through",
+    "what",
+    "when",
+    "where",
+    "which",
+    "with",
+}
 
 
 class LocalDatasetRetriever(Retriever):
@@ -32,13 +62,15 @@ class LocalDatasetRetriever(Retriever):
             else:
                 docs.append(_load_text_file(f))
 
-        query_lower = " ".join(queries).lower()
-        scored = []
+        query_tokens = _tokenize(" ".join(queries))
+        scored: list[tuple[int, RetrievedDocument]] = []
         for doc in docs:
-            overlap = sum(1 for w in query_lower.split() if w in doc.content.lower())
-            scored.append((overlap, doc))
+            score = _score_document(query_tokens, doc)
+            scored.append((score, doc))
 
         scored.sort(key=lambda x: x[0], reverse=True)
+        if any(score > 0 for score, _ in scored):
+            scored = [(score, doc) for score, doc in scored if score > 0]
         return [doc for _, doc in scored[:top_k]]
 
 
@@ -75,3 +107,23 @@ def _load_jsonl(path: Path) -> list[RetrievedDocument]:
             )
         )
     return docs
+
+
+def _tokenize(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-zA-Z][a-zA-Z0-9_-]{2,}", text.lower())
+        if token not in _STOPWORDS
+    }
+
+
+def _score_document(query_tokens: set[str], doc: RetrievedDocument) -> int:
+    if not query_tokens:
+        return 0
+    content_tokens = _tokenize(doc.content)
+    title_tokens = _tokenize(doc.title)
+    url_tokens = _tokenize(doc.url or "")
+    content_hits = len(query_tokens & content_tokens)
+    title_hits = len(query_tokens & title_tokens)
+    url_hits = len(query_tokens & url_tokens)
+    return content_hits + (title_hits * 3) + url_hits

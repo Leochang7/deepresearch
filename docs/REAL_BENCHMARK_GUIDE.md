@@ -146,6 +146,19 @@ This runs the PM7 5-case smoke suite against curated local documents covering 5 
 
 Remove `--config examples/configs/benchmark_smoke.toml` to use default settings (higher cost, longer runtime).
 
+PM8 accepted local-corpus result:
+
+| Metric | Value |
+|--------|-------|
+| cases | 5 |
+| avg_task_success_rate | 1.0 |
+| avg_citation_coverage | 0.5297 |
+| avg_factual_hit_rate | 1.0 |
+| hallucination_flag_count | 0 |
+| output | `outputs/bench-pm8-local-real-final/pm8-local-real-final/summary.json` |
+
+Known follow-up: citation coverage is stable but still uneven across domains. The next optimization target is improving low-coverage cases such as embeddings and RAG without weakening citation rules.
+
 ## PM7 Smoke Benchmark（事实覆盖率校准）
 
 PM7 将 `factual_hit_rate` 从粗糙字符串匹配升级为 fact-level 规则 + 可选 LLM 语义判定。5-case smoke 使用 `examples/bench/researchbench_smoke5.jsonl`，包含 dict 格式的 `expected_facts`（含 `keywords` / `aliases`）。

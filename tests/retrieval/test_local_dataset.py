@@ -74,6 +74,41 @@ class TestLocalDatasetRetriever:
         assert len(results) <= 3
 
     @pytest.mark.asyncio
+    async def test_filters_zero_score_docs_when_matches_exist(self, tmp_path):
+        (tmp_path / "react.md").write_text(
+            "ReAct interleaves reasoning and acting for tool use."
+        )
+        (tmp_path / "gardening.md").write_text(
+            "Tomatoes need soil moisture and regular sunlight."
+        )
+
+        retriever = LocalDatasetRetriever(tmp_path)
+        results = await retriever.retrieve(["ReAct reasoning acting"], top_k=10)
+
+        assert [result.title for result in results] == ["react"]
+
+    @pytest.mark.asyncio
+    async def test_scores_title_and_file_name_tokens(self, tmp_path):
+        (tmp_path / "toolformer.md").write_text(
+            "A model can learn API calls from web text."
+        )
+        (tmp_path / "other.md").write_text("Tool use appears in this note.")
+
+        retriever = LocalDatasetRetriever(tmp_path)
+        results = await retriever.retrieve(["Toolformer self supervised"], top_k=2)
+
+        assert results[0].title == "toolformer"
+
+    @pytest.mark.asyncio
+    async def test_returns_fallback_docs_when_no_scores_match(self, tmp_path):
+        (tmp_path / "a.md").write_text("same content")
+
+        retriever = LocalDatasetRetriever(tmp_path)
+        results = await retriever.retrieve(["unmatched"])
+
+        assert len(results) == 1
+
+    @pytest.mark.asyncio
     async def test_source_type_is_local_dataset(self, tmp_path):
         (tmp_path / "test.md").write_text("content")
 

@@ -484,15 +484,17 @@
   - Done when: 有一份低成本 smoke 配置，限制 query/docs/chunks/replan/red-blue 轮数；用于稳定复现 PM7 5-case，不影响默认配置。
   - Verify: `uv run pytest tests/test_cli.py`; TOML syntax valid
 
-- [ ] PM083 跑通 PM7 5-case local-corpus real benchmark
+- [x] PM083 跑通 PM7 5-case local-corpus real benchmark
   - Files: `outputs/bench-local-*` ignored, docs
   - Done when: 使用真实 MiMo chat、真实 embedding/reranker、Milvus Standalone、本地 corpus 跑完 5 个 case，输出 `results.jsonl` 和 `summary.json`；记录 task_success_rate、citation_coverage、factual_hit_rate、hallucination_flag 和每 case 失败原因。
   - Verify: `uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl --mode real --retriever local --corpus examples/corpus --output outputs/bench-local --experiment pm8-local-smoke`
+  - Result: `outputs/bench-pm8-local-real-final/pm8-local-real-final/summary.json`，5 cases，`avg_task_success_rate=1.0`，`avg_citation_coverage=0.5297`，`avg_factual_hit_rate=1.0`，`hallucination_flag_count=0`。
 
-- [ ] PM084 修复 evidence extraction 在可控资料集上的稳定性
+- [x] PM084 修复 evidence extraction 在可控资料集上的稳定性
   - Files: `src/deepresearch/agents/researcher.py`, `src/deepresearch/prompts/researcher.md`, tests
   - Done when: 给定本地 corpus 中包含答案的资料，ResearchAgent 能稳定抽取原文 quote、绑定 source_url/title、写入 memory，并让 citation_coverage 不依赖模型常识。
   - Verify: `uv run pytest tests/agents/test_researcher.py`; PM083 指标复测。
+  - Result: source_id 支持 `[S1]` 等格式归一，quote 支持空白归一匹配；LLM evidence 全部无效时使用带关键词门槛的 grounded sentence fallback；local corpus 5-case real benchmark 无 hallucination flag。
 
 - [x] PM085 将联网搜索降级为增强层
   - Files: `docs/POST_MVP_ROADMAP.md`, `docs/REAL_BENCHMARK_GUIDE.md`, `docs/CONFIGURATION.md`
