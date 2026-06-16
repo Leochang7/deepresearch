@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import os
 import time
 import uuid
 from dataclasses import dataclass
@@ -36,6 +38,10 @@ from deepresearch.evaluation.metrics import evaluate
 from deepresearch.llm.base import LLMClient
 from deepresearch.memory.milvus_store import export_snapshot
 from deepresearch.memory.store import MemoryStore
+from deepresearch.prompts.provider import (
+    LocalPromptProvider,
+    PromptProvider,
+)
 from deepresearch.rerankers.base import RerankerClient
 from deepresearch.retrieval.base import Retriever
 from deepresearch.retrieval.fetcher import WebFetcher
@@ -43,6 +49,8 @@ from deepresearch.schemas.evaluation import EvaluationResult
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ResearchReport
 from deepresearch.schemas.task import TaskNode, TaskState
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -92,12 +100,16 @@ class RunManager:
         reranker = BudgetedRerankerClient(self._reranker, budget)
         deadline = time.monotonic() + self._config.executor.global_timeout_seconds
 
-        planner = PlannerAgent(llm)
+        prompt_provider = self._build_prompt_provider()
+
+        planner = PlannerAgent(llm, prompt_provider=prompt_provider)
         synthesizer = Synthesizer(
-            llm, report_profile=self._config.synthesizer.report_profile
+            llm,
+            report_profile=self._config.synthesizer.report_profile,
+            prompt_provider=prompt_provider,
         )
-        red_agent = RedAgent(llm)
-        blue_agent = BlueAgent(llm)
+        red_agent = RedAgent(llm, prompt_provider=prompt_provider)
+        blue_agent = BlueAgent(llm, prompt_provider=prompt_provider)
         judge = Judge(
             JudgeConfig(
                 max_rounds=self._config.red_blue.max_rounds,
@@ -161,6 +173,7 @@ class RunManager:
                     10,
                 ),
                 progress=report_progress,
+                prompt_provider=prompt_provider,
             )
             trace.log(
                 TraceEventType.RETRIEVER_CALLED,
@@ -439,6 +452,54 @@ class RunManager:
             global_timeout_seconds=remaining,
             max_llm_calls_per_run=self._config.executor.max_llm_calls_per_run,
         )
+
+    def _build_prompt_provider(self) -> PromptProvider | None:
+        """Build prompt provider based on LangfuseConfig."""
+        cfg = self._config.langfuse
+        provider_name = cfg.prompt_provider
+        label = cfg.prompt_label
+
+        if provider_name == "local" or not cfg.enabled:
+            return None
+
+        public_key = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
+        secret_key = os.environ.get("LANGFUSE_SECRET_KEY", "")
+        if not public_key or not secret_key:
+            logger.warning(
+                "Prompt provider '%s' requested but LANGFUSE_PUBLIC_KEY or "
+                "LANGFUSE_SECRET_KEY not set. Falling back to local.",
+                provider_name,
+            )
+            return None
+
+        try:
+            from langfuse import Langfuse
+
+            client = Langfuse(
+                public_key=public_key,
+                secret_key=secret_key,
+                host=cfg.host,
+            )
+        except ImportError:
+            logger.warning(
+                "Langfuse package not installed. Install with: uv add langfuse. "
+                "Falling back to local prompt provider."
+            )
+            return None
+
+        if provider_name == "langfuse_with_local_fallback":
+            from deepresearch.prompts.provider import LangfuseWithFallbackProvider
+
+            return LangfuseWithFallbackProvider(
+                client=client,
+                local=LocalPromptProvider(),
+                label=label,
+            )
+
+        # provider_name == "langfuse"
+        from deepresearch.prompts.provider import LangfusePromptProvider
+
+        return LangfusePromptProvider(client=client, label=label)
 
     @staticmethod
     def _prepare_replan_tasks(

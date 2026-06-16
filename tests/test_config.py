@@ -65,6 +65,13 @@ uri = "/custom/path.db"
 
 
 class TestEnvVarOverride:
+    def test_langfuse_config_prompt_defaults(self):
+        from deepresearch.config import LangfuseConfig
+
+        cfg = LangfuseConfig()
+        assert cfg.prompt_provider == "local"
+        assert cfg.prompt_label == "production"
+
     def test_env_overrides_default(self, monkeypatch):
         monkeypatch.setenv("DEEPRESEARCH_LLM_PROVIDER", "deepseek")
         monkeypatch.setenv("DEEPRESEARCH_LLM_MODEL", "deepseek-chat")

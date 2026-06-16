@@ -133,6 +133,8 @@ class LangfuseConfig(BaseModel):
     enabled: bool = False
     host: str = "https://cloud.langfuse.com"
     experiment_name: str = "deepresearch"
+    prompt_provider: str = "local"
+    prompt_label: str = "production"
 
 
 # Env var name -> (config section, field name)
@@ -171,6 +173,8 @@ _ENV_MAP: dict[str, tuple[str, str]] = {
     "DEEPRESEARCH_LANGFUSE_ENABLED": ("langfuse", "enabled"),
     "LANGFUSE_HOST": ("langfuse", "host"),
     "DEEPRESEARCH_EXPERIMENT_NAME": ("langfuse", "experiment_name"),
+    "DEEPRESEARCH_PROMPT_PROVIDER": ("langfuse", "prompt_provider"),
+    "DEEPRESEARCH_PROMPT_LABEL": ("langfuse", "prompt_label"),
 }
 
 
