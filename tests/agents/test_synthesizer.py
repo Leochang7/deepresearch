@@ -316,6 +316,16 @@ def test_is_substantive_claim_chinese_transition():
     assert Synthesizer._is_substantive_claim("以下是主要发现") is False
 
 
+def test_is_substantive_claim_chinese_transition_with_fact():
+    """Chinese transition prefixes should not hide uncited factual claims."""
+    assert (
+        Synthesizer._is_substantive_claim(
+            "此外，密集检索使用向量嵌入进行语义匹配"
+        )
+        is True
+    )
+
+
 def test_is_substantive_claim_chinese_factual_without_data():
     """Medium-length Chinese claim without data patterns should be substantive."""
     assert Synthesizer._is_substantive_claim("密集检索使用向量嵌入进行语义匹配") is True

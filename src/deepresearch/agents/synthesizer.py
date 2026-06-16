@@ -279,7 +279,11 @@ class Synthesizer:
                 "综上所述", "总之", "以下是", "主要发现", "需要注意",
                 "此外", "另外", "同时", "接下来", "最后",
             )
-            if any(stripped.startswith(t) for t in cjk_transitions):
+            if any(
+                stripped == t
+                or re.fullmatch(rf"{re.escape(t)}[，,。:：\s]*", stripped)
+                for t in cjk_transitions
+            ):
                 return False
         # English transition phrases
         lower = stripped.lower()
