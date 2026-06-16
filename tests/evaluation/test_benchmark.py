@@ -1050,6 +1050,32 @@ async def test_multilingual_benchmark_mock(tmp_path):
     )
 
 
+def test_benchmark_result_has_three_layer_structure():
+    """Evaluation dict should contain rule_metrics, judge_scores, statistical_context."""
+    from deepresearch.evaluation.benchmark import _restructure_evaluation
+
+    flat = {
+        "task_success_rate": 0.8,
+        "citation_coverage": 0.7,
+        "factual_hit_rate": 0.9,
+        "hallucination_flag": False,
+        "hallucination_details": [],
+        "judge_scores": {"factuality": 0.85, "readability": 0.9},
+        "fact_details": [{"fact": "F1", "matched": True}],
+        "red_issue_count": 1,
+        "blue_fix_count": 0,
+    }
+    structured = _restructure_evaluation(flat)
+    assert "rule_metrics" in structured
+    assert "judge_scores" in structured
+    assert "statistical_context" in structured
+    assert structured["rule_metrics"]["task_success_rate"] == 0.8
+    assert structured["judge_scores"]["factuality"] == 0.85
+    # Backward compat
+    assert structured["task_success_rate"] == 0.8
+    assert structured["factual_hit_rate"] == 0.9
+
+
 @pytest.mark.asyncio
 async def test_multilingual_large20_benchmark_mock_sample(tmp_path):
     """A larger multilingual benchmark sample keeps language-scenario grouping."""

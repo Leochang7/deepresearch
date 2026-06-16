@@ -66,6 +66,35 @@ def load_dataset(path: Path) -> list[BenchmarkCase]:
     return cases
 
 
+def _restructure_evaluation(evaluation: dict) -> dict:
+    """Restructure flat evaluation dict into three layers while keeping backward compat."""
+    rule_keys = {
+        "task_success_rate", "citation_coverage", "empty_citation_rate",
+        "report_section_completeness", "factual_hit_rate",
+        "hallucination_flag", "hallucination_details",
+        "unsupported_citations", "per_fact_failure_reasons",
+    }
+    rule_metrics = {k: v for k, v in evaluation.items() if k in rule_keys}
+    judge_scores = evaluation.get("judge_scores", {})
+    statistical_context = {
+        "fact_details": evaluation.get("fact_details", []),
+        "red_issue_count": evaluation.get("red_issue_count", 0),
+        "blue_fix_count": evaluation.get("blue_fix_count", 0),
+    }
+    structured = {
+        "rule_metrics": rule_metrics,
+        "judge_scores": judge_scores,
+        "statistical_context": statistical_context,
+    }
+    # Backward-compatible top-level aliases
+    structured.update(rule_metrics)
+    structured["judge_scores"] = judge_scores
+    structured["fact_details"] = statistical_context["fact_details"]
+    structured["red_issue_count"] = statistical_context["red_issue_count"]
+    structured["blue_fix_count"] = statistical_context["blue_fix_count"]
+    return structured
+
+
 async def run_benchmark(
     cases: list[BenchmarkCase],
     manager_factory: Callable[[], RunManager],
@@ -145,13 +174,14 @@ async def _run_case(
                         judge_hits / len(updated_details), 4
                     )
 
+        evaluation_dict = _restructure_evaluation(evaluation.model_dump(mode="json"))
         return BenchmarkResult(
             case_id=case.id,
             run_id=run_result.run_id,
             question=case.question,
             domain=case.domain,
             difficulty=case.difficulty,
-            evaluation=evaluation.model_dump(mode="json"),
+            evaluation=evaluation_dict,
             budget=run_result.budget.to_dict() if run_result.budget else {},
             elapsed_seconds=round(elapsed, 3),
         )
