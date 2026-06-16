@@ -146,6 +146,33 @@ Language scenarios covered:
 
 Domains: llm_agents, embeddings, fine_tuning, reasoning, rag, evaluation, safety.
 
+## PM15 Larger Multilingual Benchmark
+
+PM15 expands the multilingual benchmark into one reproducible 20-case dataset:
+
+- Dataset: `examples/bench/multilingual_large20.jsonl`
+- Corpus: `examples/corpus/`
+- Coverage: 5 English smoke cases + 15 Chinese/English/mixed cases
+- New PM15 domains: model_compression, privacy, multimodal, orchestration, data_quality
+- Summary breakdowns: `per_question_lang`, `per_evidence_lang`, `per_language_scenario`
+
+```bash
+# Offline mock sample / CI path
+uv run deepresearch benchmark examples/bench/multilingual_large20.jsonl \
+  --mode mock --retriever local --corpus examples/corpus \
+  --max-concurrency 2 --output outputs/bench-multilingual-large20-mock
+
+# Real local-corpus benchmark
+uv run deepresearch benchmark examples/bench/multilingual_large20.jsonl \
+  --mode real --retriever local --corpus examples/corpus \
+  --config examples/configs/benchmark_smoke.toml \
+  --max-concurrency 2 \
+  --experiment pm15-multilingual-large20 \
+  --output outputs/bench-multilingual-large20
+```
+
+`per_language_scenario` uses `question_lang->evidence_lang`, for example `zh->mixed`, `mixed->en`, and `en->zh`. Use it to identify whether regressions come from Chinese questions, English evidence, mixed questions, or cross-language evidence grounding.
+
 ## Quick Start: Local Corpus Smoke Benchmark
 
 The recommended stable benchmark path uses a local corpus instead of real-time web search:

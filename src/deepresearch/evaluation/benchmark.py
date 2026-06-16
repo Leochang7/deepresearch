@@ -242,6 +242,7 @@ def _build_summary(
         "per_difficulty": {},
         "per_question_lang": {},
         "per_evidence_lang": {},
+        "per_language_scenario": {},
         "cohens_d_easy_vs_hard": _cohens_d_between_groups(
             [r for r in results if r.difficulty == "easy"],
             [r for r in results if r.difficulty == "hard"],
@@ -274,6 +275,15 @@ def _build_summary(
                     by_lang[lang_val].append(r)
             for lang_val, lang_results in by_lang.items():
                 summary[group_name][lang_val] = _group_stats(lang_results)
+
+        by_scenario: dict[str, list[BenchmarkResult]] = defaultdict(list)
+        for r in results:
+            case = case_lookup.get(r.case_id)
+            if case is not None:
+                scenario = f"{case.question_lang}->{case.evidence_lang}"
+                by_scenario[scenario].append(r)
+        for scenario, scenario_results in by_scenario.items():
+            summary["per_language_scenario"][scenario] = _group_stats(scenario_results)
 
     return summary
 
@@ -375,9 +385,12 @@ def compare_summaries(
     """Compare two benchmark summaries. Returns deltas for numeric metrics."""
     result: dict[str, Any] = {}
     _SCALAR_KEYS = [
-        "avg_task_success_rate", "avg_citation_coverage",
-        "avg_factual_hit_rate", "avg_report_section_completeness",
-        "avg_empty_citation_rate", "hallucination_flag_count",
+        "avg_task_success_rate",
+        "avg_citation_coverage",
+        "avg_factual_hit_rate",
+        "avg_report_section_completeness",
+        "avg_empty_citation_rate",
+        "hallucination_flag_count",
         "avg_elapsed_seconds",
     ]
     for key in _SCALAR_KEYS:
@@ -386,7 +399,13 @@ def compare_summaries(
         if isinstance(b, (int, float)) and isinstance(a, (int, float)):
             result[key] = {"before": b, "after": a, "delta": a - b}
 
-    for group_key in ("per_domain", "per_difficulty", "per_question_lang", "per_evidence_lang"):
+    for group_key in (
+        "per_domain",
+        "per_difficulty",
+        "per_question_lang",
+        "per_evidence_lang",
+        "per_language_scenario",
+    ):
         b_groups = before.get(group_key, {})
         a_groups = after.get(group_key, {})
         all_keys = set(b_groups) | set(a_groups)
@@ -395,11 +414,19 @@ def compare_summaries(
             b_stats = b_groups.get(k, {})
             a_stats = a_groups.get(k, {})
             group_diff[k] = {}
-            for metric in ("avg_task_success_rate", "avg_citation_coverage", "avg_factual_hit_rate"):
+            for metric in (
+                "avg_task_success_rate",
+                "avg_citation_coverage",
+                "avg_factual_hit_rate",
+            ):
                 bv = b_stats.get(metric, 0)
                 av = a_stats.get(metric, 0)
                 if isinstance(bv, (int, float)) and isinstance(av, (int, float)):
-                    group_diff[k][metric] = {"before": bv, "after": av, "delta": av - bv}
+                    group_diff[k][metric] = {
+                        "before": bv,
+                        "after": av,
+                        "delta": av - bv,
+                    }
         result[group_key] = group_diff
 
     return result

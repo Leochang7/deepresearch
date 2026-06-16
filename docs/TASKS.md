@@ -539,3 +539,103 @@
   - Files: `src/deepresearch/prompts/provider.py`, `src/deepresearch/core/run_manager.py`, `src/deepresearch/cli.py`, tests, docs
   - Done when: `LocalPromptProvider` 可默认读取仓库 prompt；严格 `langfuse` provider 不再返回空 prompt；fallback 只捕获 prompt provider 错误；`--prompt-provider` 非 local 时会开启 Langfuse；`prompts push` 在缺少 client 或部分失败时返回非 0。
   - Verify: `uv run pytest tests/prompts tests/test_cli.py tests/core/test_run_manager.py` (49 passed); `uv run ruff check .`; `uv run pytest tests/ -x -q` (482 passed, 1 skipped)。
+
+### PM11 并行 Benchmark Runner
+
+- [x] PM110 增加 benchmark 并发配置与 CLI 覆盖
+  - Files: `src/deepresearch/config.py`, `src/deepresearch/cli.py`, `docs/CONFIGURATION.md`, tests
+  - Done when: 支持 `benchmark.max_concurrency` 配置和 `uv run deepresearch benchmark ... --max-concurrency N`；默认值保守且 `1` 保持现有串行语义。
+  - Verify: `uv run pytest tests/test_config.py tests/test_cli.py`
+
+- [x] PM111 实现受限并发 case 调度
+  - Files: `src/deepresearch/evaluation/benchmark.py`, tests
+  - Done when: benchmark runner 使用 asyncio.Semaphore + gather 并发执行多个 case；每个 case 独立创建 run/output/evaluation，不共享可变 case 状态；单个 case 失败不阻断其他 case。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
+
+- [x] PM112 保证并发结果落盘与汇总确定性
+  - Files: `src/deepresearch/evaluation/benchmark.py`, tests
+  - Done when: `results.jsonl` 按 dataset 原始顺序写出（gather 保序），summary 指标与完成顺序无关；失败 case 记录 error 和 stage 到 evaluation dict。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
+
+- [x] PM113 补并行 benchmark 验收测试与文档
+  - Files: `tests/evaluation/test_benchmark.py`, `tests/test_cli.py`, `docs/CONFIGURATION.md`
+  - Done when: 覆盖 mock 并发成功、单 case 失败隔离、`--max-concurrency 1` 串行兼容、结果顺序确定；文档说明真实模式并发的 LLM/Milvus 压力边界。
+  - Verify: `uv run pytest tests/evaluation tests/test_cli.py` (489 passed)
+
+### PM12 Cross-lingual Retrieval Quality
+
+- [x] PM120 设计跨语言检索场景与诊断维度
+  - Files: `examples/bench/crosslingual_smoke3.jsonl`, `examples/corpus/crosslingual/`, `src/deepresearch/evaluation/benchmark.py`, tests
+  - Done when: `BenchmarkCase` 新增 `question_lang`/`evidence_lang` 字段（默认 `"en"`）；3 个跨语言 benchmark case（cl-001/002/003）和 3 篇双语 corpus 文档已创建。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
+
+- [x] PM121 增加中英术语别名与 query expansion
+  - Files: `src/deepresearch/retrieval/query_expansion.py`, `src/deepresearch/agents/researcher.py`, `src/deepresearch/retrieval/local_dataset.py`, tests
+  - Done when: `_tokenize` 和 `_task_keywords` 支持 CJK unigram+bigram；中文 query 通过 `expand_query()` 扩展英文术语（18 组 AI/ML 术语映射）；英文 query 保持不变。
+  - Verify: `uv run pytest tests/retrieval tests/agents/test_researcher.py` (504 passed)
+
+- [x] PM122 实现 BM25/keyword 与 vector 的跨语言混合召回
+  - Files: `src/deepresearch/retrieval/local_dataset.py`, `src/deepresearch/memory/store.py`, tests
+  - Done when: `local_dataset._tokenize` 和 `store.lexical_tokens` 统一使用 CJK unigram+bigram；RRF/MMR 在中英混合资料上稳定（已验证——RRF/MMR 仅操作 rank 和 vector，与语言无关）。
+  - Verify: `uv run pytest tests/retrieval tests/memory tests/agents/test_researcher.py`
+
+- [x] PM123 输出按语言场景分组的检索指标
+  - Files: `src/deepresearch/evaluation/benchmark.py`, tests
+  - Done when: `_build_summary` 输出 `per_question_lang` 和 `per_evidence_lang` breakdown；无 cases 参数时向后兼容（空 dict）。
+  - Verify: `uv run pytest tests/evaluation`
+
+### PM13 Multilingual Evidence & Citation Quality
+
+- [x] PM130 增强多语言 quote normalization
+  - Files: `src/deepresearch/agents/evidence_quality.py`, tests
+  - Done when: `_check_token_overlap` 使用 CJK unigram+bigram 替代 whitespace split；中文 claim/quote 重叠检测正确工作。
+  - Verify: `uv run pytest tests/agents/test_researcher.py` (518 passed)
+
+- [x] PM131 优化跨语言 evidence quality checker
+  - Files: `src/deepresearch/evaluation/metrics.py`, tests
+  - Done when: `_evaluate_fact` 使用 CJK unigram+bigram tokenization；新增 5 组中文缩写映射（RAG/LLM/LoRA/CoT/self-attention）；CJK keywords 独立匹配路径。
+  - Verify: `uv run pytest tests/evaluation/test_metrics.py`
+
+- [x] PM132 调整 Synthesizer 多语言引用行为
+  - Files: `src/deepresearch/agents/synthesizer.py`, `src/deepresearch/prompts/synthesizer.md`, tests
+  - Done when: `_is_substantive_claim` CJK 阈值降至 10 字符；识别中文过渡短语；synthesizer prompt 指示报告语言跟随问题语言。
+  - Verify: `uv run pytest tests/agents/test_synthesizer.py`
+
+- [x] PM133 扩展 Evaluator 多语言 failure reason
+  - Files: `src/deepresearch/evaluation/metrics.py`, tests
+  - Done when: `_evaluate_fact` 失败时检测 fact/report 语言差异，在 reason 中附加 `language mismatch` 信息。
+  - Verify: `uv run pytest tests/evaluation`
+
+### PM14 Multilingual Benchmark
+
+- [x] PM140 建立 multilingual local corpus 和 benchmark dataset
+  - Files: `examples/bench/crosslingual_smoke10.jsonl`, `examples/corpus/crosslingual/`, tests
+  - Done when: 15 个 benchmark case（5 English + 10 cross-lingual），覆盖 7 个域（llm_agents/embeddings/fine_tuning/reasoning/rag/evaluation/safety）；8 篇双语文档；每个 case 标注 question_lang/evidence_lang。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py` (523 passed)
+
+- [x] PM141 benchmark summary 支持多语言分组对比
+  - Files: `src/deepresearch/evaluation/benchmark.py`, tests
+  - Done when: `compare_summaries(before, after)` 计算标量指标和分组指标的 delta；支持 `per_domain`/`per_difficulty`/`per_question_lang`/`per_evidence_lang` 对比。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
+
+- [x] PM142 跑通 multilingual local-corpus smoke
+  - Files: `tests/evaluation/test_benchmark.py`, `docs/REAL_BENCHMARK_GUIDE.md`
+  - Done when: `test_multilingual_benchmark_mock` 用 LocalDatasetRetriever + crosslingual corpus 跑 3 case，验证 per_question_lang 分组；文档新增 Multilingual Benchmark 章节。
+  - Verify: `uv run pytest tests/evaluation tests/test_cli.py`
+
+### PM15 Larger Multilingual Benchmark
+
+- [x] PM150 建立 20-case multilingual large benchmark
+  - Files: `examples/bench/multilingual_large20.jsonl`, `examples/corpus/crosslingual/`, tests
+  - Done when: 单个 dataset 覆盖 5 个英文 smoke case + 15 个中英/跨语言 case；新增模型压缩、隐私、多模态、DAG 编排、数据质量 5 个领域；本地 corpus 覆盖新增 expected facts。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
+
+- [x] PM151 增加 combined language-scenario breakdown
+  - Files: `src/deepresearch/evaluation/benchmark.py`, tests
+  - Done when: summary 输出 `per_language_scenario`，按 `question_lang -> evidence_lang` 分组统计 task success、citation coverage、factual hit 和 section completeness。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
+
+- [x] PM152 更新 PM15 复现文档和 smoke 测试
+  - Files: `docs/REAL_BENCHMARK_GUIDE.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/WORKLOG.md`, tests
+  - Done when: 文档说明 PM15 large benchmark 的离线 mock 和真实 local-corpus 命令；测试验证 large20 dataset 可加载、语言场景分组存在、mock sample 离线可跑。
+  - Verify: `uv run pytest tests/evaluation/test_benchmark.py` (27 passed); `uv run ruff check src/deepresearch/evaluation/benchmark.py tests/evaluation/test_benchmark.py`

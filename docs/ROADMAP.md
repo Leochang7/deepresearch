@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-MVP、PM0-PM10 已完成。系统已经跑通：
+MVP、PM0-PM15 已完成。系统已经跑通：
 
 ```text
 Planner -> DAG Executor -> Research Agent -> Retriever -> Memory -> Synthesizer -> Red/Blue/Judge -> Evaluator
@@ -29,70 +29,91 @@ PM8 5-case local-corpus real smoke 结果：
 - `avg_factual_hit_rate = 1.0`
 - `hallucination_flag_count = 0`
 
-## 当前完成：PM10 Langfuse Prompt Management
+## 当前完成：PM15 Larger Multilingual Benchmark
 
-PM10 的目标是让 Langfuse 管理 runtime prompts，同时保留本地 prompt 文件作为离线 fallback、测试基线和 bootstrap seed。当前已完成 PromptProvider 抽象、Langfuse strict/fallback provider、prompt push CLI，以及 `run` / `benchmark` 的 provider override。
+PM15 将 multilingual benchmark 扩成可复现的 20-case 单文件数据集，并新增 combined language-scenario breakdown。当前稳定评测主线是 local corpus，不依赖 UI、联网搜索或 Langfuse。
 
 完成项：
 
-- PM100：统一 PromptProvider，Agent/Judge 不再直接读取 prompt 文件。
-- PM101：接入 `local`、`langfuse`、`langfuse_with_local_fallback` 三种 provider。
-- PM102：增加 `uv run deepresearch prompts push --label staging`，并支持 `--prompt-provider`。
-- PM103：Review 修复 strict/fallback 失败语义、CLI override 和 prompt push 失败处理。
-- 验证：`uv run pytest tests/ -x -q` 通过，`uv run ruff check .` 通过。
+- PM150：新增 `examples/bench/multilingual_large20.jsonl`，覆盖 5 English + 15 cross-lingual cases。
+- PM151：benchmark summary 增加 `per_language_scenario`，按 `question_lang->evidence_lang` 分组。
+- PM152：更新 PM15 复现文档，并补 large20 dataset 和 smoke sample 测试。
+- 验证：`uv run pytest tests/evaluation/test_benchmark.py` 通过，相关 ruff 检查通过。
 
-PM9 引用覆盖率优化已完成，后续如继续优化引用质量，优先分析新 benchmark 输出中 coverage 仍低的 case，区分 evidence 抽取不足、Synthesizer 引用遗漏和 Evaluator 判定过严。
+PM9-PM14 引用、多语言检索和 multilingual benchmark 已完成。后续如继续优化质量，优先分析 `multilingual_large20` 中 `per_language_scenario` 和低 citation coverage case，区分 evidence 抽取不足、Synthesizer 引用遗漏和 Evaluator 判定过严。
 
 ## 后续方向
 
-### P1 并行 benchmark
+### PM12 Cross-lingual Retrieval Quality
 
-当前 benchmark runner 顺序执行 case。后续可支持受限并发：
+在 local corpus 和真实资料检索中引入跨语言混合检索。目标不是拆成中文/英文两套系统，而是让同一套 Retriever 能处理中文问题、英文资料、中文资料和中英混合资料，并能诊断召回失败来自哪里。
 
-- 使用 `asyncio.gather` 并发多个 case。
-- 保留 run 级 budget 和 case 级隔离。
-- 默认并发数保守配置，避免真实模型和 Milvus 压力失控。
+重点：
 
-### P2 Hybrid retrieval
+- Milvus vector search + BM25/keyword index 混合检索。
+- 中文 query rewrite 和英文术语扩展，例如“检索增强生成” ↔ `RAG` / `retrieval-augmented generation`。
+- 中英术语别名表和 query-time expansion。
+- document-level RRF、chunk-level RRF、MMR context selection 保持统一融合。
+- 评测按 `zh_question`、`en_question`、`zh_question_en_evidence`、`mixed_evidence` 等场景分组。
 
-在 local corpus 和真实资料检索中引入更强的混合检索：
+验收：
 
-- Milvus vector search
-- BM25 或轻量 keyword index
-- document-level RRF
-- chunk-level RRF
-- MMR context selection
+- 本地双语 corpus 中，中文问题可召回中文和英文 evidence。
+- 英文问题不因中文扩展降低现有召回质量。
+- citation coverage 和 factual hit 按语言场景输出 breakdown。
 
-目标是提升 evidence recall，而不是只追求更多文档。
+### PM13 Multilingual Evidence & Citation Quality
 
-### P3 Interactive mode
+PM13 聚焦 evidence 抽取、quote matching、citation enforcement 和 synthesis 在多语言场景下的可审计性。重点是解决中文无空格、标点全半角、句界不稳定、术语翻译导致的引用覆盖误判。
 
-增加用户在 synthesis 前审查 evidence 的能力：
+重点：
 
-- 展示每个 task 的候选 evidence。
-- 允许用户确认、排除或补充资料。
-- 将用户反馈写入 trace 和 memory。
+- 中文/英文统一 quote normalization：大小写、标点、全半角、空白和常见术语变体。
+- Evidence quality checker 支持跨语言 claim/quote 软匹配，但不能放松到接受无根据 claim。
+- Synthesizer prompt 支持按用户问题语言输出，同时保留引用格式稳定。
+- Evaluator 对中文事实、英文事实和跨语言事实分别给出 failure reason。
 
-### P4 多语言优化
+验收：
 
-针对中文研究任务优化检索和 prompt：
+- 中文报告 citation coverage 不因分词和标点问题系统性低估。
+- 英文报告保持现有引用检查行为。
+- 多语言 case 的 unsupported claim 能被 Red/Evaluator 捕捉。
 
-- 中文 query rewrite。
-- 中英文别名和术语归一。
-- 中文资料的 chunk、关键词召回和 citation 检查。
+### PM14 Multilingual Benchmark
 
-### P5 更大规模 benchmark
+PM14 建立中英和跨语言 benchmark，用来证明 PM12/PM13 的检索、引用和事实指标确实提升。benchmark 不追求一开始做大，而是先覆盖关键失败模式。
 
-在 5-case local-corpus smoke 稳定后，再扩大评测规模：
+重点：
 
-- ResearchBench mini 完整 12 case。
+- 新增 10-15 个 multilingual benchmark case。
+- 每个 case 标注 question language、expected answer language、evidence language、domain、difficulty、expected facts、required citations。
+- summary 输出 language/evidence-language breakdown。
+- 保留 local-corpus 可复现路径，默认测试离线可跑。
+
+验收：
+
+- `uv run deepresearch benchmark ... --retriever local --corpus examples/corpus` 可跑 multilingual set。
+- 输出按语言场景分组的 task success、citation coverage、factual hit 和 hallucination flag。
+- PM12/PM13 前后指标可横向对比。
+
+### PM15 Larger Benchmark
+
+PM15 已完成 Larger Multilingual Benchmark，不引入 UI 和联网依赖。PM14 的 15-case 分散 smoke 已扩成一个可复现的 20-case 单文件数据集，并补 combined language-scenario breakdown，便于比较中文问题、英文问题、混合问题与不同 evidence 语言组合下的指标变化。
+
+重点：
+
+- `examples/bench/multilingual_large20.jsonl` 覆盖 5 个英文 smoke case + 15 个中英/跨语言 case。
+- 模型压缩、隐私、多模态、DAG 编排、数据质量 5 个领域和对应本地 corpus 已补齐。
+- summary 增加 `per_language_scenario`，例如 `zh->mixed`、`mixed->en`、`en->zh`。
+- 默认测试离线可跑，真实评测仍走 local corpus + 显式 real mode。
+
+后置到 PM16+：
+
 - ResearchBench 35 题。
 - HotpotQA 深度研究变体。
-- Bootstrap 95% CI。
-- Cohen's d。
 - 多后端对比实验。
 
-### P6 网络检索增强
+### PM16 Network Retrieval Hardening
 
 Tavily 和 MiMo Search 保持 optional retriever adapter：
 

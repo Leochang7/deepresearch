@@ -4,7 +4,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 
 ## 当前状态
 
-MVP、PM0-PM10 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management。
+MVP、PM0-PM15 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management；PM11-PM15 完成并行 benchmark、中英跨语言检索/引用质量、multilingual benchmark 和 20-case large benchmark。
 
 ## 已完成能力
 
@@ -38,8 +38,9 @@ MVP、PM0-PM10 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 ### 评测闭环
 - ResearchBench mini: 12 个 benchmark case，覆盖 10 个领域
 - Benchmark runner: `deepresearch benchmark <dataset> --mode mock|real`
+- Multilingual large benchmark: `examples/bench/multilingual_large20.jsonl`，20 个中英/跨语言 case
 - Fact-level judge: 规则匹配 + 可选 LLM semantic verdict，输出每条事实命中/遗漏/幻觉原因
-- 统计分析: per-domain/difficulty 分组、Bootstrap 95% CI、Cohen's d
+- 统计分析: per-domain/difficulty/language/language-scenario 分组、Bootstrap 95% CI、Cohen's d
 - LLM-as-Judge 5 维评分: factuality, citation_support, completeness, reasoning_consistency, readability
 - 冲突检测: same_source_different_claim, opposite_conclusion, contradictory_value
 
@@ -59,6 +60,11 @@ MVP、PM0-PM10 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 | PM8 | ✅ 完成 | Local Corpus 可复现真实评测：真实模型 + 真实 Milvus + 本地资料集，5-case smoke 跑通且无 hallucination flag |
 | PM9 | ✅ 完成 | PM086 优化 citation coverage：模糊 quote 匹配、fallback evidence 放宽、引用提示增强和非事实过渡句保留 |
 | PM10 | ✅ 完成 | Langfuse Prompt Management：统一 PromptProvider、Langfuse strict/fallback provider、prompt push CLI、run/benchmark provider override |
+| PM11 | ✅ 完成 | 并行 benchmark runner：受限并发、case 隔离、确定性汇总和失败隔离 |
+| PM12 | ✅ 完成 | Cross-lingual Retrieval Quality：CJK tokenization、中英 query expansion、语言 breakdown |
+| PM13 | ✅ 完成 | Multilingual Evidence & Citation Quality：CJK claim/quote/fact matching 与语言 failure reason |
+| PM14 | ✅ 完成 | Multilingual Benchmark：15-case 中英 local-corpus benchmark 和 summary comparison |
+| PM15 | ✅ 完成 | Larger Multilingual Benchmark：20-case 单文件数据集和 `per_language_scenario` breakdown |
 
 ## 真实环境运行
 
@@ -127,16 +133,13 @@ uv run ruff check .     # lint
 - **Milvus Standalone 必需**: 不支持 Milvus Lite（嵌入式）；需要 Docker 或 standalone 部署
 - **PM7 联网 smoke 不稳定**: 实时搜索导致成本、额度、排序和网络波动，不适合作为稳定验收路径
 - **单轮执行**: 无交互式 refinement；pipeline 一次跑完
-- **Benchmark 串行**: benchmark runner 顺序执行每个 case，无并行
+- **真实 large benchmark 成本**: `multilingual_large20` 真实模式会调用真实 LLM/embedding/reranker/Milvus；默认测试只跑 mock sample
 - **Langfuse 可选**: 评测追踪默认 no-op；严格 prompt provider 需要 Langfuse SDK 和密钥，fallback provider 可回退本地 prompt
 
 ## 下一阶段方向
 
-- **并行 benchmark**: benchmark runner 支持 asyncio.gather 并发执行多个 case
-- **Hybrid retrieval**: Milvus vector search + BM25 keyword search 混合检索
-- **Interactive mode**: 支持用户在 synthesis 前审查 evidence 并提供反馈
-- **多语言优化**: 中文查询的专用检索策略和 prompt 优化
-- **更大规模 benchmark**: ResearchBench 35 题 + HotpotQA 深度研究变体
+- **PM16 Network Retrieval Hardening**: Tavily/MiMo Search 作为可选增强层，补真实 API 额度、限流、不可复现输出的诊断与保护。
+- **后续大型评测**: ResearchBench 35、HotpotQA 深度研究变体和多后端对比继续后置，等 PM15 large20 真实 local-corpus 指标稳定后再做。
 
 ## 仓库结构
 
@@ -158,7 +161,7 @@ src/deepresearch/
 
 tests/               # 482 passed, 1 skipped, 100% 离线可跑
 examples/
-├── bench/           # researchbench_mini.jsonl (12 cases), researchbench_smoke5.jsonl (5 cases)
+├── bench/           # researchbench_mini.jsonl, researchbench_smoke5.jsonl, multilingual_large20.jsonl
 └── corpus/          # 本地资料集示例
 docs/                # PRD, MVP plan, configuration, post-MVP roadmap, acceptance
 ```
