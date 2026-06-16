@@ -53,3 +53,5 @@
 - 2026-06-16: 调整 PM11 后路线：不做两套中英文系统，而是聚焦同一系统的跨语言质量诊断与优化；后续主线定为 PM12 Cross-lingual Retrieval Quality、PM13 Multilingual Evidence & Citation Quality、PM14 Multilingual Benchmark，评测区分中文问题、英文问题、中文问题+英文证据和混合证据等失败场景。
 - 2026-06-16: 规划 PM15 Larger Multilingual Benchmark：不做 UI，不把 ResearchBench 35/HotpotQA 提前拉入主线；先建立 20-case 中英/跨语言单文件数据集、补新增领域本地 corpus，并在 summary 中增加 `per_language_scenario` 用于诊断 question/evidence 语言组合。
 - 2026-06-16: 完成 PM15：新增 `examples/bench/multilingual_large20.jsonl`（20 cases），补模型压缩、隐私、多模态、DAG 编排、数据质量 5 篇中英本地 corpus；benchmark summary 增加 `per_language_scenario`，`compare_summaries` 支持该分组；验证 `uv run pytest tests/evaluation/test_benchmark.py` 27 passed，相关 ruff 检查通过。
+- 2026-06-16: 更新 Langfuse 配置示例：`.env.example` 明确 trace 与 prompt provider 开关，`config.example.toml` 补齐 prompt_provider/prompt_label 并对齐当前 2560 维 embedding 与 `bge-reranker-v2-m3`；`docs/CONFIGURATION.md` 说明 `.env`、`config.toml` 和 CLI 的优先级关系，以及接入 Langfuse prompts 的推荐命令。
+- 2026-06-16: 接入真实 Langfuse SDK：新增 `langfuse` 依赖并适配 Langfuse v4 `get_prompt/create_prompt/start_observation/create_score` API；`deepresearch doctor --real` 增加 Langfuse SDK、keys、host/auth 和 prompt provider 配置检查。

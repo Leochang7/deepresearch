@@ -66,6 +66,17 @@ class LangfuseAdapter:
         if not self._enabled or not self._client:
             return
         try:
+            if hasattr(self._client, "start_observation"):
+                self._report_run_v4(
+                    run_id,
+                    question,
+                    report,
+                    evaluation,
+                    budget,
+                    config_summary,
+                    trace_summary,
+                )
+                return
             trace = self._client.trace(
                 name=f"deepresearch-{run_id}",
                 input={"question": question},
@@ -97,6 +108,44 @@ class LangfuseAdapter:
             self._client.flush()
         except Exception:
             logger.warning("Failed to report run to Langfuse", exc_info=True)
+
+    def _report_run_v4(
+        self,
+        run_id: str,
+        question: str,
+        report: dict[str, Any],
+        evaluation: dict[str, Any],
+        budget: dict[str, Any],
+        config_summary: dict[str, Any],
+        trace_summary: dict[str, Any],
+    ) -> None:
+        trace_id = self._client.create_trace_id(seed=run_id)
+        observation = self._client.start_observation(
+            trace_context={"trace_id": trace_id},
+            name=f"deepresearch-{run_id}",
+            as_type="agent",
+            input={"question": question},
+            output={
+                "report": report,
+                "evaluation": evaluation,
+                "budget": budget,
+            },
+            metadata={"config": config_summary, "trace_summary": trace_summary},
+        )
+        for score_name in (
+            "task_success_rate",
+            "citation_coverage",
+            "report_section_completeness",
+            "red_issue_count",
+        ):
+            self._client.create_score(
+                trace_id=trace_id,
+                name=score_name,
+                value=evaluation.get(score_name, 0),
+            )
+        if hasattr(observation, "end"):
+            observation.end()
+        self._client.flush()
 
     @property
     def is_enabled(self) -> bool:

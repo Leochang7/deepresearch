@@ -17,6 +17,7 @@ dependencies = [
     "pymilvus>=2.4",
     "numpy>=1.26",
     "tomli-w>=1.0",
+    "langfuse>=4.9.0",
 ]
 
 [dependency-groups]

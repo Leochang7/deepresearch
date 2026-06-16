@@ -50,10 +50,18 @@ class LangfusePromptProvider:
 
     def get(self, name: str) -> str:
         try:
-            prompt = self._client.prompt.get(
-                name=f"deepresearch/{name}",
-                label=self._label,
-            )
+            prompt_name = f"deepresearch/{name}"
+            if hasattr(self._client, "get_prompt"):
+                prompt = self._client.get_prompt(
+                    prompt_name,
+                    label=self._label,
+                    type="text",
+                )
+            else:
+                prompt = self._client.prompt.get(
+                    name=prompt_name,
+                    label=self._label,
+                )
             result = prompt.compile()
         except Exception as exc:
             raise PromptProviderError(

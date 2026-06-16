@@ -3,7 +3,13 @@ from unittest.mock import patch
 import pytest
 
 from deepresearch.config import DeepResearchConfig
-from deepresearch.doctor import CheckResult, DoctorReport, _check_milvus, run_doctor
+from deepresearch.doctor import (
+    CheckResult,
+    DoctorReport,
+    _check_langfuse,
+    _check_milvus,
+    run_doctor,
+)
 
 
 class TestDoctor:
@@ -66,6 +72,28 @@ class TestDoctor:
         assert "embedding_model" in names
         assert "reranker_model" in names
         assert "milvus_uri" in names
+        assert "langfuse" in names
+
+    def test_langfuse_prompt_provider_requires_enabled(self):
+        cfg = DeepResearchConfig.model_validate(
+            {"langfuse": {"enabled": False, "prompt_provider": "langfuse"}}
+        )
+        report = run_doctor(cfg)
+        check = next(
+            c for c in report.checks if c.name == "langfuse_prompt_provider_enabled"
+        )
+        assert not check.ok
+        assert check.severity == "error"
+
+    def test_langfuse_env_required_when_enabled(self, monkeypatch):
+        monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+        monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+        cfg = DeepResearchConfig.model_validate({"langfuse": {"enabled": True}})
+        report = run_doctor(cfg)
+        public_key = next(c for c in report.checks if c.name == "LANGFUSE_PUBLIC_KEY")
+        secret_key = next(c for c in report.checks if c.name == "LANGFUSE_SECRET_KEY")
+        assert not public_key.ok
+        assert not secret_key.ok
 
     def test_missing_embedding_base_url_is_error(self):
         report = run_doctor(DeepResearchConfig())
@@ -89,6 +117,34 @@ class TestDoctor:
         client_cls.assert_not_called()
         assert not check.ok
         assert "local .db" in check.message
+
+    @pytest.mark.asyncio
+    async def test_real_langfuse_check_requires_keys(self, monkeypatch):
+        monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+        monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+        cfg = DeepResearchConfig.model_validate({"langfuse": {"enabled": True}})
+
+        check = await _check_langfuse(cfg)
+
+        assert not check.ok
+        assert "LANGFUSE_PUBLIC_KEY" in check.message
+
+    @pytest.mark.asyncio
+    async def test_real_langfuse_check_auth_success(self, monkeypatch):
+        from unittest.mock import MagicMock
+
+        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
+        monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
+        mock_client = MagicMock()
+        mock_client.auth_check.return_value = True
+        mock_langfuse = MagicMock(return_value=mock_client)
+
+        with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse)}):
+            check = await _check_langfuse(DeepResearchConfig())
+
+        assert check.ok
+        assert "Langfuse endpoint OK" in check.message
+        mock_client.shutdown.assert_called_once()
 
     def test_real_checks_are_opt_in(self):
         with patch("deepresearch.doctor._real_checks") as real_checks:

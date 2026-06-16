@@ -13,6 +13,7 @@ wheels/
 .env
 .env.*
 !.env.example
+config.toml
 
 # Runtime outputs and local stores
 outputs/

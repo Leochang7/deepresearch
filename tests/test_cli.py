@@ -486,6 +486,31 @@ def test_prompts_push_fails_when_client_unavailable(monkeypatch):
     assert "client is unavailable" in result.output.lower()
 
 
+def test_prompts_push_uses_langfuse_v4_create_prompt(monkeypatch):
+    from unittest.mock import MagicMock
+
+    monkeypatch.setenv("DEEPRESEARCH_LANGFUSE_ENABLED", "true")
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
+
+    mock_client = MagicMock()
+    mock_adapter = MagicMock()
+    mock_adapter._client = mock_client
+    monkeypatch.setattr(
+        "deepresearch.evaluation.langfuse.LangfuseAdapter",
+        MagicMock(return_value=mock_adapter),
+    )
+
+    result = runner.invoke(app, ["prompts", "push", "--label", "staging"])
+
+    assert result.exit_code == 0, result.output
+    assert mock_client.create_prompt.call_count > 0
+    first_call = mock_client.create_prompt.call_args_list[0].kwargs
+    assert first_call["name"].startswith("deepresearch/")
+    assert first_call["labels"] == ["staging"]
+    assert first_call["type"] == "text"
+
+
 def test_run_accepts_prompt_provider_option():
     """run command should accept --prompt-provider flag."""
     result = runner.invoke(app, ["run", "--help"])

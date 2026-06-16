@@ -56,6 +56,7 @@ def test_build_prompt_provider_strict_langfuse_raises_on_missing_prompt(monkeypa
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
     fake_client = MagicMock()
+    del fake_client.get_prompt
     fake_client.prompt.get.side_effect = Exception("not found")
 
     with patch.dict(

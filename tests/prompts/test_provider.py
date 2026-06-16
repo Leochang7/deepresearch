@@ -43,6 +43,7 @@ def test_langfuse_provider_fetches_prompt():
     mock_client = MagicMock()
     mock_prompt = MagicMock()
     mock_prompt.compile.return_value = "Langfuse planner prompt"
+    del mock_client.get_prompt
     mock_client.prompt.get.return_value = mock_prompt
 
     provider = LangfusePromptProvider(client=mock_client, label="production")
@@ -52,10 +53,28 @@ def test_langfuse_provider_fetches_prompt():
     assert result == "Langfuse planner prompt"
 
 
+def test_langfuse_provider_fetches_prompt_v4():
+    from unittest.mock import MagicMock
+
+    mock_client = MagicMock()
+    mock_prompt = MagicMock()
+    mock_prompt.compile.return_value = "Langfuse planner prompt"
+    mock_client.get_prompt.return_value = mock_prompt
+
+    provider = LangfusePromptProvider(client=mock_client, label="production")
+    result = provider.get("planner")
+
+    mock_client.get_prompt.assert_called_once_with(
+        "deepresearch/planner", label="production", type="text"
+    )
+    assert result == "Langfuse planner prompt"
+
+
 def test_langfuse_provider_raises_on_error():
     from unittest.mock import MagicMock
 
     mock_client = MagicMock()
+    del mock_client.get_prompt
     mock_client.prompt.get.side_effect = Exception("not found")
 
     provider = LangfusePromptProvider(client=mock_client)
@@ -71,6 +90,7 @@ def test_langfuse_provider_raises_on_empty_prompt():
     from unittest.mock import MagicMock
 
     mock_client = MagicMock()
+    del mock_client.get_prompt
     mock_prompt = MagicMock()
     mock_prompt.compile.return_value = ""
     mock_client.prompt.get.return_value = mock_prompt
@@ -88,6 +108,7 @@ def test_langfuse_with_fallback_uses_langfuse_when_available():
     from unittest.mock import MagicMock
 
     mock_client = MagicMock()
+    del mock_client.get_prompt
     mock_prompt = MagicMock()
     mock_prompt.compile.return_value = "remote prompt"
     mock_client.prompt.get.return_value = mock_prompt
@@ -101,6 +122,7 @@ def test_langfuse_with_fallback_falls_back_to_local():
     from unittest.mock import MagicMock
 
     mock_client = MagicMock()
+    del mock_client.get_prompt
     mock_client.prompt.get.side_effect = Exception("timeout")
 
     local_dir = Path(__file__).resolve().parents[2] / "src" / "deepresearch" / "prompts"

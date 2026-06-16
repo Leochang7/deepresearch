@@ -182,6 +182,13 @@ DEEPRESEARCH_EXPERIMENT_NAME=deepresearch
 
 `.env` 不提交仓库，`.env.example` 可以提交。
 
+`.env` 和 `config.toml` 的关系：
+
+- `.env`：只放本机私密值和临时开关，例如 API keys、Langfuse keys、endpoint URL、`DEEPRESEARCH_PROMPT_PROVIDER`。
+- `config.toml`：放可复用的项目配置，例如模型名、维度、并发、检索限制、Langfuse host/label/provider。
+- 如果同一个字段同时出现在 `.env` 和 `config.toml`，当前加载优先级是 `config.toml` 覆盖 `.env`；CLI 参数再覆盖 `config.toml`。
+- `config.example.toml` 是可提交模板；本地 `config.toml` 可不提交。`.env.example` 只列变量名，不放真实密钥。
+
 注意：不同 OpenAI-compatible endpoint 暴露的模型名和 embedding 维度可能不同。当前真实验收环境的 `/models` 显示 `Qwen3-Embedding-4B` 为 2560 维，可用 reranker 为 `bge-reranker-v2-m3`；这种情况下需要设置 `DEEPRESEARCH_EMBEDDING_DIM=2560` 和 `DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m3`，并使用匹配维度的新 Milvus collection。
 
 Milvus collection description 会保存 `schema_version`、`embedding_model` 和
@@ -219,6 +226,36 @@ Prompt 命名约定：
 `langfuse_with_local_fallback` 获取失败时回退本地文件。`run` 和
 `benchmark` 可用 `--prompt-provider` 临时覆盖 provider，非 local provider
 会自动开启 Langfuse 配置。
+
+接入 Langfuse 的推荐本地配置：
+
+```env
+DEEPRESEARCH_LANGFUSE_ENABLED=true
+LANGFUSE_PUBLIC_KEY=pk-...
+LANGFUSE_SECRET_KEY=sk-...
+LANGFUSE_HOST=https://cloud.langfuse.com
+DEEPRESEARCH_EXPERIMENT_NAME=deepresearch
+DEEPRESEARCH_PROMPT_PROVIDER=langfuse_with_local_fallback
+DEEPRESEARCH_PROMPT_LABEL=production
+```
+
+首次使用 Langfuse 管理 prompts 时，先把本地 prompt 推到 Langfuse：
+
+```bash
+uv run deepresearch prompts push --label production
+```
+
+之后运行时可以依赖 `.env` 中的 provider，也可以用 CLI 临时覆盖：
+
+```bash
+uv run deepresearch run "研究问题" --mode real --prompt-provider langfuse_with_local_fallback
+```
+
+接入后用 doctor 检查 Langfuse SDK、密钥和 endpoint：
+
+```bash
+uv run --env-file .env deepresearch doctor --real
+```
 
 ## 4. CLI
 

@@ -75,6 +75,16 @@ def _config_checks(cfg: DeepResearchConfig) -> list[CheckResult]:
             ok=True,
             message=f"Milvus URI: {cfg.milvus.uri}",
         ),
+        CheckResult(
+            name="langfuse",
+            ok=True,
+            message=(
+                "Langfuse "
+                f"enabled={cfg.langfuse.enabled}, "
+                f"prompt_provider={cfg.langfuse.prompt_provider}, "
+                f"prompt_label={cfg.langfuse.prompt_label}"
+            ),
+        ),
     ]
     if cfg.milvus.uri.endswith(".db"):
         checks.append(
@@ -106,16 +116,53 @@ def _config_checks(cfg: DeepResearchConfig) -> list[CheckResult]:
                 severity="error",
             )
         )
+    if cfg.langfuse.prompt_provider not in {
+        "local",
+        "langfuse",
+        "langfuse_with_local_fallback",
+    }:
+        checks.append(
+            CheckResult(
+                name="langfuse_prompt_provider",
+                ok=False,
+                message=(
+                    "Invalid prompt provider: "
+                    f"{cfg.langfuse.prompt_provider}. Expected local, "
+                    "langfuse, or langfuse_with_local_fallback"
+                ),
+                severity="error",
+            )
+        )
+    if cfg.langfuse.prompt_provider != "local" and not cfg.langfuse.enabled:
+        checks.append(
+            CheckResult(
+                name="langfuse_prompt_provider_enabled",
+                ok=False,
+                message=(
+                    "Non-local prompt provider requires Langfuse enabled. "
+                    "Set DEEPRESEARCH_LANGFUSE_ENABLED=true."
+                ),
+                severity="error",
+            )
+        )
     return checks
 
 
 def _env_checks(cfg: DeepResearchConfig) -> list[CheckResult]:
-    return [
+    checks = [
         _check_env_var(cfg.llm.api_key_env, required=True),
         _check_env_var(cfg.web_search.api_key_env, required=False),
         _check_env_var(cfg.embedding.api_key_env, required=True),
         _check_env_var(cfg.reranker.api_key_env, required=True),
     ]
+    langfuse_required = cfg.langfuse.enabled or cfg.langfuse.prompt_provider != "local"
+    checks.extend(
+        [
+            _check_env_var("LANGFUSE_PUBLIC_KEY", required=langfuse_required),
+            _check_env_var("LANGFUSE_SECRET_KEY", required=langfuse_required),
+        ]
+    )
+    return checks
 
 
 async def _real_checks(cfg: DeepResearchConfig) -> list[CheckResult]:
@@ -125,6 +172,8 @@ async def _real_checks(cfg: DeepResearchConfig) -> list[CheckResult]:
         _check_embedding(cfg),
         _check_reranker(cfg),
     ]
+    if cfg.langfuse.enabled or cfg.langfuse.prompt_provider != "local":
+        tasks.append(_check_langfuse(cfg))
     if not cfg.milvus.uri.endswith(".db"):
         tasks.append(_check_milvus(cfg))
     checks = await asyncio.gather(*tasks)
@@ -277,6 +326,46 @@ async def _check_milvus(cfg: DeepResearchConfig) -> CheckResult:
         name="milvus_schema",
         ok=True,
         message="Milvus schema OK (" + ", ".join(details) + ")",
+    )
+
+
+async def _check_langfuse(cfg: DeepResearchConfig) -> CheckResult:
+    public_key = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
+    secret_key = os.environ.get("LANGFUSE_SECRET_KEY", "")
+    if not public_key:
+        return _missing_real_key("langfuse_endpoint", "LANGFUSE_PUBLIC_KEY")
+    if not secret_key:
+        return _missing_real_key("langfuse_endpoint", "LANGFUSE_SECRET_KEY")
+    try:
+        from langfuse import Langfuse
+    except ImportError:
+        return _failed(
+            "langfuse_sdk",
+            "Langfuse package is not installed. Install with: uv add langfuse",
+        )
+
+    try:
+        client = Langfuse(
+            public_key=public_key,
+            secret_key=secret_key,
+            host=cfg.langfuse.host,
+        )
+        auth_ok = client.auth_check()
+        client.shutdown()
+    except Exception as exc:
+        return _failed(
+            "langfuse_endpoint",
+            f"Langfuse endpoint failed: {_safe_error(exc)}",
+        )
+    if not auth_ok:
+        return _failed("langfuse_endpoint", "Langfuse auth_check returned false")
+    return CheckResult(
+        name="langfuse_endpoint",
+        ok=True,
+        message=(
+            "Langfuse endpoint OK, "
+            f"host={cfg.langfuse.host}, prompt_label={cfg.langfuse.prompt_label}"
+        ),
     )
 
 

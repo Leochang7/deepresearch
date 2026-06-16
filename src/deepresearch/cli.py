@@ -571,12 +571,21 @@ def prompts_cmd(
         content = local.get(name)
         prompt_name = f"deepresearch/{name}"
         try:
-            client.prompt.create(
-                name=prompt_name,
-                prompt=content,
-                label=label,
-                config={"type": "text"},
-            )
+            if hasattr(client, "create_prompt"):
+                client.create_prompt(
+                    name=prompt_name,
+                    prompt=content,
+                    labels=[label],
+                    type="text",
+                    config={"source": "local bootstrap"},
+                )
+            else:
+                client.prompt.create(
+                    name=prompt_name,
+                    prompt=content,
+                    label=label,
+                    config={"type": "text"},
+                )
             typer.echo(f"  pushed: {prompt_name} (label={label})")
             succeeded += 1
         except Exception as exc:

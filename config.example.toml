@@ -16,7 +16,7 @@ thinking = "disabled"
 [embedding]
 provider = "openai_compatible"
 model = "Qwen3-Embedding-4B"
-dim = 1024
+dim = 2560
 base_url = ""
 api_key_env = "DEEPRESEARCH_EMBEDDING_API_KEY"
 batch_size = 32
@@ -27,7 +27,7 @@ request_dimensions = false
 
 [reranker]
 provider = "openai_compatible"
-model = "bge-reranker-v2-m32"
+model = "bge-reranker-v2-m3"
 base_url = ""
 api_key_env = "DEEPRESEARCH_RERANKER_API_KEY"
 batch_size = 16
@@ -90,7 +90,26 @@ target_score = 0.85
 min_score_delta = 0.03
 oscillation_window = 2
 
+[synthesizer]
+report_profile = "tech_research"
+
 [langfuse]
 enabled = false
 host = "https://cloud.langfuse.com"
 experiment_name = "deepresearch"
+prompt_provider = "local" # local | langfuse | langfuse_with_local_fallback
+prompt_label = "production"
+
+[evidence_quality]
+min_confidence = 0.3
+min_token_overlap = 0.1
+
+[fusion]
+rrf_k = 60
+max_fused_docs = 20
+max_fused_chunks = 30
+mmr_lambda = 0.7
+max_mmr_results = 12
+
+[benchmark]
+max_concurrency = 1
