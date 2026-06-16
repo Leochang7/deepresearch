@@ -122,6 +122,29 @@ curl http://localhost:19530/healthz
 uv run deepresearch doctor --real  # 会检查 dim
 ```
 
+## Multilingual Benchmark
+
+Cross-lingual benchmark cases test retrieval and synthesis when questions, evidence, and expected answers span Chinese and English.
+
+```bash
+# Mock mode (offline, for CI)
+uv run deepresearch benchmark examples/bench/crosslingual_smoke10.jsonl --mode mock
+
+# Real mode with local corpus
+uv run deepresearch benchmark examples/bench/crosslingual_smoke10.jsonl \
+  --mode real --retriever local --corpus examples/corpus \
+  --config examples/configs/benchmark_smoke.toml \
+  --experiment pm14-multilingual-smoke --output outputs/bench-multilingual
+```
+
+Language scenarios covered:
+- `question_lang=zh, evidence_lang=zh` — Chinese question with Chinese evidence
+- `question_lang=zh, evidence_lang=mixed` — Chinese question, bilingual evidence
+- `question_lang=en, evidence_lang=mixed` — English question, bilingual evidence
+- `question_lang=mixed, evidence_lang=en` — Mixed-language question, English evidence
+
+Domains: llm_agents, embeddings, fine_tuning, reasoning, rag, evaluation, safety.
+
 ## Quick Start: Local Corpus Smoke Benchmark
 
 The recommended stable benchmark path uses a local corpus instead of real-time web search:

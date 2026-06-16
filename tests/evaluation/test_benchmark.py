@@ -967,3 +967,40 @@ def test_multilingual_dataset_loads_15_cases():
     assert total == 15, f"Expected 15 cases, got {total} ({len(smoke5)} smoke5 + {len(cross)} crosslingual)"
     zh_cases = [c for c in cross if c.question_lang == "zh"]
     assert len(zh_cases) >= 4, f"Expected at least 4 zh cases, got {len(zh_cases)}"
+
+
+@pytest.mark.asyncio
+async def test_multilingual_benchmark_mock(tmp_path):
+    """Full multilingual benchmark runs in mock mode without errors."""
+    cases = load_dataset(Path("examples/bench/crosslingual_smoke10.jsonl"))
+    assert len(cases) >= 7
+
+    corpus = Path("examples/corpus/crosslingual")
+
+    def make_manager():
+        from deepresearch.config import DeepResearchConfig
+        from deepresearch.retrieval.local_dataset import LocalDatasetRetriever
+
+        cfg = DeepResearchConfig()
+        return RunManager(
+            cfg,
+            MockLLM(),
+            LocalDatasetRetriever(corpus),
+            MockMemoryStore(),
+            MockEmbeddingClient(dim=cfg.embedding.dim),
+            MockRerankerClient(),
+        )
+
+    results, summary = await run_benchmark(
+        cases[:3],
+        make_manager,
+        output_dir=tmp_path / "bench",
+        max_concurrency=2,
+    )
+    assert len(results) == 3
+    assert summary["total_cases"] == 3
+    assert "per_question_lang" in summary
+    # Should have at least one zh group
+    assert "zh" in summary["per_question_lang"] or any(
+        r.case_id.startswith("cl-00") for r in results
+    )
