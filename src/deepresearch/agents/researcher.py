@@ -604,6 +604,23 @@ class ResearchAgent:
         match = re.search(pattern, source_content, flags=re.IGNORECASE)
         if match:
             return source_content[match.start() : match.end()]
+
+        # Fuzzy: normalize both sides (lower, collapse whitespace, strip punctuation)
+        def _normalize(text: str) -> str:
+            text = text.lower()
+            text = re.sub(r"[^\w\s]", " ", text)
+            return re.sub(r"\s+", " ", text).strip()
+
+        norm_source = _normalize(source_content)
+        norm_quote = _normalize(quote)
+        if norm_quote in norm_source:
+            norm_tokens = norm_quote.split()
+            src_tokens = norm_source.split()
+            for i in range(len(src_tokens) - len(norm_tokens) + 1):
+                if src_tokens[i : i + len(norm_tokens)] == norm_tokens:
+                    original_tokens = source_content.split()
+                    end = min(i + len(norm_tokens), len(original_tokens))
+                    return " ".join(original_tokens[i:end])
         return ""
 
     @staticmethod

@@ -463,3 +463,27 @@ async def test_researcher_uses_independent_keyword_recall():
     )
 
     assert memory.keyword_queries == ["检索研究证据"]
+
+
+def test_fuzzy_quote_matches_case_insensitive():
+    """LLM often capitalizes the first letter of a quote."""
+    source = "reAct interleaves reasoning and acting steps in a loop."
+    quote = "ReAct interleaves reasoning and acting steps"
+    result = ResearchAgent._exact_quote_from_source(quote, source)
+    assert result != ""
+    assert "reasoning" in result.lower()
+
+
+def test_fuzzy_quote_matches_with_punctuation_difference():
+    """LLM sometimes drops or adds commas/periods."""
+    source = "LoRA, or low-rank adaptation, decomposes weight updates."
+    quote = "LoRA or low-rank adaptation decomposes weight updates"
+    result = ResearchAgent._exact_quote_from_source(quote, source)
+    assert result != ""
+
+
+def test_fuzzy_quote_no_match_on_unrelated_text():
+    source = "Dense retrieval uses vector embeddings."
+    quote = "Sparse retrieval uses inverted indexes"
+    result = ResearchAgent._exact_quote_from_source(quote, source)
+    assert result == ""
