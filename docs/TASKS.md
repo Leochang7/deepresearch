@@ -460,9 +460,41 @@
   - Files: `outputs/bench-real-*` ignored, `docs/REAL_BENCHMARK_GUIDE.md`
   - Done when: 使用真实 MiMo/Tavily/embedding/reranker/Milvus 跑 5 个 case，记录 task_success_rate、citation_coverage、factual_hit_rate、hallucination_flag 和失败原因。
   - Verify: `uv run deepresearch doctor --real`; `uv run deepresearch benchmark <5-case-jsonl> --mode real --output outputs/bench-real --experiment pm7-smoke`
-  - Blocked: 当前 Docker Desktop/engine 未运行，`deepresearch doctor --real` 的 Milvus check 无法连接 `localhost:19530`。已完成 `pm7-mock-review` 离线 5-case smoke，真实 smoke 需先启动 Milvus Standalone。
+  - Blocked: Docker/Milvus 已恢复后，真实联网 smoke 仍不可作为稳定验收路径：MiMo 联网搜索计费，Tavily 免费额度已耗尽并返回 432；实时搜索会导致 benchmark 不可复现、成本不可控。PM073 保留为“联网增强 smoke”，不再作为下一步主线。
 
 - [x] PM074 更新项目状态与真实评测说明
   - Files: `docs/PROJECT_STATUS.md`, `docs/REAL_BENCHMARK_GUIDE.md`, `docs/WORKLOG.md`
   - Done when: 文档说明当前 benchmark 能力边界、指标解释方式、复现实验命令和下一步优化依据；真实 PM7 smoke 结果待 PM073 完成后补充。
   - Verify: 文档人工检查
+
+### PM8 Local Corpus 可复现真实评测
+
+- [ ] PM080 设计本地 benchmark corpus 结构
+  - Files: `examples/corpus/`, `docs/REAL_BENCHMARK_GUIDE.md`, tests
+  - Done when: 为 PM7 5-case smoke 建立可提交的本地资料集目录，至少覆盖 `llm_agents`、`embeddings`、`fine_tuning`、`reasoning`、`rag`；每个 case 有 2-4 篇短文档，包含 expected facts 所需证据。
+  - Verify: 文档人工检查；资料不包含密钥、私有网页或版权风险长文全文。
+
+- [ ] PM081 benchmark CLI 支持 local corpus
+  - Files: `src/deepresearch/cli.py`, `src/deepresearch/evaluation/benchmark.py`, tests
+  - Done when: `deepresearch benchmark` 支持 `--retriever local --corpus examples/corpus`；真实模式仍使用真实 LLM/embedding/reranker/Milvus，但检索来源走本地 corpus，不依赖 Tavily/MiMo 搜索额度。
+  - Verify: `uv run pytest tests/test_cli.py tests/evaluation/test_benchmark.py`
+
+- [ ] PM082 建立 Local Corpus Smoke 配置
+  - Files: `docs/REAL_BENCHMARK_GUIDE.md`, `docs/CONFIGURATION.md`, optional `examples/configs/`
+  - Done when: 有一份低成本 smoke 配置，限制 query/docs/chunks/replan/red-blue 轮数；用于稳定复现 PM7 5-case，不影响默认配置。
+  - Verify: `uv run deepresearch doctor --real --config <smoke-config>`
+
+- [ ] PM083 跑通 PM7 5-case local-corpus real benchmark
+  - Files: `outputs/bench-local-*` ignored, docs
+  - Done when: 使用真实 MiMo chat、真实 embedding/reranker、Milvus Standalone、本地 corpus 跑完 5 个 case，输出 `results.jsonl` 和 `summary.json`；记录 task_success_rate、citation_coverage、factual_hit_rate、hallucination_flag 和每 case 失败原因。
+  - Verify: `uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl --mode real --retriever local --corpus examples/corpus --output outputs/bench-local --experiment pm8-local-smoke`
+
+- [ ] PM084 修复 evidence extraction 在可控资料集上的稳定性
+  - Files: `src/deepresearch/agents/researcher.py`, `src/deepresearch/prompts/researcher.md`, tests
+  - Done when: 给定本地 corpus 中包含答案的资料，ResearchAgent 能稳定抽取原文 quote、绑定 source_url/title、写入 memory，并让 citation_coverage 不依赖模型常识。
+  - Verify: `uv run pytest tests/agents/test_researcher.py`; PM083 指标复测。
+
+- [ ] PM085 将联网搜索降级为增强层
+  - Files: `docs/POST_MVP_ROADMAP.md`, `docs/REAL_BENCHMARK_GUIDE.md`, config/docs/tests
+  - Done when: 文档明确默认 benchmark 不依赖实时搜索；Tavily、MiMo Search、SearXNG/Brave/DuckDuckGo 等仅作为 optional retriever adapter 或探索模式。
+  - Verify: 文档人工检查；默认 `uv run pytest` 不依赖互联网。

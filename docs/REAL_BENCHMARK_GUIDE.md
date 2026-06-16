@@ -2,6 +2,8 @@
 
 ## 完整真实 Benchmark + Langfuse 上报
 
+当前建议优先使用 Local Corpus 路径做真实评测。原因是 MiMo 原生联网搜索会产生额外费用，Tavily 免费额度有限且可能返回 432；实时搜索结果也不可复现。早期 benchmark 的目标应是验证“给定可控资料后，系统能否稳定抽取证据、生成引用、降低幻觉”，而不是验证搜索 API 的额度和稳定性。
+
 ### 1. 环境准备
 
 ```bash
@@ -27,7 +29,30 @@ EOF
 uv run deepresearch doctor --real
 ```
 
-### 2. 运行 Benchmark
+### 2. 推荐路径：Local Corpus Benchmark
+
+本地资料集放在 `examples/corpus/`。每个 benchmark case 对应 2-4 篇短文档，文档需要覆盖 expected facts 和可引用原文。
+
+目标命令：
+
+```bash
+uv run deepresearch benchmark \
+  examples/bench/researchbench_smoke5.jsonl \
+  --mode real \
+  --retriever local \
+  --corpus examples/corpus \
+  --output outputs/bench-local \
+  --experiment pm8-local-smoke
+```
+
+说明：
+
+- `--mode real` 仍使用真实 MiMo chat、embedding、reranker 和 Milvus。
+- `--retriever local` 避免消耗 Tavily/MiMo 搜索额度。
+- `outputs/bench-local` 不提交，只用于本地复测。
+- 当前 `benchmark --corpus` 仍待 PM8 实现；实现前可先用 `deepresearch run --retriever local --corpus examples/corpus` 单题调试。
+
+### 3. 可选路径：联网 Benchmark
 
 ```bash
 uv run deepresearch benchmark \
@@ -36,7 +61,9 @@ uv run deepresearch benchmark \
   --output outputs/bench-$(date +%Y%m%d)
 ```
 
-### 3. 查看结果
+联网 benchmark 仅作为增强验证，不作为默认验收路径。使用前确认 Tavily/MiMo 搜索额度充足。
+
+### 4. 查看结果
 
 ```bash
 # 汇总指标
@@ -49,7 +76,7 @@ uv run deepresearch inspect <run-id> --timeline
 open https://cloud.langfuse.com
 ```
 
-### 4. 归档报告样例
+### 5. 归档报告样例
 
 选择效果好的 run 归档：
 
@@ -64,7 +91,7 @@ cp outputs/$RUN_ID/evaluation.json docs/examples/sample-evaluation.json
 cp outputs/bench-*/summary.json docs/examples/sample-bench-summary.json
 ```
 
-### 5. 预期指标
+### 6. 预期指标
 
 | 指标 | 预期范围 |
 |------|----------|
@@ -74,7 +101,7 @@ cp outputs/bench-*/summary.json docs/examples/sample-bench-summary.json
 | hallucination_flag_count | 0–3 |
 | avg_elapsed_seconds | 30–120s |
 
-### 6. 故障排查
+### 7. 故障排查
 
 ```bash
 # Milvus 连接失败
@@ -83,6 +110,10 @@ curl http://localhost:19530/healthz
 
 # LLM API 限流
 # 检查 trace.jsonl 中的 error 字段
+
+# Tavily 额度/限流
+# trace.jsonl 中出现 HTTP 432 时，切换到 --retriever local 或 MiMo Search；
+# benchmark 主路径不要依赖 Tavily 免费额度。
 
 # Embedding 维度不匹配
 uv run deepresearch doctor --real  # 会检查 dim
@@ -100,6 +131,9 @@ uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl --mode m
 
 # 真实模式
 uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl --mode real --output outputs/bench-pm7-smoke --experiment pm7-smoke
+
+# 推荐：真实模型 + 本地 corpus（PM8 实现后）
+uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl --mode real --retriever local --corpus examples/corpus --output outputs/bench-local --experiment pm8-local-smoke
 ```
 
 真实模式运行前必须先通过：
@@ -120,6 +154,16 @@ docker compose -f docker-compose.milvus.yml up -d
 |------|----------|---------|
 | factual_hit_rate | 0.0 | 0.3–0.7 |
 | fact_details | 无 | 每条 fact 有 hit/miss + reason |
+
+### 当前结论
+
+PM7 已证明 fact-level evaluator 可以解释真实报告，但实时搜索不是稳定评测基础设施：
+
+- MiMo Search 会产生额外成本。
+- Tavily 免费额度会耗尽，真实 run 中已出现 HTTP 432。
+- 搜索结果不稳定会干扰 evidence extraction 和 citation coverage 的定位。
+
+因此 PM8 改为 Local Corpus 可复现真实评测：先稳定资料输入和证据抽取，再把联网搜索作为 optional 增强层。
 
 ### 查看 fact_details
 

@@ -233,8 +233,42 @@ PM7 不做：
 - `factual_hit_rate` 不再因为同义改写系统性归零。
 - Langfuse 可选开启时能记录 fact-level scores。
 
+### P8：Local Corpus 可复现真实评测
+
+PM7 暴露出一个更基础的问题：实时联网搜索不适合作为早期 benchmark 主路径。MiMo 原生联网搜索按量计费，Tavily 免费额度有限且会返回 432；即使搜索成功，结果也受时间、额度、网络和排序波动影响，不利于调试 evidence extraction、citation coverage 和 Red-Blue。
+
+因此下一步改成 Local Corpus 优先：
+
+```text
+ResearchBench smoke question -> LocalDatasetRetriever -> fetch/chunk/embed -> Milvus -> Synthesizer -> Red-Blue -> Evaluator
+```
+
+原则：
+
+- benchmark 默认不依赖 Tavily/MiMo Search。
+- 本地 corpus 是可提交、可复现、可审查的资料集。
+- 真实模式仍使用真实 MiMo chat、Qwen embedding、bge reranker 和 Milvus Standalone。
+- 联网搜索作为 optional retriever adapter，只用于探索和增强，不作为稳定验收依赖。
+- 先验证“给到资料后系统能否抽证据、写引用、降低幻觉”，再评估实时搜索质量。
+
+PM8 范围：
+
+- 为 PM7 5-case smoke 准备本地 corpus。
+- `benchmark` CLI 支持 `--retriever local --corpus examples/corpus`。
+- 准备低成本 smoke 配置，限制 query/docs/chunks/replan/Red-Blue 轮数。
+- 跑通 local-corpus real benchmark。
+- 基于可控资料集修复 evidence extraction 和 citation coverage。
+- 将 Tavily/MiMo Search 文档定位调整为 optional network adapter。
+
+PM8 不做：
+
+- 不继续消耗 MiMo/Tavily 实时搜索额度跑 benchmark。
+- 不把免费搜索 API 当作稳定基础设施。
+- 不为了指标好看引入不真实的引用。
+- 不扩大到 35 题，直到 5-case local smoke 稳定。
+
 ## 2. 推荐下一步
 
-下一步优先做 PM7：真实 benchmark 质量校准。
+下一步优先做 PM8：Local Corpus 可复现真实评测。
 
-原因是 PM0-PM6 已经完成真实环境自检、RRF/MMR、引用质量、replan、trace inspect、memory schema、Langfuse benchmark foundation 和统计摘要。当前瓶颈不再是“能不能跑”，而是“跑出来的质量指标是否可信”。先把 fact-level 评测校准好，再继续跑真实 5-case/12-case benchmark，才能判断 Red-Blue、检索、Memory 和 replan 的改动是否真的提升质量。
+原因是 PM7 已完成 fact-level 评测能力，但实时联网搜索已经成为成本和复现性的瓶颈。先用本地 corpus 固化资料输入，才能判断 ResearchAgent、evidence extraction、citation coverage、Red-Blue 和 evaluator 是否真的可靠。等 local-corpus smoke 稳定后，再把 Tavily/MiMo/SearXNG/Brave 等网络检索作为增强层接回去。
