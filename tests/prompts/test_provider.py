@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from deepresearch.prompts.provider import LocalPromptProvider, PromptProvider
+from deepresearch.prompts.provider import (
+    LangfusePromptProvider,
+    LangfuseWithFallbackProvider,
+    LocalPromptProvider,
+    PromptProvider,
+)
 
 
 def test_local_provider_reads_existing_prompt(tmp_path):
@@ -29,3 +34,62 @@ def test_prompt_provider_protocol():
     """LocalPromptProvider satisfies the PromptProvider protocol."""
     provider = LocalPromptProvider(prompts_dir=Path("/nonexistent"))
     assert isinstance(provider, PromptProvider)
+
+
+def test_langfuse_provider_fetches_prompt():
+    from unittest.mock import MagicMock
+
+    mock_client = MagicMock()
+    mock_prompt = MagicMock()
+    mock_prompt.compile.return_value = "Langfuse planner prompt"
+    mock_client.prompt.get.return_value = mock_prompt
+
+    provider = LangfusePromptProvider(client=mock_client, label="production")
+    result = provider.get("planner")
+
+    mock_client.prompt.get.assert_called_once_with(name="deepresearch/planner", label="production")
+    assert result == "Langfuse planner prompt"
+
+
+def test_langfuse_provider_returns_empty_on_error():
+    from unittest.mock import MagicMock
+
+    mock_client = MagicMock()
+    mock_client.prompt.get.side_effect = Exception("not found")
+
+    provider = LangfusePromptProvider(client=mock_client)
+    assert provider.get("nonexistent") == ""
+
+
+def test_langfuse_with_fallback_uses_langfuse_when_available():
+    from unittest.mock import MagicMock
+
+    mock_client = MagicMock()
+    mock_prompt = MagicMock()
+    mock_prompt.compile.return_value = "remote prompt"
+    mock_client.prompt.get.return_value = mock_prompt
+
+    local = LocalPromptProvider(prompts_dir=Path("/empty"))
+    provider = LangfuseWithFallbackProvider(client=mock_client, local=local, label="prod")
+    assert provider.get("planner") == "remote prompt"
+
+
+def test_langfuse_with_fallback_falls_back_to_local():
+    from unittest.mock import MagicMock
+
+    mock_client = MagicMock()
+    mock_client.prompt.get.side_effect = Exception("timeout")
+
+    local_dir = Path(__file__).resolve().parents[2] / "src" / "deepresearch" / "prompts"
+    local = LocalPromptProvider(prompts_dir=local_dir)
+    provider = LangfuseWithFallbackProvider(client=mock_client, local=local)
+    result = provider.get("planner")
+    assert len(result) > 0
+
+
+def test_langfuse_provider_lists_empty():
+    from unittest.mock import MagicMock
+
+    mock_client = MagicMock()
+    provider = LangfusePromptProvider(client=mock_client)
+    assert provider.list_names() == []
