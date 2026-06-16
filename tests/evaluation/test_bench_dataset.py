@@ -147,8 +147,9 @@ def test_validate_dataset_empty_expected_facts(tmp_path):
 
 
 def test_generate_manifest_json():
-    from deepresearch.evaluation.datasets import load_manifest
     import json
+
+    from deepresearch.evaluation.datasets import load_manifest
     manifest = load_manifest(Path("examples/bench"))
     assert manifest["total_cases"] >= 40
     manifest_path = Path("examples/bench/manifest.json")
