@@ -564,6 +564,54 @@ def test_load_dataset_with_dict_format_facts():
 
 
 @pytest.mark.asyncio
+async def test_run_benchmark_serial_compatible(tmp_path):
+    """max_concurrency=1 produces identical behavior to serial execution (backward compatible)."""
+    cases = [
+        BenchmarkCase(
+            id="s1",
+            domain="test",
+            difficulty="easy",
+            question="What is X?",
+            expected_facts=["X is Y"],
+            required_citations=1,
+            tags=[],
+        ),
+        BenchmarkCase(
+            id="s2",
+            domain="test",
+            difficulty="hard",
+            question="What is Z?",
+            expected_facts=["Z is W"],
+            required_citations=1,
+            tags=[],
+        ),
+    ]
+
+    def make_manager():
+        cfg = __import__(
+            "deepresearch.config", fromlist=["DeepResearchConfig"]
+        ).DeepResearchConfig()
+        return RunManager(
+            cfg,
+            MockLLM(),
+            MockRetriever(),
+            MockMemoryStore(),
+            MockEmbeddingClient(),
+            MockRerankerClient(),
+        )
+
+    results, summary = await run_benchmark(
+        cases, make_manager, output_dir=tmp_path / "bench", max_concurrency=1
+    )
+
+    assert len(results) == 2
+    assert results[0].case_id == "s1"
+    assert results[1].case_id == "s2"
+    assert summary["total_cases"] == 2
+    assert "avg_task_success_rate" in summary
+
+
+@pytest.mark.asyncio
 async def test_run_benchmark_concurrent(tmp_path):
     """Cases run concurrently when max_concurrency > 1."""
     import asyncio as _asyncio

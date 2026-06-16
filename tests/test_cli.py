@@ -498,6 +498,42 @@ def test_benchmark_accepts_max_concurrency_option():
     assert "max-concurrency" in result.output
 
 
+def test_benchmark_passes_max_concurrency_to_run_benchmark(tmp_path):
+    """--max-concurrency is passed through to run_benchmark."""
+    dataset = tmp_path / "bench.jsonl"
+    dataset.write_text(
+        '{"id":"case-1","domain":"test","difficulty":"easy","question":"q","expected_facts":[],"required_citations":0,"tags":[]}\n',
+        encoding="utf-8",
+    )
+    summary = {
+        "total_cases": 1,
+        "avg_task_success_rate": 1.0,
+        "avg_citation_coverage": 0.5,
+        "avg_elapsed_seconds": 0.1,
+    }
+
+    with (
+        patch(
+            "deepresearch.evaluation.benchmark.run_benchmark",
+            new_callable=AsyncMock,
+            return_value=([], summary),
+        ) as run_benchmark,
+        patch("deepresearch.cli._build_runtime", return_value=(1, 2, 3, 4, 5)),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "benchmark",
+                str(dataset),
+                "--max-concurrency",
+                "4",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert run_benchmark.await_args.kwargs["max_concurrency"] == 4
+
+
 def test_benchmark_accepts_prompt_provider_option():
     """benchmark command should accept --prompt-provider flag."""
     result = runner.invoke(app, ["benchmark", "--help"])

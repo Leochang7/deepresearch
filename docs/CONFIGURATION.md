@@ -248,3 +248,19 @@ MiMo 原生搜索通过 chat completion 的 `tools` 字段启用，并封装在 
 ## Benchmark Smoke Config
 
 For reproducible benchmark runs, use `examples/configs/benchmark_smoke.toml` to limit resource consumption. See [REAL_BENCHMARK_GUIDE.md](REAL_BENCHMARK_GUIDE.md) for details.
+
+## Benchmark Concurrency
+
+`benchmark.max_concurrency` controls how many benchmark cases run in parallel.
+Default is `1` (serial). Set higher for faster runs when resources allow.
+
+```toml
+[benchmark]
+max_concurrency = 4
+```
+
+CLI override: `uv run deepresearch benchmark ... --max-concurrency 4`
+
+Note: Each case creates an independent RunManager. In real mode, concurrent
+cases share LLM/embedding/reranker API rate limits and Milvus connections.
+Start with `max_concurrency=2` and increase gradually.
