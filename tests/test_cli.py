@@ -584,3 +584,18 @@ def test_benchmark_accepts_prompt_provider_option():
     """benchmark command should accept --prompt-provider flag."""
     result = runner.invoke(app, ["benchmark", "--help"])
     assert "prompt-provider" in result.output
+
+
+def test_run_accepts_llm_provider_option():
+    result = runner.invoke(app, ["run", "--help"])
+    assert "llm-provider" in result.output
+
+
+def test_benchmark_accepts_llm_provider_option():
+    result = runner.invoke(app, ["benchmark", "--help"])
+    assert "llm-provider" in result.output
+
+
+def test_run_accepts_llm_model_option():
+    result = runner.invoke(app, ["run", "--help"])
+    assert "llm-model" in result.output

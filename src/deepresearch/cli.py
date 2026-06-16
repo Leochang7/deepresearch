@@ -201,11 +201,21 @@ def run(
         "--prompt-provider",
         help="Prompt source: local, langfuse, langfuse_with_local_fallback",
     ),
+    llm_provider: str | None = typer.Option(
+        None, "--llm-provider", help="LLM provider: mimo, deepseek, openai_compatible"
+    ),
+    llm_model: str | None = typer.Option(
+        None, "--llm-model", help="Override LLM model name"
+    ),
 ) -> None:
     """Run a deep research task."""
     from deepresearch.core.run_manager import RunManager
 
     cfg = load_config(config_path=config_path)
+    if llm_provider:
+        cfg.llm.provider = llm_provider
+    if llm_model:
+        cfg.llm.model = llm_model
     _apply_prompt_provider_override(cfg, prompt_provider)
     corpus_path = Path(corpus) if corpus else None
     components = _build_runtime(
@@ -638,6 +648,12 @@ def benchmark_cmd(
         "--max-concurrency",
         help="Max concurrent benchmark cases (default: 1 = serial)",
     ),
+    llm_provider: str | None = typer.Option(
+        None, "--llm-provider", help="LLM provider: mimo, deepseek, openai_compatible"
+    ),
+    llm_model: str | None = typer.Option(
+        None, "--llm-model", help="Override LLM model name"
+    ),
 ) -> None:
     """Run benchmark suite and produce results.jsonl + summary.json."""
     from deepresearch.core.run_manager import RunManager
@@ -661,6 +677,10 @@ def benchmark_cmd(
     typer.echo(f"Loaded {len(cases)} benchmark cases from {dataset}")
 
     cfg = load_config(config_path=config_path)
+    if llm_provider:
+        cfg.llm.provider = llm_provider
+    if llm_model:
+        cfg.llm.model = llm_model
     _apply_prompt_provider_override(cfg, prompt_provider)
     if max_concurrency is not None:
         if max_concurrency < 1:
