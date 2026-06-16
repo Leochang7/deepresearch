@@ -282,8 +282,8 @@ def _build_summary(
         "avg_elapsed_seconds": round(
             sum(r.elapsed_seconds for r in results) / len(results), 3
         ),
-        "bootstrap_95_ci": _bootstrap_ci(success_rates),
-        "factual_hit_rate_bootstrap_95_ci": _bootstrap_ci(factual_rates),
+        "bootstrap_95_ci": _rounded_ci(bootstrap_ci(success_rates)),
+        "factual_hit_rate_bootstrap_95_ci": _rounded_ci(bootstrap_ci(factual_rates)),
         "avg_judge_scores": avg_judge_scores,
         "fact_details_included": fact_details_included,
         "fact_coverage_distribution": fact_coverage_dist,
@@ -293,7 +293,7 @@ def _build_summary(
         "per_question_lang": {},
         "per_evidence_lang": {},
         "per_language_scenario": {},
-        "cohens_d_easy_vs_hard": _cohens_d_between_groups(
+        "cohens_d_easy_vs_hard": _group_cohens_d(
             [r for r in results if r.difficulty == "easy"],
             [r for r in results if r.difficulty == "hard"],
             "task_success_rate",
@@ -388,15 +388,11 @@ def _group_stats(results: list[BenchmarkResult]) -> dict[str, Any]:
     }
 
 
-def _bootstrap_ci(
-    values: list[float], n_bootstrap: int = 1000, ci: float = 0.95
-) -> list[float]:
-    """Backward-compatible wrapper around the shared statistics module."""
-    lower, upper = bootstrap_ci(values, n_resamples=n_bootstrap, confidence=ci)
-    return [round(lower, 4), round(upper, 4)]
+def _rounded_ci(bounds: tuple[float, float]) -> list[float]:
+    return [round(bounds[0], 4), round(bounds[1], 4)]
 
 
-def _cohens_d_between_groups(
+def _group_cohens_d(
     group_a: list[BenchmarkResult],
     group_b: list[BenchmarkResult],
     metric: str,

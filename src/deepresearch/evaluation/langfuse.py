@@ -89,67 +89,21 @@ class LangfuseAdapter:
                 }
             )
         try:
-            if hasattr(self._client, "start_observation"):
-                self._report_run_v4(
-                    run_id,
-                    question,
-                    report,
-                    evaluation,
-                    budget,
-                    config_summary,
-                    trace_summary,
-                    benchmark_metadata,
-                )
-                return
-            full_metadata = {
-                **config_summary,
-                **benchmark_metadata,
-                "trace_summary": trace_summary,
-            }
-            trace = self._client.trace(
-                name=f"deepresearch-{run_id}",
-                input={"question": question},
-                metadata=full_metadata,
-            )
-            trace.score(
-                name="task_success_rate",
-                value=evaluation.get("task_success_rate", 0),
-            )
-            trace.score(
-                name="citation_coverage",
-                value=evaluation.get("citation_coverage", 0),
-            )
-            trace.score(
-                name="report_section_completeness",
-                value=evaluation.get("report_section_completeness", 0),
-            )
-            trace.score(
-                name="red_issue_count",
-                value=evaluation.get("red_issue_count", 0),
-            )
-            # Additional evaluation scores
-            trace.score(
-                name="factual_hit_rate",
-                value=evaluation.get("factual_hit_rate", 0),
-            )
-            trace.score(
-                name="hallucination_flag",
-                value=int(evaluation.get("hallucination_flag", False)),
-            )
-            for dim, score in evaluation.get("judge_scores", {}).items():
-                trace.score(name=f"judge_{dim}", value=score)
-            trace.update(
-                output={
-                    "report": report,
-                    "evaluation": evaluation,
-                    "budget": budget,
-                }
+            self._report_run(
+                run_id,
+                question,
+                report,
+                evaluation,
+                budget,
+                config_summary,
+                trace_summary,
+                benchmark_metadata,
             )
             self._client.flush()
         except Exception:
             logger.warning("Failed to report run to Langfuse", exc_info=True)
 
-    def _report_run_v4(
+    def _report_run(
         self,
         run_id: str,
         question: str,
@@ -208,7 +162,6 @@ class LangfuseAdapter:
             )
         if hasattr(observation, "end"):
             observation.end()
-        self._client.flush()
 
     @property
     def is_enabled(self) -> bool:

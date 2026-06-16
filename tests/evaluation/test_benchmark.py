@@ -242,18 +242,6 @@ def test_summary_includes_factual_hit_rate():
     assert summary["hallucination_flag_count"] == 1
 
 
-def test_bootstrap_ci_returns_valid_range():
-    from deepresearch.evaluation.benchmark import _bootstrap_ci
-
-    values = [0.8, 0.9, 0.7, 0.85, 0.95, 0.6, 0.75]
-    ci = _bootstrap_ci(values)
-    mean = sum(values) / len(values)
-    assert len(ci) == 2
-    assert ci[0] <= mean <= ci[1]
-    assert ci[0] >= 0.0
-    assert ci[1] <= 1.0
-
-
 @pytest.mark.asyncio
 async def test_run_benchmark_recomputes_case_aware_metrics(tmp_path):
     case = BenchmarkCase(
