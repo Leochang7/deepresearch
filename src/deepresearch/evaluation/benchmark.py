@@ -63,6 +63,7 @@ async def run_benchmark(
     *,
     output_dir: Path,
     llm: LLMClient | None = None,
+    max_concurrency: int = 1,
 ) -> tuple[list[BenchmarkResult], dict[str, Any]]:
     output_dir.mkdir(parents=True, exist_ok=True)
     results: list[BenchmarkResult] = []

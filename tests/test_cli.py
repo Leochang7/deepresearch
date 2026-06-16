@@ -492,6 +492,12 @@ def test_run_accepts_prompt_provider_option():
     assert "prompt-provider" in result.output
 
 
+def test_benchmark_accepts_max_concurrency_option():
+    """benchmark command should accept --max-concurrency flag."""
+    result = runner.invoke(app, ["benchmark", "--help"])
+    assert "max-concurrency" in result.output
+
+
 def test_benchmark_accepts_prompt_provider_option():
     """benchmark command should accept --prompt-provider flag."""
     result = runner.invoke(app, ["benchmark", "--help"])

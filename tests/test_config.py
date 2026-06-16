@@ -31,6 +31,13 @@ class TestDeepResearchConfig:
         assert hasattr(cfg, "fusion")
 
 
+    def test_benchmark_config_defaults(self):
+        from deepresearch.config import BenchmarkConfig
+
+        cfg = BenchmarkConfig()
+        assert cfg.max_concurrency == 1
+
+
 class TestConfigFromFile:
     def test_load_from_toml_file(self, tmp_path):
         toml_content = """

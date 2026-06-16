@@ -612,6 +612,11 @@ def benchmark_cmd(
         "--prompt-provider",
         help="Prompt source: local, langfuse, langfuse_with_local_fallback",
     ),
+    max_concurrency: int | None = typer.Option(
+        None,
+        "--max-concurrency",
+        help="Max concurrent benchmark cases (default: 1 = serial)",
+    ),
 ) -> None:
     """Run benchmark suite and produce results.jsonl + summary.json."""
     from deepresearch.core.run_manager import RunManager
@@ -636,6 +641,8 @@ def benchmark_cmd(
 
     cfg = load_config(config_path=config_path)
     _apply_prompt_provider_override(cfg, prompt_provider)
+    if max_concurrency is not None:
+        cfg.benchmark.max_concurrency = max_concurrency
     experiment_id = (
         experiment or f"{dataset_path.stem}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     )
@@ -650,7 +657,10 @@ def benchmark_cmd(
         return RunManager(cfg, *components)
 
     _results, summary = asyncio.run(
-        run_benchmark(cases, make_manager, output_dir=output_dir)
+        run_benchmark(
+            cases, make_manager, output_dir=output_dir,
+            max_concurrency=cfg.benchmark.max_concurrency,
+        )
     )
 
     typer.echo(f"\nBenchmark complete: {summary['total_cases']} cases")

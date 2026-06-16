@@ -113,6 +113,10 @@ class ExecutorConfig(BaseModel):
     max_replans: int = 1
 
 
+class BenchmarkConfig(BaseModel):
+    max_concurrency: int = Field(default=1, ge=1)
+
+
 class RedBlueConfig(BaseModel):
     max_rounds: int = 3
     target_score: float = 0.85
@@ -175,6 +179,7 @@ _ENV_MAP: dict[str, tuple[str, str]] = {
     "DEEPRESEARCH_EXPERIMENT_NAME": ("langfuse", "experiment_name"),
     "DEEPRESEARCH_PROMPT_PROVIDER": ("langfuse", "prompt_provider"),
     "DEEPRESEARCH_PROMPT_LABEL": ("langfuse", "prompt_label"),
+    "DEEPRESEARCH_BENCHMARK_MAX_CONCURRENCY": ("benchmark", "max_concurrency"),
 }
 
 
@@ -196,6 +201,7 @@ class DeepResearchConfig(BaseModel):
     evidence_quality: EvidenceQualityConfig = Field(
         default_factory=EvidenceQualityConfig
     )
+    benchmark: BenchmarkConfig = Field(default_factory=BenchmarkConfig)
     langfuse: LangfuseConfig = Field(default_factory=LangfuseConfig)
 
     @classmethod
