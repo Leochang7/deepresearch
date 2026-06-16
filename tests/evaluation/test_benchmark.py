@@ -971,7 +971,7 @@ def test_multilingual_dataset_loads_15_cases():
 
 @pytest.mark.asyncio
 async def test_multilingual_benchmark_mock(tmp_path):
-    """Full multilingual benchmark runs in mock mode without errors."""
+    """A multilingual benchmark sample runs in mock mode without errors."""
     cases = load_dataset(Path("examples/bench/crosslingual_smoke10.jsonl"))
     assert len(cases) >= 7
 

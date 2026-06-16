@@ -127,8 +127,9 @@ uv run deepresearch doctor --real  # 会检查 dim
 Cross-lingual benchmark cases test retrieval and synthesis when questions, evidence, and expected answers span Chinese and English.
 
 ```bash
-# Mock mode (offline, for CI)
-uv run deepresearch benchmark examples/bench/crosslingual_smoke10.jsonl --mode mock
+# Mock mode with local corpus (offline, for CI)
+uv run deepresearch benchmark examples/bench/crosslingual_smoke10.jsonl \
+  --mode mock --retriever local --corpus examples/corpus
 
 # Real mode with local corpus
 uv run deepresearch benchmark examples/bench/crosslingual_smoke10.jsonl \
