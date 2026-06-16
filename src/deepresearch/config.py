@@ -14,6 +14,9 @@ class LLMConfig(BaseModel):
     base_url: str = "https://api.xiaomimimo.com/v1"
     api_key_env: str = "MIMO_API_KEY"
     api_key_header: str = "api-key"
+    api_key_prefix: str = ""
+    api_key_required: bool = True
+    max_tokens_field: str = "max_completion_tokens"
     fallback_provider: str = "deepseek"
     max_completion_tokens: int = 1024
     temperature: float = 1.0
@@ -146,6 +149,10 @@ _ENV_MAP: dict[str, tuple[str, str]] = {
     "DEEPRESEARCH_LLM_PROVIDER": ("llm", "provider"),
     "DEEPRESEARCH_LLM_BASE_URL": ("llm", "base_url"),
     "DEEPRESEARCH_LLM_MODEL": ("llm", "model"),
+    "DEEPRESEARCH_LLM_API_KEY_HEADER": ("llm", "api_key_header"),
+    "DEEPRESEARCH_LLM_API_KEY_PREFIX": ("llm", "api_key_prefix"),
+    "DEEPRESEARCH_LLM_API_KEY_REQUIRED": ("llm", "api_key_required"),
+    "DEEPRESEARCH_LLM_MAX_TOKENS_FIELD": ("llm", "max_tokens_field"),
     "DEEPRESEARCH_FALLBACK_LLM_PROVIDER": ("llm", "fallback_provider"),
     "DEEPRESEARCH_EMBEDDING_BASE_URL": ("embedding", "base_url"),
     "DEEPRESEARCH_EMBEDDING_MODEL": ("embedding", "model"),

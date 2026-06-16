@@ -29,6 +29,9 @@ model = "mimo-v2.5-pro"
 base_url = "https://api.xiaomimimo.com/v1"
 api_key_env = "MIMO_API_KEY"
 api_key_header = "api-key"
+api_key_prefix = ""
+api_key_required = true
+max_tokens_field = "max_completion_tokens"
 fallback_provider = "deepseek"
 max_completion_tokens = 1024
 temperature = 1.0
@@ -145,6 +148,10 @@ DEEPRESEARCH_LLM_PROVIDER=mimo
 DEEPRESEARCH_LLM_BASE_URL=https://api.xiaomimimo.com/v1
 MIMO_API_KEY=
 DEEPRESEARCH_LLM_MODEL=mimo-v2.5-pro
+DEEPRESEARCH_LLM_API_KEY_HEADER=api-key
+DEEPRESEARCH_LLM_API_KEY_PREFIX=
+DEEPRESEARCH_LLM_API_KEY_REQUIRED=true
+DEEPRESEARCH_LLM_MAX_TOKENS_FIELD=max_completion_tokens
 DEEPRESEARCH_FALLBACK_LLM_PROVIDER=deepseek
 DEEPRESEARCH_EMBEDDING_BASE_URL=
 DEEPRESEARCH_EMBEDDING_API_KEY=
@@ -272,7 +279,7 @@ uv run deepresearch prompts push --label staging
 
 ## 5. MiMo 调用约定
 
-MiMo v2.5 Pro 使用 OpenAI-compatible chat completions 路径，但鉴权 header 使用 `api-key`。
+MiMo v2.5 Pro 使用 OpenAI-compatible chat completions 路径，但鉴权 header 使用 `api-key`，token 字段使用 `max_completion_tokens`。OpenAI 等兼容后端通常使用 `Authorization` + `Bearer ` 和 `max_tokens`；本地 vLLM 可设置 `api_key_required=false` 并留空 `api_key_env/api_key_header/api_key_prefix`。对应配置项是 `llm.api_key_header`、`llm.api_key_prefix`、`llm.api_key_required`、`llm.max_tokens_field`，也可通过 `DEEPRESEARCH_LLM_API_KEY_HEADER`、`DEEPRESEARCH_LLM_API_KEY_PREFIX`、`DEEPRESEARCH_LLM_API_KEY_REQUIRED`、`DEEPRESEARCH_LLM_MAX_TOKENS_FIELD` 覆盖。
 
 ```text
 POST https://api.xiaomimimo.com/v1/chat/completions

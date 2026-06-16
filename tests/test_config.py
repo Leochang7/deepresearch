@@ -8,6 +8,9 @@ class TestDeepResearchConfig:
         cfg = DeepResearchConfig()
         assert cfg.llm.provider == "mimo"
         assert cfg.llm.model == "mimo-v2.5-pro"
+        assert cfg.llm.api_key_prefix == ""
+        assert cfg.llm.api_key_required is True
+        assert cfg.llm.max_tokens_field == "max_completion_tokens"
         assert cfg.embedding.dim == 1024
         assert cfg.chunking.chunk_size_chars == 1200
         assert cfg.executor.max_concurrency == 4
@@ -81,6 +84,10 @@ class TestEnvVarOverride:
     def test_env_overrides_default(self, monkeypatch):
         monkeypatch.setenv("DEEPRESEARCH_LLM_PROVIDER", "deepseek")
         monkeypatch.setenv("DEEPRESEARCH_LLM_MODEL", "deepseek-chat")
+        monkeypatch.setenv("DEEPRESEARCH_LLM_API_KEY_HEADER", "Authorization")
+        monkeypatch.setenv("DEEPRESEARCH_LLM_API_KEY_PREFIX", "Bearer ")
+        monkeypatch.setenv("DEEPRESEARCH_LLM_API_KEY_REQUIRED", "false")
+        monkeypatch.setenv("DEEPRESEARCH_LLM_MAX_TOKENS_FIELD", "max_tokens")
         monkeypatch.setenv("DEEPRESEARCH_MILVUS_URI", "/env/path.db")
         monkeypatch.setenv("DEEPRESEARCH_MILVUS_CHUNKS_COLLECTION", "chunks_env")
         monkeypatch.setenv("DEEPRESEARCH_MILVUS_MEMORIES_COLLECTION", "memories_env")
@@ -88,6 +95,10 @@ class TestEnvVarOverride:
         cfg = DeepResearchConfig.from_env()
         assert cfg.llm.provider == "deepseek"
         assert cfg.llm.model == "deepseek-chat"
+        assert cfg.llm.api_key_header == "Authorization"
+        assert cfg.llm.api_key_prefix == "Bearer "
+        assert cfg.llm.api_key_required is False
+        assert cfg.llm.max_tokens_field == "max_tokens"
         assert cfg.milvus.uri == "/env/path.db"
         assert cfg.milvus.chunks_collection == "chunks_env"
         assert cfg.milvus.memories_collection == "memories_env"
@@ -215,3 +226,14 @@ def test_model_configs_parse():
     for toml_path in Path("examples/configs/models").glob("*.toml"):
         cfg = DeepResearchConfig.from_toml(toml_path)
         assert cfg.llm.provider in ("mimo", "deepseek", "openai_compatible")
+        if cfg.llm.provider in {"deepseek", "openai_compatible"}:
+            assert cfg.llm.max_tokens_field == "max_tokens"
+        if toml_path.stem == "vllm":
+            assert cfg.llm.api_key_env == ""
+            assert cfg.llm.api_key_header == ""
+            assert cfg.llm.api_key_prefix == ""
+            assert cfg.llm.api_key_required is False
+        elif cfg.llm.provider in {"deepseek", "openai_compatible"}:
+            assert cfg.llm.api_key_header == "Authorization"
+            assert cfg.llm.api_key_prefix == "Bearer "
+            assert cfg.llm.api_key_required is True

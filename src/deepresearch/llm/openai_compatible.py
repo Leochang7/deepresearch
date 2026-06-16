@@ -67,10 +67,9 @@ class OpenAICompatibleLLMClient(LLMClient):
             payload["response_format"] = {"type": "json_object"}
         payload.update(self._extras)
 
-        headers = {
-            self._api_key_header: f"{self._api_key_prefix}{self._api_key}",
-            "Content-Type": "application/json",
-        }
+        headers = {"Content-Type": "application/json"}
+        if self._api_key_header and self._api_key:
+            headers[self._api_key_header] = f"{self._api_key_prefix}{self._api_key}"
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             resp = await client.post(

@@ -5,3 +5,6 @@ model = "gpt-4o"
 base_url = "https://api.openai.com/v1"
 api_key_env = "OPENAI_API_KEY"
 api_key_header = "Authorization"
+api_key_prefix = "Bearer "
+api_key_required = true
+max_tokens_field = "max_tokens"

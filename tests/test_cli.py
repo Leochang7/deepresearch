@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from typer.testing import CliRunner
 
-from deepresearch.cli import _index_corpus, app
+from deepresearch.cli import _build_runtime, _index_corpus, app
 from deepresearch.config import DeepResearchConfig
 
 runner = CliRunner()
@@ -599,3 +599,127 @@ def test_benchmark_accepts_llm_provider_option():
 def test_run_accepts_llm_model_option():
     result = runner.invoke(app, ["run", "--help"])
     assert "llm-model" in result.output
+
+
+def test_benchmark_applies_cli_model_metadata_to_cases(tmp_path):
+    dataset = tmp_path / "bench.jsonl"
+    dataset.write_text(
+        '{"id":"case-1","domain":"test","difficulty":"easy","question":"q",'
+        '"expected_facts":[],"required_citations":0,"tags":[]}\n',
+        encoding="utf-8",
+    )
+    summary = {
+        "total_cases": 1,
+        "avg_task_success_rate": 0,
+        "avg_citation_coverage": 0,
+        "avg_elapsed_seconds": 0,
+    }
+
+    with (
+        patch(
+            "deepresearch.evaluation.benchmark.run_benchmark",
+            new_callable=AsyncMock,
+            return_value=([], summary),
+        ) as run_benchmark,
+        patch("deepresearch.cli._build_runtime", return_value=(1, 2, 3, 4, 5)),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "benchmark",
+                str(dataset),
+                "--llm-provider",
+                "openai_compatible",
+                "--llm-model",
+                "gpt-4o-mini",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    case = run_benchmark.await_args.args[0][0]
+    assert case.model_backend == "openai_compatible"
+    assert case.model_name == "gpt-4o-mini"
+
+
+def test_build_runtime_passes_openai_compatible_llm_options(tmp_path, monkeypatch):
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    cfg = DeepResearchConfig()
+    cfg.llm.provider = "openai_compatible"
+    cfg.llm.base_url = "https://api.example.com/v1"
+    cfg.llm.api_key_env = "OPENAI_API_KEY"
+    cfg.llm.api_key_header = "Authorization"
+    cfg.llm.api_key_prefix = "Bearer "
+    cfg.llm.max_tokens_field = "max_tokens"
+    cfg.embedding.base_url = "https://embedding.example.com/v1"
+    cfg.reranker.base_url = "https://reranker.example.com/v1"
+
+    monkeypatch.setenv("OPENAI_API_KEY", "llm-key")
+    monkeypatch.setenv("DEEPRESEARCH_EMBEDDING_API_KEY", "embedding-key")
+    monkeypatch.setenv("DEEPRESEARCH_RERANKER_API_KEY", "reranker-key")
+
+    with (
+        patch(
+            "deepresearch.llm.openai_compatible.OpenAICompatibleLLMClient"
+        ) as llm_cls,
+        patch(
+            "deepresearch.embeddings.openai_compatible.OpenAICompatibleEmbeddingClient"
+        ),
+        patch(
+            "deepresearch.rerankers.openai_compatible.OpenAICompatibleRerankerClient"
+        ),
+        patch("deepresearch.memory.milvus_store.MilvusStore"),
+    ):
+        components = _build_runtime(
+            cfg,
+            mode="real",
+            retriever_name="local",
+            corpus=corpus,
+        )
+
+    assert components[0] is llm_cls.return_value
+    kwargs = llm_cls.call_args.kwargs
+    assert kwargs["api_key_header"] == "Authorization"
+    assert kwargs["api_key_prefix"] == "Bearer "
+    assert kwargs["max_tokens_field"] == "max_tokens"
+
+
+def test_build_runtime_allows_openai_compatible_without_api_key(tmp_path, monkeypatch):
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    cfg = DeepResearchConfig()
+    cfg.llm.provider = "openai_compatible"
+    cfg.llm.base_url = "http://localhost:8000/v1"
+    cfg.llm.api_key_env = ""
+    cfg.llm.api_key_header = ""
+    cfg.llm.api_key_prefix = ""
+    cfg.llm.api_key_required = False
+    cfg.llm.max_tokens_field = "max_tokens"
+    cfg.embedding.base_url = "https://embedding.example.com/v1"
+    cfg.reranker.base_url = "https://reranker.example.com/v1"
+
+    monkeypatch.setenv("DEEPRESEARCH_EMBEDDING_API_KEY", "embedding-key")
+    monkeypatch.setenv("DEEPRESEARCH_RERANKER_API_KEY", "reranker-key")
+
+    with (
+        patch(
+            "deepresearch.llm.openai_compatible.OpenAICompatibleLLMClient"
+        ) as llm_cls,
+        patch(
+            "deepresearch.embeddings.openai_compatible.OpenAICompatibleEmbeddingClient"
+        ),
+        patch(
+            "deepresearch.rerankers.openai_compatible.OpenAICompatibleRerankerClient"
+        ),
+        patch("deepresearch.memory.milvus_store.MilvusStore"),
+    ):
+        _build_runtime(
+            cfg,
+            mode="real",
+            retriever_name="local",
+            corpus=corpus,
+        )
+
+    kwargs = llm_cls.call_args.kwargs
+    assert kwargs["api_key"] == ""
+    assert kwargs["api_key_header"] == ""

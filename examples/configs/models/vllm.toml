@@ -3,5 +3,8 @@
 provider = "openai_compatible"
 model = "Qwen/Qwen2.5-72B-Instruct"
 base_url = "http://localhost:8000/v1"
-api_key_env = "VLLM_API_KEY"
-api_key_header = "Authorization"
+api_key_env = ""
+api_key_header = ""
+api_key_prefix = ""
+api_key_required = false
+max_tokens_field = "max_tokens"

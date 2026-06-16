@@ -33,6 +33,10 @@ def _required_config(value: str, name: str) -> str:
     return value
 
 
+def _optional_env(name: str) -> str:
+    return os.environ.get(name, "").strip() if name else ""
+
+
 def _build_runtime(
     cfg: DeepResearchConfig,
     *,
@@ -96,11 +100,18 @@ def _build_runtime(
     elif cfg.llm.provider == "openai_compatible":
         from deepresearch.llm.openai_compatible import OpenAICompatibleLLMClient
 
+        llm_api_key = (
+            _required_env(cfg.llm.api_key_env)
+            if cfg.llm.api_key_required
+            else _optional_env(cfg.llm.api_key_env)
+        )
         llm = OpenAICompatibleLLMClient(
             base_url=cfg.llm.base_url,
-            api_key=_required_env(cfg.llm.api_key_env),
+            api_key=llm_api_key,
             model=cfg.llm.model,
             api_key_header=cfg.llm.api_key_header,
+            api_key_prefix=cfg.llm.api_key_prefix,
+            max_tokens_field=cfg.llm.max_tokens_field,
             default_temperature=cfg.llm.temperature,
             default_top_p=cfg.llm.top_p,
             default_max_completion_tokens=cfg.llm.max_completion_tokens,
@@ -180,6 +191,14 @@ def _apply_prompt_provider_override(
     cfg.langfuse.prompt_provider = prompt_provider
     if prompt_provider != "local":
         cfg.langfuse.enabled = True
+
+
+def _apply_benchmark_model_metadata(cases: list[Any], cfg: DeepResearchConfig) -> None:
+    for case in cases:
+        if not getattr(case, "model_backend", ""):
+            case.model_backend = cfg.llm.provider
+        if not getattr(case, "model_name", ""):
+            case.model_name = cfg.llm.model
 
 
 @app.command()
@@ -682,6 +701,7 @@ def benchmark_cmd(
     if llm_model:
         cfg.llm.model = llm_model
     _apply_prompt_provider_override(cfg, prompt_provider)
+    _apply_benchmark_model_metadata(cases, cfg)
     if max_concurrency is not None:
         if max_concurrency < 1:
             raise typer.BadParameter("--max-concurrency must be >= 1")

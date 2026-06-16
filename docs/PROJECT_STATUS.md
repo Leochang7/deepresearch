@@ -22,7 +22,7 @@ MVP、PM0-PM15 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 - Evidence 质量门控：置信度过滤、quote 原文验证、claim-quote 语义一致性
 
 ### 模型支持
-- LLM: MiMo v2.5 Pro（默认）+ DeepSeek fallback
+- LLM: MiMo v2.5 Pro（默认）+ DeepSeek + OpenAI-compatible/vLLM backend matrix
 - Embedding: Qwen3-Embedding-4B（2560 维，OpenAI-compatible）
 - Reranker: bge-reranker-v2-m3（OpenAI-compatible）
 - 向量库: Milvus Standalone
@@ -151,7 +151,7 @@ src/deepresearch/
 ├── core/            # dag, executor, run_manager, budget, trace, json_repair, state
 ├── embeddings/      # base, mock, openai_compatible
 ├── evaluation/      # metrics, benchmark, judge_eval, langfuse
-├── llm/             # base, mock, mimo, deepseek
+├── llm/             # base, mock, mimo, deepseek, openai_compatible
 ├── memory/          # store, milvus_store, conflict
 ├── prompts/         # prompt templates and PromptProvider implementations
 ├── rerankers/       # base, mock, openai_compatible

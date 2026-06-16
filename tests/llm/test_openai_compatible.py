@@ -30,7 +30,9 @@ async def test_chat_sends_bearer_auth():
     }
     mock_response.raise_for_status = MagicMock()
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response):
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response
+    ):
         result = await client.chat([{"role": "user", "content": "Hi"}])
         assert result.content == "Hello"
 
@@ -53,10 +55,38 @@ async def test_chat_custom_header():
     }
     mock_response.raise_for_status = MagicMock()
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response
+    ) as mock_post:
         await client.chat([{"role": "user", "content": "Hi"}])
         headers = mock_post.call_args.kwargs.get("headers", {})
         assert headers.get("api-key") == "test-key"
+
+
+@pytest.mark.asyncio
+async def test_chat_omits_auth_when_key_not_configured():
+    client = OpenAICompatibleLLMClient(
+        base_url="http://localhost:8000/v1",
+        api_key="",
+        model="m",
+        api_key_header="",
+        api_key_prefix="",
+    )
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "choices": [{"message": {"content": "Hello"}}],
+        "model": "m",
+        "usage": {},
+    }
+    mock_response.raise_for_status = MagicMock()
+
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response
+    ) as mock_post:
+        await client.chat([{"role": "user", "content": "Hi"}])
+        headers = mock_post.call_args.kwargs.get("headers", {})
+        assert headers == {"Content-Type": "application/json"}
 
 
 @pytest.mark.asyncio
@@ -76,7 +106,11 @@ async def test_chat_max_tokens_field():
     }
     mock_response.raise_for_status = MagicMock()
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
-        await client.chat([{"role": "user", "content": "Hi"}], max_completion_tokens=100)
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response
+    ) as mock_post:
+        await client.chat(
+            [{"role": "user", "content": "Hi"}], max_completion_tokens=100
+        )
         body = mock_post.call_args.kwargs.get("json", {})
         assert body.get("max_completion_tokens") == 100

@@ -4,3 +4,7 @@ provider = "deepseek"
 model = "deepseek-chat"
 base_url = "https://api.deepseek.com/v1"
 api_key_env = "DEEPSEEK_API_KEY"
+api_key_header = "Authorization"
+api_key_prefix = "Bearer "
+api_key_required = true
+max_tokens_field = "max_tokens"

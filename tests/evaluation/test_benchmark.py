@@ -965,10 +965,19 @@ def test_summary_per_model_backend_without_cases():
     """When no cases are passed, per_model_backend and per_model_name should be empty dicts."""
     results = [
         BenchmarkResult(
-            "c1", "r1", "q1", "d", "easy",
-            {"task_success_rate": 1.0, "citation_coverage": 0.8,
-             "factual_hit_rate": 0.9, "report_section_completeness": 1.0},
-            {}, 1.0,
+            "c1",
+            "r1",
+            "q1",
+            "d",
+            "easy",
+            {
+                "task_success_rate": 1.0,
+                "citation_coverage": 0.8,
+                "factual_hit_rate": 0.9,
+                "report_section_completeness": 1.0,
+            },
+            {},
+            1.0,
         ),
     ]
     summary = _build_summary(results, 1.0)

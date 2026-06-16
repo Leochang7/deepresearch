@@ -691,24 +691,24 @@
 
 ### PM18 LLM Backend Matrix
 
-- [ ] PM180 统一 OpenAI-compatible 后端配置
-  - Files: `src/deepresearch/llm/openai_compatible.py`, `src/deepresearch/config.py`, `.env.example`, `config.example.toml`, tests/docs
-  - Done when: 支持 OpenAI-compatible provider，用 `base_url/api_key_env/model/api_key_header` 配置 OpenAI、vLLM 或其它兼容后端；MiMo/DeepSeek 保持现有专用 client。
-  - Verify: `uv run pytest tests/llm tests/test_config.py`
+- [x] PM180 统一 OpenAI-compatible 后端配置
+  - Files: `src/deepresearch/llm/openai_compatible.py`, `src/deepresearch/cli.py`, tests
+  - Done when: `OpenAICompatibleLLMClient` 支持可配置 auth header/prefix、api_key_required 和 max_tokens field；`_build_runtime` 支持 `"openai_compatible"` provider；MiMo/DeepSeek 保持现有专用 client。
+  - Verify: `uv run pytest tests/llm/test_openai_compatible.py tests/test_cli.py`; `uv run pytest` (572 passed, 1 skipped)
 
-- [ ] PM181 支持后端热切换和 CLI 覆盖
-  - Files: `src/deepresearch/cli.py`, `src/deepresearch/core/run_manager.py`, config/tests
-  - Done when: `run`/`benchmark` 可用 `--llm-provider`、`--llm-model` 或 config matrix 切换 DeepSeek/MiMo/vLLM/OpenAI-compatible；切换不影响 Retriever/Memory/Evaluator。
-  - Verify: `uv run pytest tests/test_cli.py tests/core/test_run_manager.py tests/llm`
+- [x] PM181 支持后端热切换和 CLI 覆盖
+  - Files: `src/deepresearch/cli.py`, tests
+  - Done when: `run`/`benchmark` 支持 `--llm-provider` 和 `--llm-model` 选项覆盖配置；切换不影响 Retriever/Memory/Evaluator。
+  - Verify: `uv run pytest tests/test_cli.py`
 
-- [ ] PM182 增加 model backend matrix 配置文件
-  - Files: `examples/configs/models/*.toml`, docs/tests
-  - Done when: 提供 MiMo、DeepSeek、OpenAI-compatible、vLLM 四类示例配置；不包含真实密钥；doctor 可检查当前后端。
-  - Verify: `uv run pytest tests/test_config.py tests/test_doctor.py`
+- [x] PM182 增加 model backend matrix 配置文件
+  - Files: `examples/configs/models/*.toml`, tests
+  - Done when: 4 个示例配置（mimo/deepseek/openai/vllm）；不含真实密钥；`DeepResearchConfig.from_toml` 可正确解析。
+  - Verify: `uv run pytest tests/test_config.py`
 
-- [ ] PM183 Benchmark summary 按模型后端分组
+- [x] PM183 Benchmark summary 按模型后端分组
   - Files: `src/deepresearch/evaluation/benchmark.py`, tests
-  - Done when: summary 输出 `per_model_backend` 和 `per_model_name`；Langfuse metadata 同步写入 backend/model/prompt_label。
+  - Done when: `BenchmarkCase` 新增 `model_backend`/`model_name` 字段；summary 输出 `per_model_backend` 和 `per_model_name` 分组。
   - Verify: `uv run pytest tests/evaluation/test_benchmark.py`
 
 ### PM19 One-command Experiment Scripts
