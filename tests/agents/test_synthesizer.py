@@ -253,6 +253,32 @@ def test_enforce_citations_keeps_short_analytical_lines():
     assert not any("Key findings" in lim for lim in limitations)
 
 
+def test_enforce_citations_keeps_long_transition_lines():
+    """Long section-framing lines should not be treated as factual claims."""
+    agent = Synthesizer(llm=MockLLM())
+    evidence_map = {
+        "E1": EvidenceItem(
+            evidence_id="E1",
+            task_id="t1",
+            claim="test",
+            quote="test",
+            confidence=0.9,
+        )
+    }
+    transition = "The following section compares the evidence across sources."
+    sections = [
+        ReportSection(
+            title="Analysis",
+            content="Embeddings [E1] are important.\n"
+            f"{transition}\n"
+            "Dense vectors [E1] outperform sparse methods.",
+        ),
+    ]
+    cleaned, limitations = agent._enforce_citations(sections, evidence_map)
+    assert transition in cleaned[0].content
+    assert not any(transition in lim for lim in limitations)
+
+
 def test_enforce_citations_still_removes_uncited_factual_claims():
     """Long factual claims without citations should still be removed."""
     agent = Synthesizer(llm=MockLLM())

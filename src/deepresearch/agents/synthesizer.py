@@ -267,6 +267,18 @@ class Synthesizer:
         stripped = line.strip()
         if len(stripped) < 30:
             return False
+        transition_patterns = [
+            r"^(this|the)\s+(section|report|analysis|discussion)\s+",
+            r"^(the\s+)?following\s+(section|analysis|discussion|comparison)\s+",
+            r"^(in\s+summary|overall|taken together|in practice)\b",
+            r"^(key findings|main findings|several themes)\s+",
+            r"^(to compare|to summarize|to frame|to organize)\b",
+        ]
+        if any(
+            re.search(pattern, stripped, flags=re.IGNORECASE)
+            for pattern in transition_patterns
+        ):
+            return False
         # Lines with specific data patterns are factual claims
         if re.search(
             r"\d+(\.\d+)?%|\d{4}|[A-Z][a-z]+\s(et al\.|found|showed|reported)",

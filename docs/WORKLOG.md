@@ -45,3 +45,4 @@
 - 2026-06-16: 完成 PM090 文档入口与维护规范收敛：`README.md` 指向 `docs/README.md`，`AGENTS.md` 固化文档分层、唯一事实源、归档规则和 `WORKLOG.md` 全量追加规则；内部 Markdown 链接文本检查通过。
 - 2026-06-16: 开始 PM091 Roadmap 收敛：新增 `docs/ROADMAP.md` 作为路线图唯一维护入口，准备将 MVP/Post-MVP/实现计划历史文档移入 `docs/archive/`。
 - 2026-06-16: 完成 PM091 Roadmap 收敛：`docs/ROADMAP.md` 成为路线图唯一维护入口；`MVP_AND_ROADMAP.md`、`POST_MVP_ROADMAP.md`、`IMPLEMENTATION_PLAN.md` 移入 `docs/archive/`；README、docs 入口和 AGENTS 文档分层已更新。
+- 2026-06-16: Review 并补齐 PM086：同步 TASKS/PROJECT_STATUS/ROADMAP，修复 Synthesizer citation enforcement 对长过渡句过严的问题，保留非事实性 section-framing lines；默认测试 `uv run pytest tests/ -x -q` 通过。

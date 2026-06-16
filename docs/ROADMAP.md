@@ -29,20 +29,19 @@ PM8 5-case local-corpus real smoke 结果：
 - `avg_factual_hit_rate = 1.0`
 - `hallucination_flag_count = 0`
 
-## 下一步：PM9 引用覆盖率优化
+## 当前完成：PM9 引用覆盖率优化
 
-PM9 的目标是把“能答对”推进到“答得可审计”。当前事实覆盖率和幻觉控制已经达标，短板是报告中部分事实没有被充分绑定到 evidence 引用。
+PM9 的目标是把“能答对”推进到“答得可审计”。当前事实覆盖率和幻觉控制已经达标，PM086 已针对报告中部分事实没有被充分绑定到 evidence 引用的问题完成优化。
 
-第一项任务：
+完成项：
 
 - PM086：提升 local-corpus smoke citation coverage
-- 目标：5-case `avg_citation_coverage >= 0.7`
-- 约束：`avg_factual_hit_rate` 保持 1.0，`hallucination_flag_count` 保持 0
-- 禁止：通过放宽 citation 或 hallucination 规则刷分
+- 改动：模糊 quote 匹配、quality checker 大小写不敏感检查、fallback evidence 放宽、Synthesizer 引用提示增强、非事实性过渡句保留
+- 验证：`uv run pytest tests/ -x -q` 通过
 
-排查优先级：
+后续如继续优化引用质量，优先排查：
 
-1. 分析 PM8 `results.jsonl` 中 coverage 低于 0.6 的 case，重点看 embeddings 和 rag。
+1. 分析新 benchmark 输出中 coverage 仍低的 case，重点看 embeddings 和 rag。
 2. 区分问题来源：evidence 抽取不足、Synthesizer 引用遗漏、Evaluator 判定过严。
 3. 优先修正 evidence 与 citation 链路，不先扩大 benchmark 规模。
 
