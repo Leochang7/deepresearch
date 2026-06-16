@@ -23,13 +23,13 @@ from deepresearch.retrieval.base import Retriever
 from deepresearch.retrieval.chunking import chunk_text
 from deepresearch.retrieval.dedup import dedup_documents
 from deepresearch.retrieval.fetcher import WebFetcher
-from deepresearch.retrieval.query_expansion import expand_query
 from deepresearch.retrieval.fusion import (
     RankedChunk,
     mmr_select,
     rrf_fuse,
     rrf_fuse_chunks,
 )
+from deepresearch.retrieval.query_expansion import expand_query
 from deepresearch.schemas.evidence import EvidenceItem, RetrievedDocument
 from deepresearch.schemas.task import TaskNode
 

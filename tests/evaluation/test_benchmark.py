@@ -139,7 +139,7 @@ async def test_run_benchmark_fault_isolation_returns_error_result(tmp_path):
             )
 
     output_dir = tmp_path / "bench"
-    results, summary = await run_benchmark(
+    results, _summary = await run_benchmark(
         cases, lambda: FakeManager(), output_dir=output_dir
     )
 
@@ -651,7 +651,7 @@ async def test_run_benchmark_concurrent(tmp_path):
     ]
 
     start = time.monotonic()
-    results, summary = await run_benchmark(
+    results, _summary = await run_benchmark(
         cases,
         lambda: TimedManager(),
         output_dir=tmp_path / "bench",
