@@ -23,6 +23,7 @@ from deepresearch.retrieval.base import Retriever
 from deepresearch.retrieval.chunking import chunk_text
 from deepresearch.retrieval.dedup import dedup_documents
 from deepresearch.retrieval.fetcher import WebFetcher
+from deepresearch.retrieval.query_expansion import expand_query
 from deepresearch.retrieval.fusion import (
     RankedChunk,
     mmr_select,
@@ -144,6 +145,11 @@ class ResearchAgent:
 
     async def execute(self, task: TaskNode, *, run_id: str = "") -> dict:
         queries = await self._generate_queries(task)
+        # Expand Chinese queries with English term aliases for cross-lingual retrieval
+        expanded_queries: list[str] = []
+        for q in queries:
+            expanded_queries.extend(expand_query(q))
+        queries = expanded_queries[: self._max_queries * 2]
         self._report_progress("queries_generated", {"query_count": len(queries)})
         per_query_results = await asyncio.gather(
             *(
