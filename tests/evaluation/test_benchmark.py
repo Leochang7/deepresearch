@@ -955,3 +955,15 @@ def test_compare_summaries_missing_keys():
     diff = compare_summaries(before, after)
     assert diff["avg_task_success_rate"]["delta"] == pytest.approx(0.2)
     assert diff["avg_citation_coverage"]["delta"] == pytest.approx(0.6)
+
+
+def test_multilingual_dataset_loads_15_cases():
+    from deepresearch.evaluation.benchmark import load_dataset
+
+    base = Path(__file__).resolve().parents[2]
+    smoke5 = load_dataset(base / "examples" / "bench" / "researchbench_smoke5.jsonl")
+    cross = load_dataset(base / "examples" / "bench" / "crosslingual_smoke10.jsonl")
+    total = len(smoke5) + len(cross)
+    assert total == 15, f"Expected 15 cases, got {total} ({len(smoke5)} smoke5 + {len(cross)} crosslingual)"
+    zh_cases = [c for c in cross if c.question_lang == "zh"]
+    assert len(zh_cases) >= 4, f"Expected at least 4 zh cases, got {len(zh_cases)}"
