@@ -230,17 +230,45 @@ MVP 必须支持：
 - 默认限制：`max_queries_per_task = 5`，`max_docs_per_task = 20`，`max_chunks_per_task = 80`，`max_llm_calls_per_run = 80`。
 - 超过限制时必须记录 trace，并优雅降级，不要让单个 run 无限扩张。
 
-## 9. 计划与任务记录
+## 9. 文档规范、计划与任务记录
 
-AI agent 必须维护项目状态文档。
+AI agent 必须维护项目状态文档。文档入口和详细规范见 `docs/README.md`。
+
+文档分层：
+
+- `README.md`：用户入口，只放安装、快速开始、常用命令、核心架构和文档索引。
+- `docs/README.md`：文档入口，说明各文档职责、唯一事实源和整理规则。
+- `docs/PROJECT_STATUS.md`：当前项目状态唯一摘要，回答“现在做到哪、下一步做什么、主要限制是什么”。
+- `docs/ROADMAP.md`：路线图唯一维护入口，只记录当前和未来方向；历史路线归档到 `docs/archive/`。
+- `docs/TASKS.md`：任务状态唯一来源，使用 `- [ ]` 和 `- [x]` 维护 backlog、完成标准和验证命令。
+- `docs/WORKLOG.md`：全量操作日志，记录关键决策、验证结果、阻塞点和完成记录。
+- `docs/CONFIGURATION.md`：配置项、环境变量、真实运行配置和默认值。
+- `docs/REAL_BENCHMARK_GUIDE.md`：真实 benchmark、local corpus smoke、指标解释和复现方式。
+- `docs/EVALUATION_LANGFUSE_PLAN.md`：Langfuse adapter、benchmark runner、LLM-as-Judge 和评测闭环设计。
+
+唯一事实源：
+
+- 当前状态以 `docs/PROJECT_STATUS.md` 为准。
+- 路线规划以 `docs/ROADMAP.md` 为准。
+- 任务状态以 `docs/TASKS.md` 为准。
+- 操作历史以 `docs/WORKLOG.md` 为准。
+- 配置项以 `docs/CONFIGURATION.md` 和 `.env.example` 为准。
+- 评测复现方式以 `docs/REAL_BENCHMARK_GUIDE.md` 为准。
+- Langfuse 评测设计以 `docs/EVALUATION_LANGFUSE_PLAN.md` 为准。
+
+维护规则：
 
 - 对于超过一个文件或预计超过 30 分钟的任务，先在设计文档或 `docs/TASKS.md` 中记录计划。
 - 必须维护 `docs/TASKS.md`，使用 `- [ ]` 和 `- [x]` 标记任务状态。
 - 每完成一个 task，立即更新 `docs/TASKS.md`。
-- 长任务要更新 `docs/WORKLOG.md`，只保留最近 5-10 条关键记录。
+- 长任务、重要修复、真实验收、失败阻塞和阶段完成都要更新 `docs/WORKLOG.md`。
+- `docs/WORKLOG.md` 保存全量操作日志，新记录必须追加到文件最底部，不删除历史记录。
 - 不要把模型临时思考过程写入文档；只记录决策、任务状态、验证结果和阻塞点。
 - 复杂功能可以创建 `docs/tasks/<feature>.md`。
 - `docs/TASKS.md` 太长时，归档到 `docs/tasks/archive-YYYYMM.md`。
+- 不要在多个文档重复维护同一任务状态；如冲突，以 `docs/TASKS.md` 为准。
+- 不要把同一段完整规划复制到多个文档；其他文档只保留摘要和链接。
+- 过期但仍有追溯价值的设计优先移动到 `docs/archive/`，不要留在主文档区制造多版本事实。
 
 ## 10. 文档同步规则
 

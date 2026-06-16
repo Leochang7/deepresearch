@@ -500,3 +500,21 @@
   - Files: `docs/POST_MVP_ROADMAP.md`, `docs/REAL_BENCHMARK_GUIDE.md`, `docs/CONFIGURATION.md`
   - Done when: 文档明确默认 benchmark 不依赖实时搜索；Tavily、MiMo Search 仅作为 optional retriever adapter；默认 `uv run pytest` 不依赖互联网。
   - Verify: 文档人工检查；默认 `uv run pytest` 不依赖互联网。
+
+### PM9 引用覆盖率优化
+
+- [x] PM091 合并 Roadmap 并归档历史计划
+  - Files: `docs/ROADMAP.md`, `docs/archive/`, `docs/README.md`, `README.md`, `AGENTS.md`, `docs/TASKS.md`, `docs/WORKLOG.md`
+  - Done when: `ROADMAP.md` 成为路线图唯一维护入口；旧 `MVP_AND_ROADMAP.md`、`POST_MVP_ROADMAP.md`、`IMPLEMENTATION_PLAN.md` 移入 `docs/archive/`；入口文档和链接更新。
+  - Verify: 文档人工检查；内部链接检查。
+
+- [x] PM090 收敛文档入口与维护规范
+  - Files: `AGENTS.md`, `README.md`, `docs/README.md`, `docs/TASKS.md`, `docs/WORKLOG.md`
+  - Done when: 文档分层、唯一事实源、归档规则和更新触发条件明确；`WORKLOG.md` 明确保存全量操作日志并在文件底部追加；README 指向新的文档入口。
+  - Verify: 文档人工检查；内部链接检查。
+
+- [ ] PM086 提升 local-corpus smoke citation coverage
+  - Files: `src/deepresearch/agents/researcher.py`, `src/deepresearch/agents/synthesizer.py`, `src/deepresearch/evaluation/metrics.py`, tests, docs
+  - Done when: 分析 PM8 5-case `results.jsonl` 中 citation coverage 低于 0.6 的 case，定位 evidence 抽取不足、synthesis 引用遗漏或 evaluator 判定过严，并将 local-corpus 5-case `avg_citation_coverage` 提升到 >= 0.7。
+  - Constraints: `avg_factual_hit_rate` 保持 1.0，`hallucination_flag_count` 保持 0；不要通过放宽引用或幻觉规则刷分。
+  - Verify: `uv run pytest tests/agents/test_researcher.py tests/agents/test_synthesizer.py tests/evaluation`; local-corpus 5-case real benchmark 复测。

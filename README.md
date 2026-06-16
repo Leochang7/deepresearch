@@ -144,11 +144,13 @@ Planner → DAG Executor → Research Agent → Retriever → Memory → Synthes
 
 ## 文档
 
+- [文档入口与维护规范](docs/README.md)
+- [当前项目状态](docs/PROJECT_STATUS.md)
+- [Roadmap](docs/ROADMAP.md)
+- [任务状态](docs/TASKS.md)
+- [工作日志](docs/WORKLOG.md)
 - [PRD：产品需求文档](docs/PRD.md)
-- [MVP 范围与后续路线](docs/MVP_AND_ROADMAP.md)
-- [Post-MVP Roadmap](docs/POST_MVP_ROADMAP.md)
 - [技术栈与工程选型](docs/TECH_STACK.md)
 - [检索与资料获取设计](docs/RETRIEVAL_DESIGN.md)
 - [配置设计](docs/CONFIGURATION.md)
-- [任务状态](docs/TASKS.md)
-- [工作日志](docs/WORKLOG.md)
+- [真实 benchmark 指南](docs/REAL_BENCHMARK_GUIDE.md)

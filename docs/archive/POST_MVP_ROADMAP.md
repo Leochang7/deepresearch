@@ -193,7 +193,7 @@ Memory 需要避免“collection 维度/模型混用”再次发生。
 5. 增加 LLM-as-Judge 五维评分，并可写入 Langfuse scores。
 6. pipeline 稳定后，再扩到 ResearchBench 11 领域/35 题、HotpotQA 深度研究变体、Bootstrap 95% CI、Cohen's d 和多后端实验脚本。
 
-详细设计见 [Langfuse Evaluation Plan](EVALUATION_LANGFUSE_PLAN.md)。
+详细设计见 [Langfuse Evaluation Plan](../EVALUATION_LANGFUSE_PLAN.md)。
 
 ### P7：真实 benchmark 质量校准
 
@@ -256,7 +256,8 @@ PM8 范围：
 - [x] PM080: 为 PM7 5-case smoke 准备本地 corpus。
 - [x] PM081: `benchmark` CLI 支持 `--retriever local --corpus examples/corpus`。
 - [x] PM082: 准备低成本 smoke 配置，限制 query/docs/chunks/replan/Red-Blue 轮数。
-- [ ] PM083: 跑通 local-corpus real benchmark。
+- [x] PM083: 跑通 local-corpus real benchmark。
+- [x] PM084: 修复 evidence extraction 在可控资料集上的稳定性。
 - [x] PM085: 将 Tavily/MiMo Search 文档定位调整为 optional network adapter。默认 benchmark 使用 local corpus，不依赖实时搜索；`uv run pytest` 默认不依赖互联网。Tavily/MiMo Search 作为可选的检索器适配层，使用时消耗真实 API 额度且结果不可复现。
 
 PM8 不做：
@@ -268,6 +269,8 @@ PM8 不做：
 
 ## 2. 推荐下一步
 
-下一步优先做 PM8：Local Corpus 可复现真实评测。
+下一步优先做 PM9：提升 local-corpus smoke 的 citation coverage。
 
-原因是 PM7 已完成 fact-level 评测能力，但实时联网搜索已经成为成本和复现性的瓶颈。先用本地 corpus 固化资料输入，才能判断 ResearchAgent、evidence extraction、citation coverage、Red-Blue 和 evaluator 是否真的可靠。等 local-corpus smoke 稳定后，再把 Tavily/MiMo/SearXNG/Brave 等网络检索作为增强层接回去。
+原因是 PM8 已经证明“真实模型 + 真实 Milvus + 本地 corpus”的稳定验收路径可跑通，5-case smoke 达到 `avg_task_success_rate=1.0`、`avg_factual_hit_rate=1.0`、`hallucination_flag_count=0`。当前短板是 `avg_citation_coverage=0.5297`，说明报告仍有部分事实没有被充分绑定到 evidence 引用。
+
+PM9 第一项为 PM086：分析 PM8 5-case `results.jsonl` 中 citation coverage 低于 0.6 的 case，重点排查 embeddings 和 rag，区分 evidence 抽取不足、synthesis 引用遗漏或 evaluator 判定过严。验收目标是 local-corpus 5-case `avg_citation_coverage >= 0.7`，同时保持 `avg_factual_hit_rate=1.0` 和 `hallucination_flag_count=0`，不要通过放宽引用或幻觉规则刷分。

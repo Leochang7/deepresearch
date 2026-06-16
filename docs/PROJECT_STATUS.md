@@ -4,7 +4,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 
 ## 当前状态
 
-MVP、PM0-PM8 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus，可用真实 MiMo chat、真实 embedding/reranker、Milvus Standalone 和本地资料集复现 5-case smoke。
+MVP、PM0-PM8 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus，可用真实 MiMo chat、真实 embedding/reranker、Milvus Standalone 和本地资料集复现 5-case smoke。下一步进入 PM9，聚焦提升 local-corpus smoke 的 citation coverage。
 
 ## 已完成能力
 
@@ -56,6 +56,7 @@ MVP、PM0-PM8 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8
 | PM6 | ✅ 完成 | Langfuse 集成 + ResearchBench mini + benchmark runner + LLM-as-Judge + 统计分析 |
 | PM7 | 部分完成 | 事实级 benchmark 评测、5-case smoke dataset、失败原因分析已完成；联网 smoke 因 MiMo Search 计费和 Tavily 额度/432 不再作为主线 |
 | PM8 | ✅ 完成 | Local Corpus 可复现真实评测：真实模型 + 真实 Milvus + 本地资料集，5-case smoke 跑通且无 hallucination flag |
+| PM9 | 规划中 | 优化 citation coverage 低于 0.6 的 case，目标 local-corpus 5-case `avg_citation_coverage >= 0.7` |
 
 ## 真实环境运行
 
@@ -129,7 +130,7 @@ uv run ruff check .     # lint
 
 ## 下一阶段方向
 
-- **提升 citation coverage**: PM8 已跑通 local-corpus smoke，下一步优化 citation coverage 低于 0.6 的 case（embeddings、rag）
+- **提升 citation coverage**: PM9 优先分析 PM8 `results.jsonl` 中 coverage 低的 case（重点 embeddings、rag），区分 evidence 抽取不足、synthesis 引用遗漏和 evaluator 判定过严，目标 `avg_citation_coverage >= 0.7`
 - **并行 benchmark**: benchmark runner 支持 asyncio.gather 并发执行多个 case
 - **Hybrid retrieval**: Milvus vector search + BM25 keyword search 混合检索
 - **Interactive mode**: 支持用户在 synthesis 前审查 evidence 并提供反馈

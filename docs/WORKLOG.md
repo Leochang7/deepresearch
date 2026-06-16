@@ -1,6 +1,6 @@
 # Worklog
 
-只记录最近关键工作记录、验证结果和阻塞点，插到最后。不要记录模型临时思考过程。
+记录全量关键工作记录、验证结果和阻塞点。新记录必须追加到文件最底部，不删除历史记录。不要记录模型临时思考过程。
 
 ## Recent
 
@@ -40,3 +40,8 @@
 - 2026-06-16: 真实联网 benchmark 继续暴露成本和复现问题：MiMo 联网搜索计费，Tavily 免费额度耗尽后返回 HTTP 432，实时搜索不适合作为早期稳定验收路径。调整后续计划为 PM8 Local Corpus 可复现真实评测：真实 MiMo chat/embedding/reranker/Milvus 保留，检索资料改为本地 corpus，先稳定 evidence extraction、citation coverage 和 fact-level evaluator，再将联网搜索作为 optional adapter。
 - 2026-06-16: Review PM8 已提交实现：local corpus 结构、benchmark `--corpus`、smoke 配置和联网搜索 optional 文档已完成；补充 benchmark 增量落盘、Tavily provider 错误降级为空结果、ResearchAgent source_id/quote 解析容错和带关键词门槛的 grounded sentence fallback。离线 `uv run pytest` 通过；`pm8-local-mock-review` 2-case 可跑但 citation coverage 仍低，PM083/PM084 不能标记完成。
 - 2026-06-16: 完成 PM8 收尾：LocalDatasetRetriever 改为 token scoring + stopword filtering + title/url boost，存在命中文档时过滤 0 分本地文档；跑通 `researchbench_smoke5` local-corpus real 5-case（真实 MiMo chat、embedding/reranker、Milvus Standalone、本地 corpus），结果 `avg_task_success_rate=1.0`、`avg_citation_coverage=0.5297`、`avg_factual_hit_rate=1.0`、`hallucination_flag_count=0`。PM083/PM084 标记完成，后续优化目标是 embeddings/rag citation coverage。
+- 2026-06-16: 更新 PM9 规划：新增 PM086，下一步聚焦 local-corpus smoke citation coverage，目标 5-case `avg_citation_coverage >= 0.7`，同时保持 factual hit 1.0 和无 hallucination flag。
+- 2026-06-16: 开始文档规范收敛 PM090：新增 `docs/README.md` 作为文档入口，明确唯一事实源；更新 `AGENTS.md`，规定 `WORKLOG.md` 保存全量操作日志并在文件底部追加。
+- 2026-06-16: 完成 PM090 文档入口与维护规范收敛：`README.md` 指向 `docs/README.md`，`AGENTS.md` 固化文档分层、唯一事实源、归档规则和 `WORKLOG.md` 全量追加规则；内部 Markdown 链接文本检查通过。
+- 2026-06-16: 开始 PM091 Roadmap 收敛：新增 `docs/ROADMAP.md` 作为路线图唯一维护入口，准备将 MVP/Post-MVP/实现计划历史文档移入 `docs/archive/`。
+- 2026-06-16: 完成 PM091 Roadmap 收敛：`docs/ROADMAP.md` 成为路线图唯一维护入口；`MVP_AND_ROADMAP.md`、`POST_MVP_ROADMAP.md`、`IMPLEMENTATION_PLAN.md` 移入 `docs/archive/`；README、docs 入口和 AGENTS 文档分层已更新。
