@@ -532,7 +532,7 @@ class ResearchAgent:
         task: TaskNode,
         chunks: list[SourceChunk],
         *,
-        max_items: int = 3,
+        max_items: int = 5,
     ) -> list[EvidenceItem]:
         keywords = self._task_keywords(task)
         evidence: list[EvidenceItem] = []
@@ -602,7 +602,7 @@ class ResearchAgent:
         ]
         if not sentences:
             text = content.strip()
-            return text[:500].strip() if len(text) >= 40 else ""
+            return text[:500].strip() if len(text) >= 25 else ""
 
         def score(sentence: str) -> tuple[int, int]:
             normalized = sentence.lower()
@@ -614,7 +614,7 @@ class ResearchAgent:
             keyword_hits, _ = score(sentence)
             if keywords and keyword_hits == 0:
                 continue
-            if len(sentence) >= 40:
+            if len(sentence) >= 25:
                 return sentence[:500].strip()
         return ""
 

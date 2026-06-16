@@ -506,3 +506,54 @@ def test_quality_checker_accepts_case_normalized_quote():
     source_content = "The ReAct interleaves reasoning and acting steps in a loop."
     passed, reason = checker.check(item, source_content)
     assert passed is True
+
+
+@pytest.mark.asyncio
+async def test_fallback_accepts_shorter_sentences():
+    """Sentences 25-39 chars should now be accepted by fallback."""
+    from deepresearch.agents.researcher import SourceChunk
+
+    agent, _, _ = _agent()
+    task = TaskNode(task_id="t1", description="test task", goal="understand embeddings")
+    chunks = [
+        SourceChunk(
+            chunk_id="c1",
+            document_id="doc-1",
+            content="Embeddings encode semantic meaning.",  # 35 chars
+            source_url="http://example.com",
+            title="Embeddings",
+            source_type="web",
+        ),
+    ]
+    result = agent._fallback_evidence_from_chunks(task, chunks)
+    assert len(result) >= 1
+
+
+@pytest.mark.asyncio
+async def test_fallback_allows_up_to_5_items():
+    """Fallback cap should be 5, not 3."""
+    from deepresearch.agents.researcher import SourceChunk
+
+    agent, _, _ = _agent()
+    task = TaskNode(
+        task_id="t1",
+        description="test task",
+        goal="understand embeddings and vectors and semantic meaning",
+    )
+    chunks = [
+        SourceChunk(
+            chunk_id=f"c{i}",
+            document_id=f"doc-{i}",
+            content=(
+                f"Embeddings encode semantic meaning in vector form number {i}. "
+                f"They capture relationships between words and concepts effectively."
+            ),
+            source_url=f"http://example.com/{i}",
+            title=f"Doc {i}",
+            source_type="web",
+        )
+        for i in range(8)
+    ]
+    result = agent._fallback_evidence_from_chunks(task, chunks)
+    assert len(result) >= 4
+    assert len(result) <= 5
