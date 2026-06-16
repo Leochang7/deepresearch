@@ -1,0 +1,7 @@
+# OpenAI GPT-4o configuration
+[llm]
+provider = "openai_compatible"
+model = "gpt-4o"
+base_url = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+api_key_header = "Authorization"

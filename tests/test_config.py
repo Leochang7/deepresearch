@@ -197,3 +197,21 @@ model = "file_model"
         )
         assert cfg.llm.provider == "file_provider"
         assert cfg.llm.model == "cli_model"
+
+
+def test_model_config_files_exist():
+    models_dir = Path("examples/configs/models")
+    assert models_dir.is_dir()
+    configs = list(models_dir.glob("*.toml"))
+    assert len(configs) >= 4
+    names = {c.stem for c in configs}
+    assert "mimo" in names
+    assert "deepseek" in names
+    assert "openai" in names
+    assert "vllm" in names
+
+
+def test_model_configs_parse():
+    for toml_path in Path("examples/configs/models").glob("*.toml"):
+        cfg = DeepResearchConfig.from_toml(toml_path)
+        assert cfg.llm.provider in ("mimo", "deepseek", "openai_compatible")

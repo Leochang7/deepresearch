@@ -1,0 +1,7 @@
+# vLLM local deployment configuration
+[llm]
+provider = "openai_compatible"
+model = "Qwen/Qwen2.5-72B-Instruct"
+base_url = "http://localhost:8000/v1"
+api_key_env = "VLLM_API_KEY"
+api_key_header = "Authorization"

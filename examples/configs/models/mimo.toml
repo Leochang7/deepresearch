@@ -1,0 +1,8 @@
+# MiMo v2.5 Pro configuration
+[llm]
+provider = "mimo"
+model = "mimo-v2.5-pro"
+base_url = "https://api.xiaomimimo.com/v1"
+api_key_env = "MIMO_API_KEY"
+api_key_header = "api-key"
+thinking = "disabled"
