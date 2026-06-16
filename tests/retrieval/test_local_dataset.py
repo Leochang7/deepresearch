@@ -57,6 +57,21 @@ class TestLocalDatasetRetriever:
         assert "Machine learning" in results[0].content
 
     @pytest.mark.asyncio
+    async def test_reads_nested_corpus_files(self, tmp_path):
+        nested = tmp_path / "crosslingual"
+        nested.mkdir()
+        (nested / "rag.md").write_text(
+            "检索增强生成 combines retrieval and generation.",
+            encoding="utf-8",
+        )
+
+        retriever = LocalDatasetRetriever(tmp_path)
+        results = await retriever.retrieve(["检索增强生成 retrieval generation"])
+
+        assert len(results) == 1
+        assert results[0].title == "rag"
+
+    @pytest.mark.asyncio
     async def test_reads_jsonl_files(self, tmp_path):
         (tmp_path / "corpus.jsonl").write_text(
             '{"id":"doc-1","title":"Agent Paper","url":"https://example.com/a","source_type":"paper","content":"Multi agent research systems","metadata":{"year":2025}}'

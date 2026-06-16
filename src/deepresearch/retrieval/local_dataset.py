@@ -54,7 +54,9 @@ class LocalDatasetRetriever(Retriever):
             return []
 
         docs: list[RetrievedDocument] = []
-        for f in self._corpus_dir.iterdir():
+        for f in sorted(self._corpus_dir.rglob("*")):
+            if not f.is_file():
+                continue
             if f.suffix not in (".md", ".jsonl", ".txt"):
                 continue
             if f.suffix == ".jsonl":

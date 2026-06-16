@@ -147,8 +147,20 @@ class ResearchAgent:
         queries = await self._generate_queries(task)
         # Expand Chinese queries with English term aliases for cross-lingual retrieval
         expanded_queries: list[str] = []
+        seen_queries: set[str] = set()
         for q in queries:
-            expanded_queries.extend(expand_query(q))
+            for expanded in expand_query(q):
+                if expanded not in seen_queries:
+                    expanded_queries.append(expanded)
+                    seen_queries.add(expanded)
+        self._report_progress(
+            "queries_expanded",
+            {
+                "original_query_count": len(queries),
+                "expanded_query_count": len(expanded_queries),
+                "expansion_count": max(0, len(expanded_queries) - len(queries)),
+            },
+        )
         queries = expanded_queries[: self._max_queries * 2]
         self._report_progress("queries_generated", {"query_count": len(queries)})
         per_query_results = await asyncio.gather(

@@ -453,6 +453,55 @@ async def test_retriever_called_per_query():
 
 
 @pytest.mark.asyncio
+async def test_query_expansion_reports_progress_and_dedupes_queries():
+    progress_events = []
+    llm = MockLLM(
+        [
+            json.dumps(
+                {
+                    "queries": [
+                        "什么是检索增强生成",
+                        "什么是检索增强生成",
+                    ]
+                }
+            ),
+            json.dumps({"evidence": []}),
+        ]
+    )
+    retriever = MockRetriever([_document()])
+    fetcher = AsyncMock()
+    fetcher.fetch.return_value = FetchResult(
+        url="https://example.com/source",
+        title="RAG",
+        content="检索增强生成 combines retrieval and generation for question answering.",
+        success=True,
+    )
+    agent = ResearchAgent(
+        llm,
+        retriever,
+        MockMemoryStore(),
+        MockEmbeddingClient(),
+        MockRerankerClient(),
+        fetcher=fetcher,
+        progress=lambda stage, metadata: progress_events.append((stage, metadata)),
+    )
+
+    result = await agent.execute(
+        TaskNode(task_id="t1", description="什么是检索增强生成", goal=""),
+        run_id="run-1",
+    )
+
+    assert len(result["queries"]) == len(set(result["queries"]))
+    assert any("retrieval-augmented generation" in q for q in result["queries"])
+    expansion_event = next(
+        metadata for stage, metadata in progress_events if stage == "queries_expanded"
+    )
+    assert expansion_event["original_query_count"] == 3
+    assert expansion_event["expanded_query_count"] == len(result["queries"])
+    assert expansion_event["expansion_count"] > 0
+
+
+@pytest.mark.asyncio
 async def test_researcher_uses_independent_keyword_recall():
     memory = TrackingMemoryStore()
     agent, _, _ = _agent(memory=memory)
