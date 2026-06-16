@@ -919,3 +919,39 @@ def test_summary_language_breakdown_without_cases():
     summary = _build_summary(results, total_elapsed=1.0)
     assert summary["per_question_lang"] == {}
     assert summary["per_evidence_lang"] == {}
+
+
+def test_compare_summaries():
+    from deepresearch.evaluation.benchmark import compare_summaries
+
+    before = {
+        "avg_task_success_rate": 0.6,
+        "avg_citation_coverage": 0.5,
+        "per_question_lang": {
+            "en": {"avg_citation_coverage": 0.7, "count": 5},
+            "zh": {"avg_citation_coverage": 0.3, "count": 3},
+        },
+    }
+    after = {
+        "avg_task_success_rate": 0.8,
+        "avg_citation_coverage": 0.7,
+        "per_question_lang": {
+            "en": {"avg_citation_coverage": 0.8, "count": 5},
+            "zh": {"avg_citation_coverage": 0.6, "count": 3},
+        },
+    }
+    diff = compare_summaries(before, after)
+    assert diff["avg_task_success_rate"]["delta"] == pytest.approx(0.2)
+    assert diff["avg_citation_coverage"]["delta"] == pytest.approx(0.2)
+    assert diff["per_question_lang"]["zh"]["avg_citation_coverage"]["delta"] == pytest.approx(0.3)
+
+
+def test_compare_summaries_missing_keys():
+    """Comparison handles missing keys gracefully."""
+    from deepresearch.evaluation.benchmark import compare_summaries
+
+    before = {"avg_task_success_rate": 0.5}
+    after = {"avg_task_success_rate": 0.7, "avg_citation_coverage": 0.6}
+    diff = compare_summaries(before, after)
+    assert diff["avg_task_success_rate"]["delta"] == pytest.approx(0.2)
+    assert diff["avg_citation_coverage"]["delta"] == pytest.approx(0.6)
