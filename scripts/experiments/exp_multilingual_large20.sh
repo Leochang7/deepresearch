@@ -6,7 +6,8 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
 EXPERIMENT_ID="${1:-multilingual-large20-$(date +%Y%m%d-%H%M%S)}"
-OUTPUT="outputs/experiments/${EXPERIMENT_ID}"
+OUTPUT_ROOT="outputs/experiments"
+OUTPUT="${OUTPUT_ROOT}/${EXPERIMENT_ID}"
 
 echo "=== Multilingual Large20 Regression ==="
 echo "Experiment: ${EXPERIMENT_ID}"
@@ -18,7 +19,7 @@ uv run deepresearch benchmark \
   --retriever local \
   --corpus examples/corpus \
   --config examples/configs/benchmark_smoke.toml \
-  --output "$OUTPUT" \
+  --output "$OUTPUT_ROOT" \
   --experiment "$EXPERIMENT_ID"
 
 echo ""

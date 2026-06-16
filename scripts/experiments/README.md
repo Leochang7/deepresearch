@@ -5,9 +5,12 @@ delegate to the CLI.
 
 ## Conventions
 
-- Output: `outputs/experiments/<experiment_id>/`
+- Output: `outputs/experiments/<experiment_id>/`; suite-style scripts use
+  `outputs/experiments/<suite_id>/<dataset_or_variant>/`
 - Each script accepts optional experiment ID as first argument
-- Scripts exit non-zero on benchmark failure
+- Single-run smoke scripts exit non-zero on benchmark failure; comparison and
+  suite scripts continue after individual failures and record missing/failed
+  datasets in `suite_summary.json`
 - Real-mode scripts require `.env` with API keys
 
 ## Available Scripts

@@ -8,10 +8,12 @@ Set-Location $ProjectRoot
 $Dataset = if ($args.Count -gt 0) { $args[0] } else { "examples/bench/researchbench_smoke5.jsonl" }
 $Labels = @("production", "staging")
 $Timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$OutputRoot = "outputs/experiments/prompt-ablation-$Timestamp"
+$Expected = @()
 
 foreach ($label in $Labels) {
-    $ExpId = "prompt-ablation-$label-$Timestamp"
-    $Output = "outputs/experiments/$ExpId"
+    $ExpId = "$label"
+    $Expected += $ExpId
 
     Write-Host "=== Prompt label: $label ==="
     try {
@@ -21,7 +23,7 @@ foreach ($label in $Labels) {
             --corpus examples/corpus `
             --config examples/configs/benchmark_smoke.toml `
             --prompt-provider langfuse `
-            --output $Output `
+            --output $OutputRoot `
             --experiment $ExpId
     } catch {
         Write-Host "WARNING: $label failed, continuing..."
@@ -29,4 +31,7 @@ foreach ($label in $Labels) {
     Write-Host ""
 }
 
+uv run python -m deepresearch.evaluation.compare suite $OutputRoot --expected ($Expected -join ",")
+
 Write-Host "=== Prompt ablation complete ==="
+Write-Host "Results in: $OutputRoot"

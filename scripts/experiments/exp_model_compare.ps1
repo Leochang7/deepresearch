@@ -8,8 +8,10 @@ Set-Location $ProjectRoot
 $Dataset = if ($args.Count -gt 0) { $args[0] } else { "examples/bench/researchbench_smoke5.jsonl" }
 $ExperimentPrefix = if ($args.Count -gt 1) { $args[1] } else { "model-compare" }
 $Timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$OutputRoot = "outputs/experiments/$ExperimentPrefix-$Timestamp"
 
 $Models = @("mimo", "deepseek", "openai", "vllm")
+$Expected = @()
 
 foreach ($model in $Models) {
     $Config = "examples/configs/models/$model.toml"
@@ -18,8 +20,8 @@ foreach ($model in $Models) {
         continue
     }
 
-    $ExpId = "$ExperimentPrefix-$model-$Timestamp"
-    $Output = "outputs/experiments/$ExpId"
+    $ExpId = "$model"
+    $Expected += $ExpId
 
     Write-Host "=== Running: $model ==="
     try {
@@ -28,7 +30,7 @@ foreach ($model in $Models) {
             --retriever local `
             --corpus examples/corpus `
             --config $Config `
-            --output $Output `
+            --output $OutputRoot `
             --experiment $ExpId
     } catch {
         Write-Host "WARNING: $model failed, continuing..."
@@ -36,4 +38,7 @@ foreach ($model in $Models) {
     Write-Host ""
 }
 
+uv run python -m deepresearch.evaluation.compare suite $OutputRoot --expected ($Expected -join ",")
+
 Write-Host "=== Model comparison complete ==="
+Write-Host "Results in: $OutputRoot"

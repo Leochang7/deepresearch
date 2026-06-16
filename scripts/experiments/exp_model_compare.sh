@@ -8,8 +8,10 @@ cd "$PROJECT_ROOT"
 DATASET="${1:-examples/bench/researchbench_smoke5.jsonl}"
 EXPERIMENT_PREFIX="${2:-model-compare}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+OUTPUT_ROOT="outputs/experiments/${EXPERIMENT_PREFIX}-${TIMESTAMP}"
 
 MODELS=("mimo" "deepseek" "openai" "vllm")
+EXPECTED=()
 
 for model in "${MODELS[@]}"; do
   CONFIG="examples/configs/models/${model}.toml"
@@ -18,8 +20,8 @@ for model in "${MODELS[@]}"; do
     continue
   fi
 
-  EXP_ID="${EXPERIMENT_PREFIX}-${model}-${TIMESTAMP}"
-  OUTPUT="outputs/experiments/${EXP_ID}"
+  EXP_ID="${model}"
+  EXPECTED+=("$EXP_ID")
 
   echo "=== Running: $model ==="
   uv run deepresearch benchmark "$DATASET" \
@@ -27,11 +29,14 @@ for model in "${MODELS[@]}"; do
     --retriever local \
     --corpus examples/corpus \
     --config "$CONFIG" \
-    --output "$OUTPUT" \
+    --output "$OUTPUT_ROOT" \
     --experiment "$EXP_ID" \
     || echo "WARNING: $model failed, continuing..."
   echo ""
 done
 
+uv run python -m deepresearch.evaluation.compare suite "$OUTPUT_ROOT" \
+  --expected "$(IFS=,; echo "${EXPECTED[*]}")"
+
 echo "=== Model comparison complete ==="
-echo "Results in: outputs/experiments/${EXPERIMENT_PREFIX}-*"
+echo "Results in: ${OUTPUT_ROOT}"

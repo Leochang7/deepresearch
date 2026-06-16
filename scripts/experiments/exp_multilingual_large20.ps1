@@ -6,7 +6,8 @@ $ProjectRoot = Resolve-Path "$ScriptDir/../.."
 Set-Location $ProjectRoot
 
 $ExperimentId = if ($args.Count -gt 0) { $args[0] } else { "multilingual-large20-$(Get-Date -Format 'yyyyMMdd-HHmmss')" }
-$Output = "outputs/experiments/$ExperimentId"
+$OutputRoot = "outputs/experiments"
+$Output = "$OutputRoot/$ExperimentId"
 
 Write-Host "=== Multilingual Large20 Regression ==="
 Write-Host "Experiment: $ExperimentId"
@@ -18,7 +19,7 @@ uv run deepresearch benchmark `
   --retriever local `
   --corpus examples/corpus `
   --config examples/configs/benchmark_smoke.toml `
-  --output $Output `
+  --output $OutputRoot `
   --experiment $ExperimentId
 
 Write-Host ""

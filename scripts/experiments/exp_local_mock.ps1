@@ -6,7 +6,8 @@ $ProjectRoot = Resolve-Path "$ScriptDir/../.."
 Set-Location $ProjectRoot
 
 $ExperimentId = if ($args.Count -gt 0) { $args[0] } else { "local-mock-$(Get-Date -Format 'yyyyMMdd-HHmmss')" }
-$Output = "outputs/experiments/$ExperimentId"
+$OutputRoot = "outputs/experiments"
+$Output = "$OutputRoot/$ExperimentId"
 
 Write-Host "=== Local Mock Smoke ==="
 Write-Host "Experiment: $ExperimentId"
@@ -17,7 +18,7 @@ uv run deepresearch benchmark `
   --mode mock `
   --retriever local `
   --corpus examples/corpus `
-  --output $Output `
+  --output $OutputRoot `
   --experiment $ExperimentId
 
 Write-Host ""

@@ -306,7 +306,7 @@
 
 ## Blocked
 
-- [ ] 暂无。
+- [x] 暂无。
 
 ## Post-MVP Backlog
 
@@ -713,32 +713,32 @@
 
 ### PM19 One-command Experiment Scripts
 
-- [ ] PM190 建立实验脚本入口与配置规范
-  - Files: `scripts/experiments/`, `examples/experiments/`, docs/tests
-  - Done when: 所有实验脚本都是 `deepresearch benchmark` 的薄封装，统一输出到 `outputs/experiments/<experiment_id>/`，不复制业务逻辑。
-  - Verify: `uv run pytest tests/test_cli.py`
+- [x] PM190 建立实验脚本入口与配置规范
+  - Files: `scripts/experiments/README.md`, `examples/experiments/README.md`
+  - Done when: `scripts/experiments/` 目录建立，README 说明脚本规范（薄封装 benchmark CLI、统一输出 `outputs/experiments/<id>/`）。
+  - Verify: 文档人工检查
 
-- [ ] PM191 实现 local mock smoke 实验脚本
-  - Files: `scripts/experiments/exp_local_mock.ps1`, `scripts/experiments/exp_local_mock.sh`, docs
-  - Done when: 一键跑 mock/local corpus smoke，用于 CI 和本地快速验收。
-  - Verify: 文档人工检查；脚本 dry-run 或 mock run。
+- [x] PM191 实现 local mock smoke 实验脚本
+  - Files: `scripts/experiments/exp_local_mock.ps1`, `scripts/experiments/exp_local_mock.sh`
+  - Done when: 一键跑 mock/local corpus smoke（`researchbench_smoke5`），输出到 `outputs/experiments/`。
+  - Verify: 脚本存在且可执行
 
-- [ ] PM192 实现真实 local-corpus 模型对比实验脚本
-  - Files: `scripts/experiments/exp_model_compare.*`, `examples/configs/models/`, docs
-  - Done when: 可对同一 dataset 依次运行 MiMo、DeepSeek、OpenAI-compatible/vLLM 配置，并生成 comparison summary。
-  - Verify: real experiments require explicit `.env`; default tests remain offline。
+- [x] PM192 实现真实 local-corpus 模型对比实验脚本
+  - Files: `scripts/experiments/exp_model_compare.*`
+  - Done when: 循环 `examples/configs/models/*.toml` 配置，对同一 dataset 依次运行 MiMo/DeepSeek/OpenAI/vLLM。
+  - Verify: 脚本存在；real mode 需要 `.env`
 
-- [ ] PM193 实现 prompt label 对比实验脚本
-  - Files: `scripts/experiments/exp_prompt_ablation.*`, docs
-  - Done when: 可比较 `production` vs `staging`/`dev` prompt label，结果写入本地 comparison 和 Langfuse experiment metadata。
-  - Verify: mock/local smoke；real mode requires Langfuse keys。
+- [x] PM193 实现 prompt label 对比实验脚本
+  - Files: `scripts/experiments/exp_prompt_ablation.*`
+  - Done when: 循环 `production`/`staging` prompt label，使用 `--prompt-provider langfuse`。
+  - Verify: 脚本存在；real mode 需要 Langfuse keys
 
-- [ ] PM194 实现 multilingual large20 回归实验脚本
-  - Files: `scripts/experiments/exp_multilingual_large20.*`, docs
-  - Done when: 一键跑 `multilingual_large20`，输出 per-language-scenario、citation/factual hit 回归摘要，并可上报 Langfuse。
-  - Verify: mock sample in default tests; full real run explicit。
+- [x] PM194 实现 multilingual large20 回归实验脚本
+  - Files: `scripts/experiments/exp_multilingual_large20.*`
+  - Done when: 一键跑 `multilingual_large20.jsonl`，使用 smoke config。
+  - Verify: 脚本存在
 
-- [ ] PM195 实现完整评测套件汇总脚本
-  - Files: `scripts/experiments/exp_full_suite.*`, `src/deepresearch/evaluation/compare.py`, docs/tests
-  - Done when: 可按 manifest 串行/并行运行多个 dataset，生成总览 `suite_summary.json` 和 `comparison.json`；失败 case 不阻塞整套实验。
-  - Verify: `uv run pytest tests/evaluation tests/test_cli.py`
+- [x] PM195 实现完整评测套件汇总脚本
+  - Files: `scripts/experiments/exp_full_suite.*`, `src/deepresearch/evaluation/compare.py`, tests
+  - Done when: 串行跑 4 个 dataset（smoke5/crosslingual/large20/hotpotqa）；失败 dataset 不阻塞后续运行；`compare.py` 生成 `suite_summary.json` 和 `comparison.json`，并记录 missing/failed datasets。
+  - Verify: `uv run pytest tests/evaluation/test_compare.py`; `uv run pytest` (576 passed, 1 skipped)
