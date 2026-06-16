@@ -132,7 +132,18 @@ async def _run_case(
         case_dir = output_dir / case.id
         manager = manager_factory()
         run_start = time.monotonic()
-        run_result = await manager.run(case.question, output_dir=case_dir)
+        run_result = await manager.run(
+            case.question,
+            output_dir=case_dir,
+            langfuse_metadata={
+                "case_id": case.id,
+                "domain": case.domain,
+                "difficulty": case.difficulty,
+                "question_lang": case.question_lang,
+                "evidence_lang": case.evidence_lang,
+                "source_dataset": case.source_dataset,
+            },
+        )
         elapsed = time.monotonic() - run_start
         evidence = RunManager._collect_evidence(run_result.plan_tasks)
         evaluation = evaluate(

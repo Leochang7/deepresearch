@@ -124,7 +124,7 @@ async def test_run_benchmark_fault_isolation_returns_error_result(tmp_path):
     class FakeManager:
         calls = 0
 
-        async def run(self, question, *, output_dir):
+        async def run(self, question, *, output_dir, **kwargs):
             output_dir.mkdir(parents=True)
             FakeManager.calls += 1
             if FakeManager.calls == 2:
@@ -286,7 +286,7 @@ async def test_run_benchmark_recomputes_case_aware_metrics(tmp_path):
     )
 
     class FakeManager:
-        async def run(self, question, *, output_dir):
+        async def run(self, question, *, output_dir, **kwargs):
             output_dir.mkdir(parents=True)
             return SimpleNamespace(
                 run_id="run-1",
@@ -368,7 +368,7 @@ async def test_run_benchmark_uses_manager_llm_for_fact_judge(tmp_path):
         def __init__(self) -> None:
             self._llm = llm
 
-        async def run(self, question, *, output_dir):
+        async def run(self, question, *, output_dir, **kwargs):
             output_dir.mkdir(parents=True)
             return SimpleNamespace(
                 run_id="run-judge",
@@ -625,7 +625,7 @@ async def test_run_benchmark_concurrent(tmp_path):
     )
 
     class TimedManager:
-        async def run(self, question, *, output_dir):
+        async def run(self, question, *, output_dir, **kwargs):
             output_dir.mkdir(parents=True)
             await _asyncio.sleep(0.15)
             return SimpleNamespace(
@@ -675,7 +675,7 @@ async def test_run_benchmark_fault_isolation(tmp_path):
     )
 
     class FailManager:
-        async def run(self, question, *, output_dir):
+        async def run(self, question, *, output_dir, **kwargs):
             output_dir.mkdir(parents=True)
             if "fail" in question:
                 raise RuntimeError("simulated failure")
@@ -747,7 +747,7 @@ async def test_run_benchmark_results_in_case_order(tmp_path):
     )
 
     class VariableSpeedManager:
-        async def run(self, question, *, output_dir):
+        async def run(self, question, *, output_dir, **kwargs):
             output_dir.mkdir(parents=True)
             # First case is slow, rest are fast
             delay = 0.2 if "slow" in question else 0.05

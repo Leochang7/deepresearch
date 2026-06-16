@@ -199,6 +199,56 @@ def test_report_run_judge_scores_defaults_when_missing():
     assert len(score_calls) == 6
 
 
+def test_langfuse_trace_metadata_includes_benchmark_fields():
+    """Langfuse trace metadata should include case_id, domain, difficulty, language fields."""
+    mock_langfuse_cls = MagicMock()
+    mock_client = MagicMock()
+    mock_trace = MagicMock()
+    mock_langfuse_cls.return_value = mock_client
+    del mock_client.start_observation
+    mock_client.trace.return_value = mock_trace
+
+    with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse_cls)}):
+        adapter = LangfuseAdapter(
+            enabled=True, public_key="pk", secret_key="sk", host="http://test"
+        )
+        adapter.report_run(
+            "r1",
+            "Q",
+            {"summary": "R"},
+            {
+                "task_success_rate": 0.8,
+                "citation_coverage": 0.7,
+                "report_section_completeness": 1.0,
+                "red_issue_count": 0,
+                "factual_hit_rate": 0.9,
+                "hallucination_flag": False,
+            },
+            {},
+            {"model": "test"},
+            {},
+            case_id="rbf-001",
+            domain="llm_agents",
+            difficulty="medium",
+            question_lang="zh",
+            evidence_lang="mixed",
+            source_dataset="researchbench_full",
+            model_backend="mimo",
+            prompt_label="production",
+        )
+
+    call_kwargs = mock_client.trace.call_args.kwargs
+    metadata = call_kwargs.get("metadata", {})
+    assert metadata.get("case_id") == "rbf-001"
+    assert metadata.get("domain") == "llm_agents"
+    assert metadata.get("difficulty") == "medium"
+    assert metadata.get("question_lang") == "zh"
+    assert metadata.get("evidence_lang") == "mixed"
+    assert metadata.get("source_dataset") == "researchbench_full"
+    assert metadata.get("model_backend") == "mimo"
+    assert metadata.get("prompt_label") == "production"
+
+
 def test_report_run_calls_langfuse_v4():
     mock_langfuse_cls = MagicMock()
     mock_client = MagicMock()

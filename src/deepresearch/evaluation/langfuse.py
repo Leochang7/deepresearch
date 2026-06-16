@@ -62,9 +62,32 @@ class LangfuseAdapter:
         budget: dict[str, Any],
         config_summary: dict[str, Any],
         trace_summary: dict[str, Any],
+        *,
+        case_id: str = "",
+        domain: str = "",
+        difficulty: str = "",
+        question_lang: str = "",
+        evidence_lang: str = "",
+        source_dataset: str = "",
+        model_backend: str = "",
+        prompt_label: str = "",
     ) -> None:
         if not self._enabled or not self._client:
             return
+        benchmark_metadata: dict[str, Any] = {}
+        if case_id:
+            benchmark_metadata.update(
+                {
+                    "case_id": case_id,
+                    "domain": domain,
+                    "difficulty": difficulty,
+                    "question_lang": question_lang,
+                    "evidence_lang": evidence_lang,
+                    "source_dataset": source_dataset,
+                    "model_backend": model_backend,
+                    "prompt_label": prompt_label,
+                }
+            )
         try:
             if hasattr(self._client, "start_observation"):
                 self._report_run_v4(
@@ -75,12 +98,18 @@ class LangfuseAdapter:
                     budget,
                     config_summary,
                     trace_summary,
+                    benchmark_metadata,
                 )
                 return
+            full_metadata = {
+                **config_summary,
+                **benchmark_metadata,
+                "trace_summary": trace_summary,
+            }
             trace = self._client.trace(
                 name=f"deepresearch-{run_id}",
                 input={"question": question},
-                metadata={"config": config_summary, "trace_summary": trace_summary},
+                metadata=full_metadata,
             )
             trace.score(
                 name="task_success_rate",
@@ -129,8 +158,14 @@ class LangfuseAdapter:
         budget: dict[str, Any],
         config_summary: dict[str, Any],
         trace_summary: dict[str, Any],
+        benchmark_metadata: dict[str, Any] | None = None,
     ) -> None:
         trace_id = self._client.create_trace_id(seed=run_id)
+        full_metadata = {
+            **config_summary,
+            **(benchmark_metadata or {}),
+            "trace_summary": trace_summary,
+        }
         observation = self._client.start_observation(
             trace_context={"trace_id": trace_id},
             name=f"deepresearch-{run_id}",
@@ -141,7 +176,7 @@ class LangfuseAdapter:
                 "evaluation": evaluation,
                 "budget": budget,
             },
-            metadata={"config": config_summary, "trace_summary": trace_summary},
+            metadata=full_metadata,
         )
         for score_name in (
             "task_success_rate",

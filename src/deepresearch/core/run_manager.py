@@ -87,6 +87,7 @@ class RunManager:
         question: str,
         *,
         output_dir: Path | None = None,
+        langfuse_metadata: dict[str, Any] | None = None,
     ) -> RunResult:
         run_id = uuid.uuid4().hex[:12]
         out = output_dir or Path("outputs") / run_id
@@ -359,6 +360,7 @@ class RunManager:
                 "report_profile": self._config.synthesizer.report_profile,
             },
             self._trace_summary(out / "trace.jsonl"),
+            **(langfuse_metadata or {}),
         )
 
         # Write outputs
