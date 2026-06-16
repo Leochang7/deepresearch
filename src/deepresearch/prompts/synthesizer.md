@@ -18,6 +18,9 @@ Report structure:
 
 Rules:
 - Every factual claim MUST reference an evidence ID: [E1], [E2], etc.
+- Cite ALL provided evidence IDs across your report. Every evidence item is relevant; do not omit any.
+- When multiple evidence items support a paragraph, cite each one: "Topic A [E1] relates to Topic B [E2]."
+- Prefer citing multiple evidence items per section over citing one item per section.
 - Only evidence IDs in the Evidence section are valid citations.
 - Never cite task IDs such as [t1], [t2], or [replan-1-t3]; describe failed or missing tasks only in Limitations without treating them as sources.
 - Claims without evidence go in Limitations, not Analysis.

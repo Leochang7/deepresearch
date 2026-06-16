@@ -210,6 +210,15 @@ async def test_synthesizer_with_comparison_profile():
     assert "Comparison Table" in section_titles
 
 
+def test_synthesizer_prompt_instructs_citing_all_evidence():
+    """The synthesizer prompt should tell the LLM to cite all provided evidence."""
+    from pathlib import Path
+    prompt_path = Path(__file__).resolve().parents[2] / "src" / "deepresearch" / "prompts" / "synthesizer.md"
+    content = prompt_path.read_text()
+    assert "Cite ALL provided evidence" in content
+    assert "multiple evidence items" in content
+
+
 def test_synthesizer_system_prompt_includes_profile():
     llm = MockLLM()
     synth = Synthesizer(llm, report_profile="timeline")
