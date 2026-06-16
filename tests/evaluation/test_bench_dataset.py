@@ -88,3 +88,69 @@ def test_hotpotqa_deepresearch_dataset():
     assert all(c.source_dataset == "hotpotqa_deepresearch" for c in cases)
     multi_hop = [c for c in cases if "multi_hop" in c.tags]
     assert len(multi_hop) >= 4
+
+
+def test_researchbench_full_dataset():
+    path = Path("examples/bench/researchbench_full.jsonl")
+    cases = load_dataset(path)
+    assert len(cases) >= 30
+    domains = {c.domain for c in cases}
+    assert len(domains) >= 10
+    assert all(c.source_dataset == "researchbench_full" for c in cases)
+    zh_cases = [c for c in cases if c.question_lang == "zh"]
+    assert len(zh_cases) >= 8
+    en_cases = [c for c in cases if c.question_lang == "en"]
+    assert len(en_cases) >= 15
+    ids = [c.id for c in cases]
+    assert len(ids) == len(set(ids))
+
+
+def test_manifest_lists_all_datasets():
+    from deepresearch.evaluation.datasets import load_manifest
+    manifest = load_manifest(Path("examples/bench"))
+    dataset_names = {d["name"] for d in manifest["datasets"]}
+    assert "researchbench_full" in dataset_names
+    assert "hotpotqa_deepresearch" in dataset_names
+    assert manifest["total_cases"] >= 40
+
+
+def test_validate_dataset_no_errors():
+    from deepresearch.evaluation.datasets import validate_dataset
+    errors = validate_dataset(Path("examples/bench/researchbench_full.jsonl"))
+    assert errors == []
+
+
+def test_validate_dataset_duplicate_ids(tmp_path):
+    from deepresearch.evaluation.datasets import validate_dataset
+    path = tmp_path / "dup.jsonl"
+    path.write_text(
+        '{"id":"d1","domain":"t","difficulty":"easy","question":"Q",'
+        '"expected_facts":["F"],"required_citations":1,"tags":[]}\n'
+        '{"id":"d1","domain":"t","difficulty":"easy","question":"Q2",'
+        '"expected_facts":["F"],"required_citations":1,"tags":[]}\n',
+        encoding="utf-8",
+    )
+    errors = validate_dataset(path)
+    assert any("duplicate" in e.lower() for e in errors)
+
+
+def test_validate_dataset_empty_expected_facts(tmp_path):
+    from deepresearch.evaluation.datasets import validate_dataset
+    path = tmp_path / "empty.jsonl"
+    path.write_text(
+        '{"id":"d1","domain":"t","difficulty":"easy","question":"Q",'
+        '"expected_facts":[],"required_citations":1,"tags":[]}\n',
+        encoding="utf-8",
+    )
+    errors = validate_dataset(path)
+    assert any("expected_facts" in e.lower() or "empty" in e.lower() for e in errors)
+
+
+def test_generate_manifest_json():
+    from deepresearch.evaluation.datasets import load_manifest
+    import json
+    manifest = load_manifest(Path("examples/bench"))
+    assert manifest["total_cases"] >= 40
+    manifest_path = Path("examples/bench/manifest.json")
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    assert manifest_path.exists()

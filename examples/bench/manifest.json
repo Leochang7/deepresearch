@@ -1,0 +1,135 @@
+{
+  "datasets": [
+    {
+      "name": "crosslingual_smoke10",
+      "path": "examples\\bench\\crosslingual_smoke10.jsonl",
+      "case_count": 10,
+      "domains": [
+        "cross_lingual",
+        "embeddings",
+        "evaluation",
+        "fine_tuning",
+        "llm_agents",
+        "rag",
+        "reasoning",
+        "safety"
+      ],
+      "question_languages": [
+        "en",
+        "mixed",
+        "zh"
+      ]
+    },
+    {
+      "name": "crosslingual_smoke3",
+      "path": "examples\\bench\\crosslingual_smoke3.jsonl",
+      "case_count": 3,
+      "domains": [
+        "cross_lingual"
+      ],
+      "question_languages": [
+        "en",
+        "zh"
+      ]
+    },
+    {
+      "name": "hotpotqa_deepresearch",
+      "path": "examples\\bench\\hotpotqa_deepresearch.jsonl",
+      "case_count": 8,
+      "domains": [
+        "education",
+        "film",
+        "geography",
+        "literature",
+        "technology"
+      ],
+      "question_languages": [
+        "en"
+      ]
+    },
+    {
+      "name": "multilingual_large20",
+      "path": "examples\\bench\\multilingual_large20.jsonl",
+      "case_count": 20,
+      "domains": [
+        "cross_lingual",
+        "data_quality",
+        "embeddings",
+        "evaluation",
+        "fine_tuning",
+        "llm_agents",
+        "model_compression",
+        "multimodal",
+        "orchestration",
+        "privacy",
+        "rag",
+        "reasoning",
+        "safety"
+      ],
+      "question_languages": [
+        "en",
+        "mixed",
+        "zh"
+      ]
+    },
+    {
+      "name": "researchbench_full",
+      "path": "examples\\bench\\researchbench_full.jsonl",
+      "case_count": 32,
+      "domains": [
+        "agent_orchestration",
+        "data_engineering",
+        "deployment",
+        "embeddings",
+        "evaluation",
+        "fine_tuning",
+        "llm_agents",
+        "memory_systems",
+        "multimodal",
+        "rag",
+        "reasoning",
+        "safety"
+      ],
+      "question_languages": [
+        "en",
+        "zh"
+      ]
+    },
+    {
+      "name": "researchbench_mini",
+      "path": "examples\\bench\\researchbench_mini.jsonl",
+      "case_count": 12,
+      "domains": [
+        "deployment",
+        "embeddings",
+        "evaluation",
+        "fine_tuning",
+        "llm_agents",
+        "memory",
+        "multimodal",
+        "rag",
+        "reasoning",
+        "safety"
+      ],
+      "question_languages": [
+        "en"
+      ]
+    },
+    {
+      "name": "researchbench_smoke5",
+      "path": "examples\\bench\\researchbench_smoke5.jsonl",
+      "case_count": 5,
+      "domains": [
+        "embeddings",
+        "fine_tuning",
+        "llm_agents",
+        "rag",
+        "reasoning"
+      ],
+      "question_languages": [
+        "en"
+      ]
+    }
+  ],
+  "total_cases": 90
+}
