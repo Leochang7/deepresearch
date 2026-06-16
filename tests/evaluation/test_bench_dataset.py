@@ -79,3 +79,12 @@ def test_benchmark_case_source_dataset_defaults(tmp_path):
     cases = load_dataset(path)
     assert cases[0].source_dataset == ""
     assert cases[0].evaluation_focus == ""
+
+
+def test_hotpotqa_deepresearch_dataset():
+    path = Path("examples/bench/hotpotqa_deepresearch.jsonl")
+    cases = load_dataset(path)
+    assert len(cases) >= 6
+    assert all(c.source_dataset == "hotpotqa_deepresearch" for c in cases)
+    multi_hop = [c for c in cases if "multi_hop" in c.tags]
+    assert len(multi_hop) >= 4
