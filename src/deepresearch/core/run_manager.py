@@ -74,6 +74,7 @@ class RunManager:
         memory: MemoryStore,
         embedding: EmbeddingClient,
         reranker: RerankerClient,
+        prompt_provider: PromptProvider | None = None,
     ) -> None:
         self._config = config
         self._llm = llm
@@ -81,6 +82,7 @@ class RunManager:
         self._memory = memory
         self._embedding = embedding
         self._reranker = reranker
+        self._prompt_provider = prompt_provider
 
     async def run(
         self,
@@ -101,7 +103,7 @@ class RunManager:
         reranker = BudgetedRerankerClient(self._reranker, budget)
         deadline = time.monotonic() + self._config.executor.global_timeout_seconds
 
-        prompt_provider = self._build_prompt_provider()
+        prompt_provider = self._prompt_provider or self._build_prompt_provider()
 
         planner = PlannerAgent(llm, prompt_provider=prompt_provider)
         synthesizer = Synthesizer(
@@ -144,35 +146,11 @@ class RunManager:
                     task_id=task.task_id,
                 )
 
-            researcher = ResearchAgent(
+            researcher = self._build_research_agent(
                 llm,
                 retriever,
-                self._memory,
                 embedding,
                 reranker,
-                fetcher=WebFetcher(
-                    timeout=self._config.fetch.timeout_seconds,
-                    max_retries=self._config.fetch.max_retries,
-                    user_agent=self._config.fetch.user_agent,
-                ),
-                quality_checker=DefaultEvidenceQualityChecker(
-                    min_confidence=self._config.evidence_quality.min_confidence,
-                    min_token_overlap=self._config.evidence_quality.min_token_overlap,
-                ),
-                max_queries=self._config.retrieval.max_queries_per_task,
-                max_documents=self._config.retrieval.max_docs_per_task,
-                max_chunks=self._config.retrieval.max_chunks_per_task,
-                vector_top_k=self._config.retrieval.top_k_vector,
-                rerank_top_k=self._config.retrieval.top_k_reranked,
-                rrf_k=self._config.fusion.rrf_k,
-                max_fused_docs=self._config.fusion.max_fused_docs,
-                max_fused_chunks=self._config.fusion.max_fused_chunks,
-                mmr_lambda=self._config.fusion.mmr_lambda,
-                max_mmr_results=self._config.fusion.max_mmr_results,
-                fetch_concurrency=min(
-                    self._config.retrieval.max_docs_per_task,
-                    10,
-                ),
                 progress=report_progress,
                 prompt_provider=prompt_provider,
             )
@@ -457,6 +435,49 @@ class RunManager:
             task_timeout_seconds=self._config.executor.task_timeout_seconds,
             global_timeout_seconds=remaining,
             max_llm_calls_per_run=self._config.executor.max_llm_calls_per_run,
+        )
+
+    def _build_research_agent(
+        self,
+        llm: LLMClient,
+        retriever: Retriever,
+        embedding: EmbeddingClient,
+        reranker: RerankerClient,
+        *,
+        progress: Any,
+        prompt_provider: PromptProvider | None,
+    ) -> ResearchAgent:
+        return ResearchAgent(
+            llm,
+            retriever,
+            self._memory,
+            embedding,
+            reranker,
+            fetcher=WebFetcher(
+                timeout=self._config.fetch.timeout_seconds,
+                max_retries=self._config.fetch.max_retries,
+                user_agent=self._config.fetch.user_agent,
+            ),
+            quality_checker=DefaultEvidenceQualityChecker(
+                min_confidence=self._config.evidence_quality.min_confidence,
+                min_token_overlap=self._config.evidence_quality.min_token_overlap,
+            ),
+            max_queries=self._config.retrieval.max_queries_per_task,
+            max_documents=self._config.retrieval.max_docs_per_task,
+            max_chunks=self._config.retrieval.max_chunks_per_task,
+            vector_top_k=self._config.retrieval.top_k_vector,
+            rerank_top_k=self._config.retrieval.top_k_reranked,
+            rrf_k=self._config.fusion.rrf_k,
+            max_fused_docs=self._config.fusion.max_fused_docs,
+            max_fused_chunks=self._config.fusion.max_fused_chunks,
+            mmr_lambda=self._config.fusion.mmr_lambda,
+            max_mmr_results=self._config.fusion.max_mmr_results,
+            fetch_concurrency=min(
+                self._config.retrieval.max_docs_per_task,
+                10,
+            ),
+            progress=progress,
+            prompt_provider=prompt_provider,
         )
 
     def _build_prompt_provider(self) -> PromptProvider | None:

@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from deepresearch.core.dag import DAG
-from deepresearch.core.state import InvalidStateTransition, TaskStateMachine
 from deepresearch.core.trace import TraceEventType, TraceLogger
 from deepresearch.schemas.task import TaskNode, TaskState
 
@@ -127,7 +126,7 @@ class DAGExecutor:
                 continue
 
             coros = [self._execute_task(task) for task in tasks_to_run]
-            await asyncio.gather(*coros, return_exceptions=True)
+            await asyncio.gather(*coros)
 
     def _all_terminal(self) -> bool:
         terminal_states = {
@@ -151,10 +150,9 @@ class DAGExecutor:
                 in (TaskState.FAILED, TaskState.CANCELLED, TaskState.SKIPPED)
                 for dep_id in deps
             ):
-                task.status = TaskState.SKIPPED
-                self._trace_event(
-                    TraceEventType.TASK_STATE_CHANGED,
+                self._set_status(
                     task,
+                    TaskState.SKIPPED,
                     {"status": "skipped", "reason": "dependency_failed"},
                 )
 
@@ -163,18 +161,11 @@ class DAGExecutor:
             if self._cancelled:
                 return
 
-            sm = TaskStateMachine(task.status)
-            try:
-                sm.transition(TaskState.READY)
-                task.status = TaskState.READY
-                sm.transition(TaskState.RUNNING)
-                task.status = TaskState.RUNNING
-            except InvalidStateTransition:
+            if task.status != TaskState.PENDING:
                 return
 
-            self._trace_event(
-                TraceEventType.TASK_STATE_CHANGED, task, {"status": "running"}
-            )
+            self._set_status(task, TaskState.READY, trace=False)
+            self._set_status(task, TaskState.RUNNING, {"status": "running"})
 
             for attempt in range(self._config.max_task_retries + 1):
                 try:
@@ -183,10 +174,11 @@ class DAGExecutor:
                         timeout=self._config.task_timeout_seconds,
                     )
                     task.result = result
-                    task.status = TaskState.SUCCEEDED
                     self._completed_tasks.add(task.task_id)
-                    self._trace_event(
-                        TraceEventType.TASK_STATE_CHANGED, task, {"status": "succeeded"}
+                    self._set_status(
+                        task,
+                        TaskState.SUCCEEDED,
+                        {"status": "succeeded"},
                     )
                     if self._on_complete:
                         await self._on_complete(task)
@@ -194,43 +186,38 @@ class DAGExecutor:
                 except TimeoutError:
                     self._failure_attempts[task.task_id] = attempt + 1
                     task.error = f"Task timeout ({self._config.task_timeout_seconds}s)"
-                    task.status = TaskState.FAILED
-                    self._trace_event(
-                        TraceEventType.TASK_STATE_CHANGED,
+                    self._set_status(
                         task,
+                        TaskState.FAILED,
                         {"status": "timeout", "attempt": attempt},
                     )
                 except Exception as e:
                     self._failure_attempts[task.task_id] = attempt + 1
                     task.error = str(e)
-                    task.status = TaskState.FAILED
-                    self._trace_event(
-                        TraceEventType.TASK_STATE_CHANGED,
+                    self._set_status(
                         task,
+                        TaskState.FAILED,
                         {"status": "error", "error": str(e), "attempt": attempt},
                     )
 
                 if attempt < self._config.max_task_retries:
                     task.retries = attempt + 1
-                    task.status = TaskState.RETRYING
-                    self._trace_event(
-                        TraceEventType.TASK_STATE_CHANGED,
+                    self._set_status(
                         task,
+                        TaskState.RETRYING,
                         {"status": "retrying", "attempt": attempt + 1},
                     )
-                    task.status = TaskState.RUNNING
+                    self._set_status(task, TaskState.RUNNING, trace=False)
 
             # Final status is already FAILED from the last iteration
             self._failed_tasks.append(task.task_id)
-            self._trace_event(
-                TraceEventType.TASK_STATE_CHANGED, task, {"status": "failed"}
-            )
+            self._set_status(task, TaskState.FAILED, {"status": "failed"})
 
     def cancel(self) -> None:
         self._cancelled = True
         for task in self._dag.tasks:
             if task.status in (TaskState.PENDING, TaskState.READY, TaskState.RUNNING):
-                task.status = TaskState.CANCELLED
+                self._set_status(task, TaskState.CANCELLED, trace=False)
 
     def _cancel_remaining(self) -> None:
         for task in self._dag.tasks:
@@ -239,7 +226,7 @@ class DAGExecutor:
                 TaskState.FAILED,
                 TaskState.CANCELLED,
             ):
-                task.status = TaskState.CANCELLED
+                self._set_status(task, TaskState.CANCELLED, trace=False)
 
     def check_replan(self) -> ReplanRequest | None:
         failed = list(dict.fromkeys(self._failed_tasks))
@@ -374,6 +361,22 @@ class DAGExecutor:
                 event_type,
                 {**data, "task_id": task.task_id},
                 task_id=task.task_id,
+            )
+
+    def _set_status(
+        self,
+        task: TaskNode,
+        status: TaskState,
+        data: dict[str, Any] | None = None,
+        *,
+        trace: bool = True,
+    ) -> None:
+        task.status = status
+        if trace:
+            self._trace_event(
+                TraceEventType.TASK_STATE_CHANGED,
+                task,
+                data or {"status": status.value.lower()},
             )
 
     def _build_result(self) -> dict[str, Any]:

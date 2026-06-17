@@ -24,6 +24,22 @@ def _manager(memory: MockMemoryStore | None = None) -> RunManager:
     )
 
 
+def test_run_manager_accepts_injected_prompt_provider():
+    provider = MagicMock()
+
+    manager = RunManager(
+        DeepResearchConfig(),
+        MockLLM(),
+        MockRetriever(),
+        MockMemoryStore(),
+        MockEmbeddingClient(),
+        MockRerankerClient(),
+        prompt_provider=provider,
+    )
+
+    assert manager._prompt_provider is provider
+
+
 def test_build_prompt_provider_fallback_constructs_local_provider(monkeypatch):
     config = DeepResearchConfig()
     config.langfuse.enabled = True
