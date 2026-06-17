@@ -193,3 +193,30 @@ def test_langfuse_trace_metadata_includes_benchmark_fields():
     assert metadata.get("source_dataset") == "researchbench_full"
     assert metadata.get("model_backend") == "mimo"
     assert metadata.get("prompt_label") == "production"
+
+
+def test_push_dataset_creates_langfuse_dataset():
+    """push_dataset should call client.create_dataset and client.create_dataset_item."""
+    mock_langfuse_cls = MagicMock()
+    mock_client = MagicMock()
+    mock_langfuse_cls.return_value = mock_client
+
+    with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse_cls)}):
+        adapter = LangfuseAdapter(
+            enabled=True, public_key="pk", secret_key="sk"
+        )
+        cases = [
+            {"id": "c1", "question": "Q1", "expected_facts": ["F1"], "domain": "d", "difficulty": "easy"},
+            {"id": "c2", "question": "Q2", "expected_facts": ["F2"], "domain": "d", "difficulty": "hard"},
+        ]
+        count = adapter.push_dataset(dataset_name="test_ds", cases=cases)
+        assert count == 2
+        mock_client.create_dataset.assert_called_once_with(name="test_ds")
+        assert mock_client.create_dataset_item.call_count == 2
+
+
+def test_push_dataset_noop_when_disabled():
+    """push_dataset should return 0 when adapter is disabled."""
+    adapter = LangfuseAdapter(enabled=False)
+    count = adapter.push_dataset(dataset_name="test", cases=[{"id": "c1"}])
+    assert count == 0

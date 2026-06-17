@@ -555,6 +555,63 @@ def prompts_cmd(
         raise typer.Exit(1)
 
 
+@app.command(name="datasets")
+def datasets_cmd(
+    action: str = typer.Argument(help="Action: push"),
+    dataset: str = typer.Option(
+        "researchbench_smoke5", "--dataset", "-d", help="Dataset name in Langfuse"
+    ),
+    source: str = typer.Option(
+        "examples/bench", "--source", "-s", help="Local JSONL directory"
+    ),
+    config_path: str | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Manage Langfuse datasets (push local JSONL to Langfuse)."""
+    if action != "push":
+        typer.echo(f"Unknown action: {action}. Use 'push'.", err=True)
+        raise typer.Exit(1)
+
+    cfg = _load_config_or_exit(config_path=config_path)
+    if not cfg.langfuse.enabled:
+        typer.echo(
+            "Langfuse is not enabled. Set DEEPRESEARCH_LANGFUSE_ENABLED=1.", err=True
+        )
+        raise typer.Exit(1)
+
+    from deepresearch.evaluation.langfuse import LangfuseAdapter
+
+    adapter = LangfuseAdapter(
+        enabled=True,
+        public_key=os.environ.get("LANGFUSE_PUBLIC_KEY", ""),
+        secret_key=os.environ.get("LANGFUSE_SECRET_KEY", ""),
+        host=cfg.langfuse.host,
+    )
+    if not adapter.is_enabled:
+        typer.echo("Langfuse adapter failed to initialize.", err=True)
+        raise typer.Exit(1)
+
+    # Find the JSONL file
+    source_path = Path(source)
+    jsonl_path = source_path / f"{dataset}.jsonl"
+    if not jsonl_path.is_file():
+        # Try direct path
+        jsonl_path = Path(dataset) if Path(dataset).is_file() else jsonl_path
+    if not jsonl_path.is_file():
+        typer.echo(f"Dataset file not found: {jsonl_path}", err=True)
+        raise typer.Exit(1)
+
+    # Load raw cases
+    cases = []
+    for line in jsonl_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line:
+            cases.append(json.loads(line))
+
+    typer.echo(f"Pushing {len(cases)} cases to Langfuse dataset '{dataset}'...")
+    count = adapter.push_dataset(dataset_name=dataset, cases=cases)
+    typer.echo(f"Pushed {count}/{len(cases)} items.")
+
+
 @app.command(name="benchmark")
 def benchmark_cmd(
     dataset: str = typer.Argument(help="Path to benchmark JSONL dataset"),

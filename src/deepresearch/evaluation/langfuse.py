@@ -171,6 +171,45 @@ class LangfuseAdapter:
         if hasattr(observation, "end"):
             observation.end()
 
+    def push_dataset(
+        self,
+        *,
+        dataset_name: str,
+        cases: list[dict],
+    ) -> int:
+        """Push benchmark cases to Langfuse as dataset items. Returns count pushed."""
+        self._init_client()
+        if not self._client:
+            return 0
+        try:
+            self._client.create_dataset(name=dataset_name)
+        except Exception:
+            pass  # dataset may already exist
+        count = 0
+        for case in cases:
+            try:
+                self._client.create_dataset_item(
+                    dataset_name=dataset_name,
+                    input={
+                        "question": case.get("question", ""),
+                        "case_id": case.get("id", ""),
+                    },
+                    expected_output={
+                        "expected_facts": case.get("expected_facts", []),
+                    },
+                    metadata={
+                        "domain": case.get("domain", ""),
+                        "difficulty": case.get("difficulty", ""),
+                        "question_lang": case.get("question_lang", "en"),
+                        "evidence_lang": case.get("evidence_lang", "en"),
+                    },
+                )
+                count += 1
+            except Exception:
+                pass
+        self._client.flush()
+        return count
+
     @property
     def is_enabled(self) -> bool:
         return self._enabled
