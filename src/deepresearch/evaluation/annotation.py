@@ -5,7 +5,10 @@ Flag benchmark results that need human review based on configurable thresholds.
 
 from __future__ import annotations
 
+import contextlib
+import json
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -70,3 +73,34 @@ def push_annotations(
 ) -> int:
     """Push annotation candidates to Langfuse. Returns count pushed."""
     return adapter.push_annotations(queue_name=queue_name, items=candidates)
+
+
+def import_annotations(
+    annotations_path: Path,
+    summary: dict[str, Any],
+) -> dict[str, Any]:
+    """Merge human annotations into a benchmark summary.
+
+    Reads a JSONL file where each line has {"case_id": ..., "verdict": ..., ...}.
+    Adds a "human_annotations" dict keyed by case_id to the summary.
+    Never overwrites existing summary fields.
+    """
+    if not annotations_path.is_file():
+        return summary
+
+    annotations: dict[str, dict[str, Any]] = {}
+    for line in annotations_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        with contextlib.suppress(Exception):
+            entry = json.loads(line)
+            case_id = entry.get("case_id", "")
+            if case_id:
+                annotations[case_id] = entry
+
+    if annotations:
+        result = dict(summary)
+        result["human_annotations"] = annotations
+        return result
+    return summary

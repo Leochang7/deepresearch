@@ -1,6 +1,12 @@
+import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
-from deepresearch.evaluation.annotation import push_annotations, select_annotation_candidates
+from deepresearch.evaluation.annotation import (
+    import_annotations,
+    push_annotations,
+    select_annotation_candidates,
+)
 
 
 def test_select_candidates_low_citation_coverage():
@@ -88,3 +94,39 @@ def test_push_annotations_noop_when_disabled():
     mock_adapter.is_enabled = False
     count = push_annotations(mock_adapter, [{"case_id": "c1"}], queue_name="q")
     assert count == 0
+
+
+def test_import_annotations_merges_into_summary(tmp_path):
+    annotations = [
+        {"case_id": "c1", "verdict": "correct", "notes": "Good report"},
+        {"case_id": "c2", "verdict": "incorrect", "notes": "Missing key fact"},
+    ]
+    ann_path = tmp_path / "annotations.jsonl"
+    ann_path.write_text(
+        "\n".join(json.dumps(a) for a in annotations), encoding="utf-8"
+    )
+
+    summary = {"total_cases": 2, "annotation_candidates": [{"case_id": "c1"}, {"case_id": "c2"}]}
+    result = import_annotations(ann_path, summary)
+
+    assert "human_annotations" in result
+    assert len(result["human_annotations"]) == 2
+    assert result["human_annotations"]["c1"]["verdict"] == "correct"
+    assert result["human_annotations"]["c2"]["verdict"] == "incorrect"
+    # Original summary fields preserved
+    assert result["total_cases"] == 2
+
+
+def test_import_annotations_missing_file():
+    summary = {"total_cases": 1}
+    result = import_annotations(Path("/nonexistent/ann.jsonl"), summary)
+    assert "human_annotations" not in result
+    assert result["total_cases"] == 1
+
+
+def test_import_annotations_empty_file(tmp_path):
+    ann_path = tmp_path / "empty.jsonl"
+    ann_path.write_text("", encoding="utf-8")
+    summary = {"total_cases": 0}
+    result = import_annotations(ann_path, summary)
+    assert result.get("human_annotations", {}) == {}
