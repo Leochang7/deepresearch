@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
+from deepresearch.agents.prompting import load_agent_prompt
+from deepresearch.agents.report_formatting import format_report_for_review
 from deepresearch.core.json_repair import parse_json
 from deepresearch.llm.base import LLMClient, LLMMessage
-from deepresearch.prompts.provider import LocalPromptProvider, PromptProvider
+from deepresearch.prompts.provider import PromptProvider
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ResearchReport
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 JUDGE_DIMENSIONS = [
     "factuality",
@@ -32,9 +31,8 @@ async def llm_as_judge(
     prompt_provider: PromptProvider | None = None,
 ) -> dict[str, float]:
     """Score a report on 5 dimensions using LLM."""
-    provider = prompt_provider or LocalPromptProvider(_DEFAULT_PROMPTS_DIR)
-    system_prompt = provider.get("judge_eval")
-    report_text = _format_report(report)
+    system_prompt = load_agent_prompt(prompt_provider, "judge_eval")
+    report_text = format_report_for_review(report)
     evidence_text = "\n".join(
         f'[{e.evidence_id}] {e.claim}: "{e.quote}" ({e.citation})' for e in evidence
     )
@@ -88,9 +86,8 @@ async def judge_facts(
     Only facts with matched=False are sent to the LLM.
     Returns updated fact_details with judge verdicts merged in.
     """
-    provider = prompt_provider or LocalPromptProvider(_DEFAULT_PROMPTS_DIR)
-    system_prompt = provider.get("fact_judge")
-    report_text = _format_report(report)
+    system_prompt = load_agent_prompt(prompt_provider, "fact_judge")
+    report_text = format_report_for_review(report)
     evidence_text = "\n".join(
         f'[{e.evidence_id}] {e.claim}: "{e.quote}" ({e.citation})' for e in evidence
     )
@@ -163,16 +160,3 @@ async def judge_facts(
             updated.append(dict(detail))
 
     return updated
-
-
-def _format_report(report: ResearchReport) -> str:
-    parts = [f"# {report.question}"]
-    if report.summary:
-        parts.append(f"\n## Executive Summary\n{report.summary}")
-    for section in report.sections:
-        parts.append(f"\n## {section.title}\n{section.content}")
-    if report.limitations:
-        parts.append(
-            "\n## Limitations\n" + "\n".join(f"- {item}" for item in report.limitations)
-        )
-    return "\n".join(parts)

@@ -15,7 +15,11 @@ class PromptProvider(Protocol):
     """Abstraction for prompt text retrieval."""
 
     def get(self, name: str) -> str:
-        """Return prompt text for the given name, or empty string if missing."""
+        """Return prompt text for the given name.
+
+        Local providers may return an empty string for missing prompts; strict
+        providers should raise PromptProviderError.
+        """
         ...
 
     def list_names(self) -> list[str]:
@@ -51,17 +55,11 @@ class LangfusePromptProvider:
     def get(self, name: str) -> str:
         try:
             prompt_name = f"deepresearch/{name}"
-            if hasattr(self._client, "get_prompt"):
-                prompt = self._client.get_prompt(
-                    prompt_name,
-                    label=self._label,
-                    type="text",
-                )
-            else:
-                prompt = self._client.prompt.get(
-                    name=prompt_name,
-                    label=self._label,
-                )
+            prompt = self._client.get_prompt(
+                prompt_name,
+                label=self._label,
+                type="text",
+            )
             result = prompt.compile()
         except Exception as exc:
             raise PromptProviderError(
