@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 
+from deepresearch.agents.prompting import load_agent_prompt
 from deepresearch.core.dag import DAG, CycleError
 from deepresearch.core.json_repair import parse_json
 from deepresearch.llm.base import LLMClient, LLMMessage
-from deepresearch.prompts.provider import LocalPromptProvider, PromptProvider
+from deepresearch.prompts.provider import PromptProvider
 from deepresearch.schemas.task import ResearchPlan, TaskNode
-
-_DEFAULT_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 
 class PlannerAgent:
@@ -19,8 +17,7 @@ class PlannerAgent:
         prompt_provider: PromptProvider | None = None,
     ) -> None:
         self._llm = llm
-        provider = prompt_provider or LocalPromptProvider(_DEFAULT_PROMPTS_DIR)
-        self._system_prompt = provider.get("planner")
+        self._system_prompt = load_agent_prompt(prompt_provider, "planner")
 
     async def plan(self, question: str) -> ResearchPlan:
         messages = [

@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
+from deepresearch.agents.prompting import load_agent_prompt
 from deepresearch.agents.report_profiles import ReportProfile, build_profile_prompt
 from deepresearch.llm.base import LLMClient, LLMMessage
-from deepresearch.prompts.provider import LocalPromptProvider, PromptProvider
+from deepresearch.prompts.provider import PromptProvider
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ReportSection, ResearchReport
 from deepresearch.schemas.task import TaskNode, TaskState
 
-_DEFAULT_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 _EVIDENCE_PATTERN = re.compile(r"\[(E\d+)\]")
 
 
@@ -23,8 +22,7 @@ class Synthesizer:
         prompt_provider: PromptProvider | None = None,
     ) -> None:
         self._llm = llm
-        provider = prompt_provider or LocalPromptProvider(_DEFAULT_PROMPTS_DIR)
-        base_prompt = provider.get("synthesizer")
+        base_prompt = load_agent_prompt(prompt_provider, "synthesizer")
         profile = ReportProfile(report_profile)
         self._system_prompt = build_profile_prompt(profile, base_prompt)
 
@@ -112,14 +110,6 @@ class Synthesizer:
             )
             for item in evidence
         )
-
-    @staticmethod
-    def _format_reference(item: EvidenceItem) -> str:
-        title = item.citation or item.claim
-        suffix = f" (retrieved: {item.retrieved_at})" if item.retrieved_at else ""
-        if item.source_url:
-            return f"[{item.evidence_id}] {title} — {item.source_url}{suffix}"
-        return f"[{item.evidence_id}] {title} — local source{suffix}"
 
     def _build_references(self, evidence_map: dict[str, EvidenceItem]) -> list[str]:
         by_source: dict[str, list[str]] = {}

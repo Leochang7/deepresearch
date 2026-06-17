@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
+from deepresearch.agents.prompting import load_agent_prompt
 from deepresearch.agents.red_agent import RedIssue
+from deepresearch.agents.report_formatting import format_report_for_review
 from deepresearch.core.json_repair import parse_json
 from deepresearch.llm.base import LLMClient, LLMMessage
-from deepresearch.prompts.provider import LocalPromptProvider, PromptProvider
+from deepresearch.prompts.provider import PromptProvider
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ReportSection, ResearchReport
-
-_DEFAULT_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 
 class BlueAction(BaseModel):
@@ -36,8 +35,7 @@ class BlueAgent:
         prompt_provider: PromptProvider | None = None,
     ) -> None:
         self._llm = llm
-        provider = prompt_provider or LocalPromptProvider(_DEFAULT_PROMPTS_DIR)
-        self._system_prompt = provider.get("blue_agent")
+        self._system_prompt = load_agent_prompt(prompt_provider, "blue_agent")
 
     async def fix(
         self,
@@ -59,7 +57,7 @@ class BlueAgent:
             LLMMessage(
                 role="user",
                 content=(
-                    f"Report:\n{self._format_report(report)}\n\n"
+                    f"Report:\n{format_report_for_review(report)}\n\n"
                     f"Issues:\n{issues_text}\n\n"
                     f"Available evidence:\n{evidence_text}\n\n"
                     "Output JSON with repair actions."
@@ -209,15 +207,3 @@ class BlueAgent:
         import re
 
         return re.findall(r"\[(E\d+)\]", content)
-
-    @staticmethod
-    def _format_report(report: ResearchReport) -> str:
-        parts = [f"# {report.question}", f"## Executive Summary\n{report.summary}"]
-        parts.extend(
-            f"## {section.title}\n{section.content}" for section in report.sections
-        )
-        if report.limitations:
-            parts.append("## Limitations\n" + "\n".join(report.limitations))
-        if report.references:
-            parts.append("## References\n" + "\n".join(report.references))
-        return "\n\n".join(parts)

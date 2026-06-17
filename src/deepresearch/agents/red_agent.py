@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
+from deepresearch.agents.prompting import load_agent_prompt
+from deepresearch.agents.report_formatting import format_report_for_review
 from deepresearch.core.json_repair import parse_json
 from deepresearch.llm.base import LLMClient, LLMMessage
-from deepresearch.prompts.provider import LocalPromptProvider, PromptProvider
+from deepresearch.prompts.provider import PromptProvider
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ResearchReport
-
-_DEFAULT_PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 
 class RedIssue(BaseModel):
@@ -47,8 +46,7 @@ class RedAgent:
         prompt_provider: PromptProvider | None = None,
     ) -> None:
         self._llm = llm
-        provider = prompt_provider or LocalPromptProvider(_DEFAULT_PROMPTS_DIR)
-        self._system_prompt = provider.get("red_agent")
+        self._system_prompt = load_agent_prompt(prompt_provider, "red_agent")
 
     async def review(
         self,
@@ -65,7 +63,7 @@ class RedAgent:
                 role="user",
                 content=(
                     "Review this report for issues.\n\n"
-                    f"Report:\n{self._format_report(report)}\n\n"
+                    f"Report:\n{format_report_for_review(report)}\n\n"
                     f"Evidence:\n{evidence_text}\n\n"
                     "Output JSON with issues and score."
                 ),
@@ -90,19 +88,3 @@ class RedAgent:
         except (TypeError, ValueError):
             score = 0.5
         return RedReview(issues=issues, score=score)
-
-    @staticmethod
-    def _format_report(report: ResearchReport) -> str:
-        parts = [f"# {report.question}"]
-        if report.summary:
-            parts.append(f"\n## Executive Summary\n{report.summary}")
-        for section in report.sections:
-            parts.append(f"\n## {section.title}\n{section.content}")
-        if report.limitations:
-            parts.append(
-                "\n## Limitations\n"
-                + "\n".join(f"- {item}" for item in report.limitations)
-            )
-        if report.references:
-            parts.append("\n## References\n" + "\n".join(report.references))
-        return "\n".join(parts)
