@@ -182,10 +182,25 @@ class TestDoctor:
 
     def test_real_checks_are_included_when_requested(self):
         async def fake_real_checks(_cfg):
-            return [CheckResult(name="mimo_endpoint", ok=True, message="ok")]
+            return [CheckResult(name="llm_endpoint", ok=True, message="ok")]
 
         with patch("deepresearch.doctor._real_checks") as real_checks:
             real_checks.side_effect = fake_real_checks
             report = run_doctor(real=True)
 
-        assert any(c.name == "mimo_endpoint" for c in report.checks)
+        assert any(c.name == "llm_endpoint" for c in report.checks)
+
+    def test_env_check_respects_optional_llm_api_key(self, monkeypatch):
+        cfg = DeepResearchConfig.model_validate(
+            {
+                "llm": {
+                    "provider": "openai_compatible",
+                    "api_key_env": "",
+                    "api_key_required": False,
+                }
+            }
+        )
+
+        report = run_doctor(cfg)
+
+        assert not any(c.name == "" for c in report.checks)

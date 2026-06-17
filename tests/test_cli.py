@@ -669,15 +669,9 @@ def test_build_runtime_passes_openai_compatible_llm_options(tmp_path, monkeypatc
     monkeypatch.setenv("DEEPRESEARCH_RERANKER_API_KEY", "reranker-key")
 
     with (
-        patch(
-            "deepresearch.llm.openai_compatible.OpenAICompatibleLLMClient"
-        ) as llm_cls,
-        patch(
-            "deepresearch.embeddings.openai_compatible.OpenAICompatibleEmbeddingClient"
-        ),
-        patch(
-            "deepresearch.rerankers.openai_compatible.OpenAICompatibleRerankerClient"
-        ),
+        patch("deepresearch.models.OpenAICompatibleLLMClient") as llm_cls,
+        patch("deepresearch.models.OpenAICompatibleEmbeddingClient"),
+        patch("deepresearch.models.OpenAICompatibleRerankerClient"),
         patch("deepresearch.memory.milvus_store.MilvusStore"),
     ):
         components = _build_runtime(
@@ -712,15 +706,9 @@ def test_build_runtime_allows_openai_compatible_without_api_key(tmp_path, monkey
     monkeypatch.setenv("DEEPRESEARCH_RERANKER_API_KEY", "reranker-key")
 
     with (
-        patch(
-            "deepresearch.llm.openai_compatible.OpenAICompatibleLLMClient"
-        ) as llm_cls,
-        patch(
-            "deepresearch.embeddings.openai_compatible.OpenAICompatibleEmbeddingClient"
-        ),
-        patch(
-            "deepresearch.rerankers.openai_compatible.OpenAICompatibleRerankerClient"
-        ),
+        patch("deepresearch.models.OpenAICompatibleLLMClient") as llm_cls,
+        patch("deepresearch.models.OpenAICompatibleEmbeddingClient"),
+        patch("deepresearch.models.OpenAICompatibleRerankerClient"),
         patch("deepresearch.memory.milvus_store.MilvusStore"),
     ):
         _build_runtime(

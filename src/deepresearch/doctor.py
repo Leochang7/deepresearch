@@ -8,11 +8,13 @@ from typing import Any
 from pymilvus import MilvusClient
 
 from deepresearch.config import DeepResearchConfig
-from deepresearch.embeddings.openai_compatible import OpenAICompatibleEmbeddingClient
 from deepresearch.llm.base import LLMMessage
-from deepresearch.llm.mimo import MiMoLLMClient
+from deepresearch.models import (
+    build_embedding_client,
+    build_llm_client,
+    build_reranker_client,
+)
 from deepresearch.prompts.provider import PromptProviderError
-from deepresearch.rerankers.openai_compatible import OpenAICompatibleRerankerClient
 from deepresearch.retrieval.tavily_search import TavilyWebSearchRetriever
 
 _RUNTIME_PROMPTS = (
@@ -160,12 +162,14 @@ def _config_checks(cfg: DeepResearchConfig) -> list[CheckResult]:
 
 
 def _env_checks(cfg: DeepResearchConfig) -> list[CheckResult]:
-    checks = [
-        _check_env_var(cfg.llm.api_key_env, required=True),
-        _check_env_var(cfg.web_search.api_key_env, required=False),
-        _check_env_var(cfg.embedding.api_key_env, required=True),
-        _check_env_var(cfg.reranker.api_key_env, required=True),
-    ]
+    checks = _env_var_checks(
+        [
+            (cfg.llm.api_key_env, cfg.llm.api_key_required),
+            (cfg.web_search.api_key_env, False),
+            (cfg.embedding.api_key_env, True),
+            (cfg.reranker.api_key_env, True),
+        ]
+    )
     langfuse_required = cfg.langfuse.enabled or cfg.langfuse.prompt_provider != "local"
     checks.extend(
         [
@@ -176,9 +180,17 @@ def _env_checks(cfg: DeepResearchConfig) -> list[CheckResult]:
     return checks
 
 
+def _env_var_checks(items: list[tuple[str, bool]]) -> list[CheckResult]:
+    return [
+        _check_env_var(name, required=required)
+        for name, required in items
+        if name.strip()
+    ]
+
+
 async def _real_checks(cfg: DeepResearchConfig) -> list[CheckResult]:
     tasks = [
-        _check_mimo(cfg),
+        _check_llm(cfg),
         _check_tavily(cfg),
         _check_embedding(cfg),
         _check_reranker(cfg),
@@ -191,31 +203,33 @@ async def _real_checks(cfg: DeepResearchConfig) -> list[CheckResult]:
     return list(checks)
 
 
-async def _check_mimo(cfg: DeepResearchConfig) -> CheckResult:
-    api_key = os.environ.get(cfg.llm.api_key_env, "")
-    if not api_key:
-        return _missing_real_key("mimo_endpoint", cfg.llm.api_key_env)
-    client = MiMoLLMClient(
-        base_url=cfg.llm.base_url,
-        api_key=api_key,
-        model=cfg.llm.model,
-        default_temperature=0.0,
-        default_top_p=1.0,
-        default_max_completion_tokens=16,
-        thinking=cfg.llm.thinking,
-        timeout=15,
-    )
+async def _check_llm(cfg: DeepResearchConfig) -> CheckResult:
     try:
+        cfg = cfg.model_copy(
+            deep=True,
+            update={
+                "llm": cfg.llm.model_copy(
+                    update={
+                        "temperature": 0.0,
+                        "top_p": 1.0,
+                        "max_completion_tokens": 16,
+                    }
+                )
+            },
+        )
+        client = build_llm_client(cfg, timeout=15)
         response = await client.chat(
             [LLMMessage(role="user", content="Reply OK.")],
             max_completion_tokens=16,
         )
+    except ValueError as exc:
+        return _failed("llm_endpoint", str(exc))
     except Exception as exc:
-        return _failed("mimo_endpoint", f"MiMo endpoint failed: {_safe_error(exc)}")
+        return _failed("llm_endpoint", f"LLM endpoint failed: {_safe_error(exc)}")
     return CheckResult(
-        name="mimo_endpoint",
+        name="llm_endpoint",
         ok=bool(response.content),
-        message=f"MiMo endpoint OK, model: {response.model}",
+        message=f"LLM endpoint OK, provider: {cfg.llm.provider}, model: {response.model}",
     )
 
 
@@ -241,22 +255,16 @@ async def _check_tavily(cfg: DeepResearchConfig) -> CheckResult:
 
 
 async def _check_embedding(cfg: DeepResearchConfig) -> CheckResult:
-    api_key = os.environ.get(cfg.embedding.api_key_env, "")
-    if not api_key:
-        return _missing_real_key("embedding_endpoint", cfg.embedding.api_key_env)
-    client = OpenAICompatibleEmbeddingClient(
-        base_url=cfg.embedding.base_url,
-        api_key=api_key,
-        model=cfg.embedding.model,
-        dim=cfg.embedding.dim,
-        batch_size=1,
-        timeout=15,
-        max_retries=0,
-        normalize=cfg.embedding.normalize,
-        request_dimensions=cfg.embedding.request_dimensions,
-    )
     try:
+        client = build_embedding_client(
+            cfg,
+            batch_size=1,
+            timeout=15,
+            max_retries=0,
+        )
         response = await client.embed(["DeepResearch embedding smoke test"])
+    except ValueError as exc:
+        return _failed("embedding_endpoint", str(exc))
     except Exception as exc:
         return _failed(
             "embedding_endpoint",
@@ -272,23 +280,20 @@ async def _check_embedding(cfg: DeepResearchConfig) -> CheckResult:
 
 
 async def _check_reranker(cfg: DeepResearchConfig) -> CheckResult:
-    api_key = os.environ.get(cfg.reranker.api_key_env, "")
-    if not api_key:
-        return _missing_real_key("reranker_endpoint", cfg.reranker.api_key_env)
-    client = OpenAICompatibleRerankerClient(
-        base_url=cfg.reranker.base_url,
-        api_key=api_key,
-        model=cfg.reranker.model,
-        batch_size=2,
-        timeout=15,
-        max_retries=0,
-    )
     try:
+        client = build_reranker_client(
+            cfg,
+            batch_size=2,
+            timeout=15,
+            max_retries=0,
+        )
         response = await client.rerank(
             "DeepResearch smoke test",
             ["DeepResearch is a research agent.", "Bananas are fruit."],
             top_k=1,
         )
+    except ValueError as exc:
+        return _failed("reranker_endpoint", str(exc))
     except Exception as exc:
         return _failed(
             "reranker_endpoint",

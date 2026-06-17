@@ -4,7 +4,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 
 ## 当前状态
 
-MVP、PM0-PM20 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management；PM11-PM15 完成并行 benchmark、中英跨语言检索/引用质量、multilingual benchmark 和 20-case large benchmark；PM16-PM19 完成 dataset suite、三层评测流水线、LLM backend matrix 和一键实验脚本；PM20 完成检索/记忆 hardening 和可配置 LexicalPolicy + jieba tokenizer。
+MVP、PM0-PM20 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management；PM11-PM15 完成并行 benchmark、中英跨语言检索/引用质量、multilingual benchmark 和 20-case large benchmark；PM16-PM19 完成 dataset suite、三层评测流水线、LLM backend matrix 和一键实验脚本；PM20 完成检索/记忆 hardening、可配置 LexicalPolicy + jieba tokenizer，以及模型后端装配收敛。
 
 ## 已完成能力
 
@@ -25,6 +25,7 @@ MVP、PM0-PM20 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 
 ### 模型支持
 - LLM: MiMo v2.5 Pro（默认）+ DeepSeek + OpenAI-compatible/vLLM backend matrix
+- 模型装配: `deepresearch.models` factory 统一构造 LLM/embedding/reranker；MiMo/DeepSeek 复用 OpenAI-compatible chat client
 - Embedding: Qwen3-Embedding-4B（2560 维，OpenAI-compatible）
 - Reranker: bge-reranker-v2-m3（OpenAI-compatible）
 - 向量库: Milvus Standalone
@@ -74,7 +75,7 @@ MVP、PM0-PM20 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 | PM17 | ✅ 完成 | Three-layer Evaluation Pipeline：规则指标、LLM-as-Judge、统计上下文和 Langfuse score/metadata 对齐 |
 | PM18 | ✅ 完成 | LLM Backend Matrix：MiMo、DeepSeek、OpenAI-compatible/vLLM 热切换和模型分组汇总 |
 | PM19 | ✅ 完成 | One-command Experiment Scripts：local mock、模型对比、prompt ablation、multilingual 和 full suite 汇总脚本 |
-| PM20 | ✅ 完成 | Retrieval & Memory Hardening：公共词法/相似度/document key 收敛，可配置 LexicalPolicy 与 jieba tokenizer |
+| PM20 | ✅ 完成 | Retrieval/Memory/Model Hardening：公共词法/相似度/document key 收敛、LexicalPolicy+jieba、模型后端 factory 和 OpenAI-compatible client 收敛 |
 
 ## 真实环境运行
 

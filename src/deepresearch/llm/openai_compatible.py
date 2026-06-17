@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
-
 from deepresearch.llm.base import LLMClient, LLMMessage, LLMResponse
+from deepresearch.llm.http import auth_headers, normalize_llm_usage, post_json
 
 
 class OpenAICompatibleLLMClient(LLMClient):
@@ -23,6 +22,7 @@ class OpenAICompatibleLLMClient(LLMClient):
         default_top_p: float = 0.95,
         default_max_completion_tokens: int = 1024,
         timeout: float = 60.0,
+        max_retries: int = 0,
         extras: dict[str, Any] | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
@@ -35,6 +35,7 @@ class OpenAICompatibleLLMClient(LLMClient):
         self._default_top_p = default_top_p
         self._default_max_completion_tokens = default_max_completion_tokens
         self._timeout = timeout
+        self._max_retries = max_retries
         self._extras = extras or {}
 
     async def chat(
@@ -67,23 +68,22 @@ class OpenAICompatibleLLMClient(LLMClient):
             payload["response_format"] = {"type": "json_object"}
         payload.update(self._extras)
 
-        headers = {"Content-Type": "application/json"}
-        if self._api_key_header and self._api_key:
-            headers[self._api_key_header] = f"{self._api_key_prefix}{self._api_key}"
-
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base_url}/chat/completions",
-                json=payload,
-                headers=headers,
-            )
-            resp.raise_for_status()
-
-        data = resp.json()
+        headers = auth_headers(
+            api_key=self._api_key,
+            api_key_header=self._api_key_header,
+            api_key_prefix=self._api_key_prefix,
+        )
+        data = await post_json(
+            f"{self._base_url}/chat/completions",
+            payload=payload,
+            headers=headers,
+            timeout=self._timeout,
+            max_retries=self._max_retries,
+        )
         choice = data["choices"][0]["message"]
         return LLMResponse(
             content=choice["content"],
             model=data.get("model", self._model),
-            usage=data.get("usage", {}),
+            usage=normalize_llm_usage(data.get("usage", {})),
             raw=data,
         )

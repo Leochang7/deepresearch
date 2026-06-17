@@ -693,7 +693,7 @@
 
 - [x] PM180 统一 OpenAI-compatible 后端配置
   - Files: `src/deepresearch/llm/openai_compatible.py`, `src/deepresearch/cli.py`, tests
-  - Done when: `OpenAICompatibleLLMClient` 支持可配置 auth header/prefix、api_key_required 和 max_tokens field；`_build_runtime` 支持 `"openai_compatible"` provider；MiMo/DeepSeek 保持现有专用 client。
+  - Done when: `OpenAICompatibleLLMClient` 支持可配置 auth header/prefix、api_key_required 和 max_tokens field；`_build_runtime` 支持 `"openai_compatible"` provider；MiMo/DeepSeek 通过 OpenAI-compatible 薄 wrapper 复用统一实现。
   - Verify: `uv run pytest tests/llm/test_openai_compatible.py tests/test_cli.py`; `uv run pytest` (572 passed, 1 skipped)
 
 - [x] PM181 支持后端热切换和 CLI 覆盖
@@ -754,3 +754,8 @@
   - Files: `src/deepresearch/retrieval/lexical.py`, `src/deepresearch/config.py`, `.env.example`, `config.example.toml`, `docs/CONFIGURATION.md`, tests
   - Done when: 支持 `builtin` 和 `jieba` 两种 tokenizer；默认仍为 builtin CJK unigram/bigram，保证离线测试稳定；`jieba` 可通过配置启用，并支持仓库内 userdict 覆盖项目术语（RAG、LLM-as-Judge、Qwen、MiMo、DeepResearch 等）；LocalDatasetRetriever、Memory keyword search、Evaluator token overlap 共享同一 LexicalPolicy。
   - Verify: `uv run pytest tests/retrieval tests/memory tests/evaluation`; `uv run ruff check .`
+
+- [x] PM202 收敛模型后端装配与 OpenAI-compatible client 实现
+  - Files: `src/deepresearch/models.py`, `src/deepresearch/llm/`, `src/deepresearch/embeddings/openai_compatible.py`, `src/deepresearch/rerankers/openai_compatible.py`, `src/deepresearch/cli.py`, `src/deepresearch/doctor.py`, tests, docs
+  - Done when: MiMo/DeepSeek 作为 OpenAI-compatible 薄 wrapper 复用统一 chat client；CLI、doctor 和 index-corpus 复用模型 factory；doctor 按当前 LLM provider 检查真实 endpoint；移除未实现自动 fallback 的 `fallback_provider` 活跃配置；LLM usage 统一规范化。
+  - Verify: `uv run pytest tests/llm tests/embeddings/test_openai_compatible.py tests/rerankers/test_openai_compatible.py tests/test_cli.py tests/test_doctor.py tests/test_config.py`; `uv run ruff check .`

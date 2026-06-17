@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
-
 from deepresearch.embeddings.base import EmbeddingClient, EmbeddingResponse
+from deepresearch.llm.http import auth_headers, post_json
 
 
 class OpenAICompatibleEmbeddingClient(EmbeddingClient):
@@ -64,41 +63,30 @@ class OpenAICompatibleEmbeddingClient(EmbeddingClient):
         if self._request_dimensions:
             payload["dimensions"] = self._dim
         url = f"{self._base_url}/embeddings"
-        headers = {
-            "Authorization": f"Bearer {self._api_key}",
-            "Content-Type": "application/json",
-        }
+        data = await post_json(
+            url,
+            payload=payload,
+            headers=auth_headers(api_key=self._api_key),
+            timeout=self._timeout,
+            max_retries=self._max_retries,
+        )
 
-        last_error: Exception | None = None
-        for attempt in range(self._max_retries + 1):
-            try:
-                async with httpx.AsyncClient(timeout=self._timeout) as client:
-                    resp = await client.post(url, json=payload, headers=headers)
-                    resp.raise_for_status()
-                    data = resp.json()
+        embeddings = [item["embedding"] for item in data["data"]]
+        invalid_dims = sorted({len(embedding) for embedding in embeddings})
+        if invalid_dims != [self._dim]:
+            raise ValueError(
+                "Embedding response dimensions do not match configured "
+                f"dim={self._dim}: got {invalid_dims}"
+            )
+        if self._normalize:
+            embeddings = [_l2_normalize(embedding) for embedding in embeddings]
+        usage = data.get("usage", {})
 
-                embeddings = [item["embedding"] for item in data["data"]]
-                invalid_dims = sorted({len(embedding) for embedding in embeddings})
-                if invalid_dims != [self._dim]:
-                    raise ValueError(
-                        "Embedding response dimensions do not match configured "
-                        f"dim={self._dim}: got {invalid_dims}"
-                    )
-                if self._normalize:
-                    embeddings = [_l2_normalize(embedding) for embedding in embeddings]
-                usage = data.get("usage", {})
-
-                return EmbeddingResponse(
-                    embeddings=embeddings,
-                    model=data.get("model", model or self._model),
-                    usage={"prompt_tokens": usage.get("total_tokens", 0)},
-                )
-            except Exception as e:
-                last_error = e
-                if attempt < self._max_retries:
-                    continue
-
-        raise last_error  # type: ignore[misc]
+        return EmbeddingResponse(
+            embeddings=embeddings,
+            model=data.get("model", model or self._model),
+            usage={"prompt_tokens": usage.get("total_tokens", 0)},
+        )
 
 
 def _l2_normalize(vector: list[float]) -> list[float]:

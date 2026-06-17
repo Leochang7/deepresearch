@@ -27,16 +27,6 @@ def _required_env(name: str) -> str:
     return value
 
 
-def _required_config(value: str, name: str) -> str:
-    if not value.strip():
-        raise typer.BadParameter(f"Required configuration value is missing: {name}")
-    return value
-
-
-def _optional_env(name: str) -> str:
-    return os.environ.get(name, "").strip() if name else ""
-
-
 def _load_config_or_exit(config_path: str | None = None) -> DeepResearchConfig:
     try:
         return load_config(config_path=config_path)
@@ -72,60 +62,20 @@ def _build_runtime(
     if mode != "real":
         raise typer.BadParameter("--mode must be either 'mock' or 'real'")
 
-    from deepresearch.embeddings.openai_compatible import (
-        OpenAICompatibleEmbeddingClient,
-    )
-    from deepresearch.llm.deepseek import DeepSeekLLMClient
-    from deepresearch.llm.mimo import MiMoLLMClient
     from deepresearch.memory.milvus_store import MilvusStore
-    from deepresearch.rerankers.openai_compatible import (
-        OpenAICompatibleRerankerClient,
+    from deepresearch.models import (
+        build_embedding_client,
+        build_llm_client,
+        build_reranker_client,
     )
     from deepresearch.retrieval.local_dataset import LocalDatasetRetriever
     from deepresearch.retrieval.mimo_search import MiMoSearchRetriever
     from deepresearch.retrieval.tavily_search import TavilyWebSearchRetriever
 
-    if cfg.llm.provider == "mimo":
-        llm_api_key = _required_env(cfg.llm.api_key_env)
-        llm = MiMoLLMClient(
-            base_url=cfg.llm.base_url,
-            api_key=llm_api_key,
-            model=cfg.llm.model,
-            default_temperature=cfg.llm.temperature,
-            default_top_p=cfg.llm.top_p,
-            default_max_completion_tokens=cfg.llm.max_completion_tokens,
-            thinking=cfg.llm.thinking,
-        )
-    elif cfg.llm.provider == "deepseek":
-        llm = DeepSeekLLMClient(
-            base_url=cfg.llm.base_url,
-            api_key=_required_env(cfg.llm.api_key_env),
-            model=cfg.llm.model,
-            default_temperature=cfg.llm.temperature,
-            default_top_p=cfg.llm.top_p,
-            default_max_completion_tokens=cfg.llm.max_completion_tokens,
-        )
-    elif cfg.llm.provider == "openai_compatible":
-        from deepresearch.llm.openai_compatible import OpenAICompatibleLLMClient
-
-        llm_api_key = (
-            _required_env(cfg.llm.api_key_env)
-            if cfg.llm.api_key_required
-            else _optional_env(cfg.llm.api_key_env)
-        )
-        llm = OpenAICompatibleLLMClient(
-            base_url=cfg.llm.base_url,
-            api_key=llm_api_key,
-            model=cfg.llm.model,
-            api_key_header=cfg.llm.api_key_header,
-            api_key_prefix=cfg.llm.api_key_prefix,
-            max_tokens_field=cfg.llm.max_tokens_field,
-            default_temperature=cfg.llm.temperature,
-            default_top_p=cfg.llm.top_p,
-            default_max_completion_tokens=cfg.llm.max_completion_tokens,
-        )
-    else:
-        raise typer.BadParameter(f"Unsupported LLM provider: {cfg.llm.provider}")
+    try:
+        llm = build_llm_client(cfg)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
     selected_retriever = retriever_name or cfg.retrieval.search_provider
     if selected_retriever in {"tavily", "web_search"}:
@@ -150,31 +100,11 @@ def _build_runtime(
     else:
         raise typer.BadParameter(f"Unsupported retriever: {selected_retriever}")
 
-    embedding = OpenAICompatibleEmbeddingClient(
-        base_url=_required_config(
-            cfg.embedding.base_url,
-            "embedding.base_url",
-        ),
-        api_key=_required_env(cfg.embedding.api_key_env),
-        model=cfg.embedding.model,
-        dim=cfg.embedding.dim,
-        batch_size=cfg.embedding.batch_size,
-        timeout=cfg.embedding.timeout_seconds,
-        max_retries=cfg.embedding.max_retries,
-        normalize=cfg.embedding.normalize,
-        request_dimensions=cfg.embedding.request_dimensions,
-    )
-    reranker = OpenAICompatibleRerankerClient(
-        base_url=_required_config(
-            cfg.reranker.base_url,
-            "reranker.base_url",
-        ),
-        api_key=_required_env(cfg.reranker.api_key_env),
-        model=cfg.reranker.model,
-        batch_size=cfg.reranker.batch_size,
-        timeout=cfg.reranker.timeout_seconds,
-        max_retries=cfg.reranker.max_retries,
-    )
+    try:
+        embedding = build_embedding_client(cfg)
+        reranker = build_reranker_client(cfg)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
     memory = MilvusStore(
         uri=cfg.milvus.uri,
         chunks_collection=cfg.milvus.chunks_collection,
@@ -294,34 +224,21 @@ async def _index_corpus(
     mode: str,
 ) -> tuple[int, int]:
     from deepresearch.embeddings.mock import MockEmbeddingClient
-    from deepresearch.embeddings.openai_compatible import (
-        OpenAICompatibleEmbeddingClient,
-    )
     from deepresearch.memory.milvus_store import MilvusStore
     from deepresearch.memory.store import MemoryEntry
+    from deepresearch.models import build_embedding_client
     from deepresearch.retrieval.chunking import chunk_text
     from deepresearch.retrieval.local_dataset import LocalDatasetRetriever
 
     if mode not in {"mock", "real"}:
         raise typer.BadParameter("--mode must be either 'mock' or 'real'")
-    embedding = (
-        MockEmbeddingClient(dim=cfg.embedding.dim)
-        if mode == "mock"
-        else OpenAICompatibleEmbeddingClient(
-            base_url=_required_config(
-                cfg.embedding.base_url,
-                "embedding.base_url",
-            ),
-            api_key=_required_env(cfg.embedding.api_key_env),
-            model=cfg.embedding.model,
-            dim=cfg.embedding.dim,
-            batch_size=cfg.embedding.batch_size,
-            timeout=cfg.embedding.timeout_seconds,
-            max_retries=cfg.embedding.max_retries,
-            normalize=cfg.embedding.normalize,
-            request_dimensions=cfg.embedding.request_dimensions,
-        )
-    )
+    if mode == "mock":
+        embedding = MockEmbeddingClient(dim=cfg.embedding.dim)
+    else:
+        try:
+            embedding = build_embedding_client(cfg)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
     documents = await LocalDatasetRetriever(corpus).retrieve([""], top_k=100000)
     chunks: list[tuple[Any, str]] = []
     for document in documents:

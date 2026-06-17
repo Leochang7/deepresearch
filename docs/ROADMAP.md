@@ -54,6 +54,13 @@ PM201 已接入可配置 `LexicalPolicy`：
 - 仓库内维护 userdict，覆盖 RAG、LLM-as-Judge、Qwen、MiMo、DeepResearch 等项目术语。
 - LocalDatasetRetriever、Memory keyword search、Evaluator token overlap 共享同一 policy，避免多套中文词法规则漂移。
 
+PM202 已完成模型后端 hardening：
+
+- MiMo/DeepSeek 保留对外类名，但内部作为 OpenAI-compatible 薄 wrapper，复用统一 chat client。
+- `deepresearch.models` 提供 `build_llm_client`、`build_embedding_client` 和 `build_reranker_client`，CLI、doctor 和 index-corpus 共享同一装配路径。
+- `doctor --real` 按当前 `llm.provider` 检查真实 LLM endpoint，不再固定检查 MiMo。
+- 移除未实现自动 fallback 的 `fallback_provider` 活跃配置，避免误导真实运行配置。
+
 ### Release hardening
 
 核心功能已经足够完整。下一阶段优先把现有能力跑稳、解释清楚、准备交付。任务状态和验收标准以 `docs/TASKS.md` 为准。
