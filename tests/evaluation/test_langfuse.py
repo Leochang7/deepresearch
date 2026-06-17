@@ -501,3 +501,92 @@ def test_langfuse_context_returns_none_when_disabled(monkeypatch):
     monkeypatch.delenv("DEEPRESEARCH_LANGFUSE_ENABLED", raising=False)
     adapter = LangfuseAdapter(enabled=False)
     assert adapter.context("run-1", "q", {}) is None
+
+
+def test_push_annotations_creates_annotation_queue_items():
+    mock_langfuse_cls = MagicMock()
+    mock_client = MagicMock()
+    mock_langfuse_cls.return_value = mock_client
+
+    with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse_cls)}):
+        adapter = LangfuseAdapter(enabled=True, public_key="pk", secret_key="sk")
+        items = [
+            {
+                "case_id": "c1",
+                "run_id": "r1",
+                "trace_id": "t1",
+                "annotation_reasons": ["low_cc"],
+                "evaluation": {"score": 0.5},
+            },
+            {
+                "case_id": "c2",
+                "run_id": "r2",
+                "trace_id": "t2",
+                "annotation_reasons": ["hallucination"],
+                "evaluation": {"score": 0.3},
+            },
+        ]
+        count = adapter.push_annotations(queue_name="review_queue", items=items)
+
+    assert count == 2
+    assert mock_client.create_annotation_queue_item.call_count == 2
+
+    first_call = mock_client.create_annotation_queue_item.call_args_list[0].kwargs
+    assert first_call["queue_name"] == "review_queue"
+    assert first_call["object_id"] == "t1"  # prefers trace_id over run_id
+    assert first_call["object_type"] == "TRACE"
+
+    import json
+
+    content = json.loads(first_call["content"])
+    assert content["case_id"] == "c1"
+    assert content["reasons"] == ["low_cc"]
+    assert content["evaluation"] == {"score": 0.5}
+
+    mock_client.flush.assert_called_once()
+
+
+def test_push_annotations_uses_run_id_when_trace_id_missing():
+    mock_langfuse_cls = MagicMock()
+    mock_client = MagicMock()
+    mock_langfuse_cls.return_value = mock_client
+
+    with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse_cls)}):
+        adapter = LangfuseAdapter(enabled=True, public_key="pk", secret_key="sk")
+        items = [
+            {"case_id": "c1", "run_id": "r1", "annotation_reasons": ["low_cc"]},
+        ]
+        count = adapter.push_annotations(queue_name="q", items=items)
+
+    assert count == 1
+    call = mock_client.create_annotation_queue_item.call_args.kwargs
+    assert call["object_id"] == "r1"
+
+
+def test_push_annotations_noop_when_disabled():
+    adapter = LangfuseAdapter(enabled=False)
+    count = adapter.push_annotations(queue_name="q", items=[{"case_id": "c1"}])
+    assert count == 0
+
+
+def test_push_annotations_continues_on_individual_failure():
+    mock_langfuse_cls = MagicMock()
+    mock_client = MagicMock()
+    mock_langfuse_cls.return_value = mock_client
+    mock_client.create_annotation_queue_item.side_effect = [
+        None,
+        RuntimeError("boom"),
+    ]
+
+    with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse_cls)}):
+        adapter = LangfuseAdapter(enabled=True, public_key="pk", secret_key="sk")
+        items = [
+            {"case_id": "c1", "run_id": "r1", "annotation_reasons": ["a"]},
+            {"case_id": "c2", "run_id": "r2", "annotation_reasons": ["b"]},
+        ]
+        count = adapter.push_annotations(queue_name="q", items=items)
+
+    # First succeeded, second failed
+    assert count == 1
+    assert mock_client.create_annotation_queue_item.call_count == 2
+    mock_client.flush.assert_called_once()

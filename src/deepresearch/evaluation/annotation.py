@@ -6,7 +6,10 @@ Flag benchmark results that need human review based on configurable thresholds.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from deepresearch.evaluation.langfuse import LangfuseAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -57,3 +60,13 @@ def select_annotation_candidates(
             candidates.append({**r, "annotation_reasons": reasons})
 
     return candidates
+
+
+def push_annotations(
+    adapter: LangfuseAdapter,
+    candidates: list[dict[str, Any]],
+    *,
+    queue_name: str = "deepresearch_review",
+) -> int:
+    """Push annotation candidates to Langfuse. Returns count pushed."""
+    return adapter.push_annotations(queue_name=queue_name, items=candidates)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import os
 from collections.abc import Generator
@@ -487,6 +488,42 @@ class LangfuseAdapter:
             run_id,
             trace_id,
         )
+
+    def push_annotations(
+        self,
+        *,
+        queue_name: str = "deepresearch_review",
+        items: list[dict[str, Any]],
+    ) -> int:
+        """Push annotation items to a Langfuse annotation queue. Returns count pushed."""
+        if not self._enabled or not self._client:
+            return 0
+        count = 0
+        for item in items:
+            try:
+                self._client.create_annotation_queue_item(
+                    queue_name=queue_name,
+                    object_id=item.get("trace_id", item.get("run_id", "")),
+                    object_type="TRACE",
+                    content=json.dumps(
+                        {
+                            "case_id": item.get("case_id", ""),
+                            "reasons": item.get("annotation_reasons", []),
+                            "evaluation": item.get("evaluation", {}),
+                        },
+                        ensure_ascii=False,
+                    ),
+                )
+                count += 1
+            except Exception:
+                logger.warning(
+                    "Failed to push annotation for case %s",
+                    item.get("case_id", ""),
+                    exc_info=True,
+                )
+        with contextlib.suppress(Exception):
+            self._client.flush()
+        return count
 
     @property
     def last_trace_id(self) -> str:

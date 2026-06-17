@@ -1,4 +1,6 @@
-from deepresearch.evaluation.annotation import select_annotation_candidates
+from unittest.mock import MagicMock
+
+from deepresearch.evaluation.annotation import push_annotations, select_annotation_candidates
 
 
 def test_select_candidates_low_citation_coverage():
@@ -60,3 +62,29 @@ def test_select_candidates_missing_fields():
 
 def test_select_candidates_empty_list():
     assert select_annotation_candidates([]) == []
+
+
+def test_push_annotations_calls_langfuse():
+    mock_adapter = MagicMock()
+    mock_adapter.push_annotations.return_value = 2
+    mock_adapter.is_enabled = True
+    mock_client = MagicMock()
+    mock_adapter._client = mock_client
+
+    candidates = [
+        {"case_id": "c1", "run_id": "r1", "annotation_reasons": ["low_cc"]},
+        {"case_id": "c2", "run_id": "r2", "annotation_reasons": ["hallucination"]},
+    ]
+    count = push_annotations(mock_adapter, candidates, queue_name="review_queue")
+    assert count == 2
+    mock_adapter.push_annotations.assert_called_once_with(
+        queue_name="review_queue", items=candidates
+    )
+
+
+def test_push_annotations_noop_when_disabled():
+    mock_adapter = MagicMock()
+    mock_adapter.push_annotations.return_value = 0
+    mock_adapter.is_enabled = False
+    count = push_annotations(mock_adapter, [{"case_id": "c1"}], queue_name="q")
+    assert count == 0
