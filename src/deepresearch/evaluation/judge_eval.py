@@ -81,13 +81,14 @@ async def judge_facts(
     evidence: list[EvidenceItem],
     fact_details: list[FactHitResult | dict],
     prompt_provider: PromptProvider | None = None,
+    prompt_name: str = "fact_judge",
 ) -> list[FactHitResult]:
     """Evaluate unmatched facts using LLM semantic judge.
 
     Only facts with matched=False are sent to the LLM.
     Returns updated fact_details with judge verdicts merged in.
     """
-    system_prompt = load_agent_prompt(prompt_provider, "fact_judge")
+    system_prompt = load_agent_prompt(prompt_provider, prompt_name)
     report_text = format_report_for_review(report)
     evidence_text = "\n".join(
         f'[{e.evidence_id}] {e.claim}: "{e.quote}" ({e.citation})' for e in evidence

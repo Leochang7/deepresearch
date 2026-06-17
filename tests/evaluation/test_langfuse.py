@@ -503,7 +503,7 @@ def test_langfuse_context_returns_none_when_disabled(monkeypatch):
     assert adapter.context("run-1", "q", {}) is None
 
 
-def test_push_annotations_creates_annotation_queue_items():
+def test_push_annotations_marks_trace_with_annotation_candidate_score():
     mock_langfuse_cls = MagicMock()
     mock_client = MagicMock()
     mock_langfuse_cls.return_value = mock_client
@@ -529,16 +529,17 @@ def test_push_annotations_creates_annotation_queue_items():
         count = adapter.push_annotations(queue_name="review_queue", items=items)
 
     assert count == 2
-    assert mock_client.create_annotation_queue_item.call_count == 2
+    assert mock_client.create_score.call_count == 2
 
-    first_call = mock_client.create_annotation_queue_item.call_args_list[0].kwargs
-    assert first_call["queue_name"] == "review_queue"
-    assert first_call["object_id"] == "t1"  # prefers trace_id over run_id
-    assert first_call["object_type"] == "TRACE"
+    first_call = mock_client.create_score.call_args_list[0].kwargs
+    assert first_call["trace_id"] == "t1"  # prefers trace_id over run_id
+    assert first_call["name"] == "annotation_candidate"
+    assert first_call["value"] == 1.0
+    assert first_call["metadata"]["queue_name"] == "review_queue"
 
     import json
 
-    content = json.loads(first_call["content"])
+    content = json.loads(first_call["comment"])
     assert content["case_id"] == "c1"
     assert content["reasons"] == ["low_cc"]
     assert content["evaluation"] == {"score": 0.5}
@@ -559,8 +560,8 @@ def test_push_annotations_uses_run_id_when_trace_id_missing():
         count = adapter.push_annotations(queue_name="q", items=items)
 
     assert count == 1
-    call = mock_client.create_annotation_queue_item.call_args.kwargs
-    assert call["object_id"] == "r1"
+    call = mock_client.create_score.call_args.kwargs
+    assert call["trace_id"] == "r1"
 
 
 def test_push_annotations_noop_when_disabled():
@@ -573,7 +574,7 @@ def test_push_annotations_continues_on_individual_failure():
     mock_langfuse_cls = MagicMock()
     mock_client = MagicMock()
     mock_langfuse_cls.return_value = mock_client
-    mock_client.create_annotation_queue_item.side_effect = [
+    mock_client.create_score.side_effect = [
         None,
         RuntimeError("boom"),
     ]
@@ -588,5 +589,5 @@ def test_push_annotations_continues_on_individual_failure():
 
     # First succeeded, second failed
     assert count == 1
-    assert mock_client.create_annotation_queue_item.call_count == 2
+    assert mock_client.create_score.call_count == 2
     mock_client.flush.assert_called_once()

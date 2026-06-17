@@ -176,6 +176,7 @@ def test_langfuse_provider_get_with_metadata():
 
     mock_client = MagicMock()
     mock_prompt = MagicMock()
+    mock_prompt.version = "v7"
     mock_prompt.compile.return_value = "Langfuse planner prompt"
     mock_client.get_prompt.return_value = mock_prompt
 
@@ -186,7 +187,7 @@ def test_langfuse_provider_get_with_metadata():
     assert meta.name == "planner"
     assert meta.provider_type == "langfuse"
     assert meta.label == "production"
-    assert meta.version == ""
+    assert meta.version == "v7"
     assert len(meta.content_hash) == 12
 
 
@@ -236,6 +237,6 @@ def test_langfuse_with_fallback_get_with_metadata_falls_back():
     text, meta = provider.get_with_metadata("planner")
 
     assert len(text) > 0
-    assert meta.provider_type == "langfuse_with_local_fallback"
+    assert meta.provider_type == "local_fallback"
     assert meta.label == "production"
     assert len(meta.content_hash) == 12

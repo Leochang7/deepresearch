@@ -405,7 +405,9 @@ async def test_run_manager_records_prompt_metadata_in_langfuse_context(tmp_path)
     config = DeepResearchConfig()
     config.langfuse.prompt_label = "staging"
 
-    with patch("deepresearch.core.run_manager.LangfuseAdapter", return_value=mock_adapter):
+    with patch(
+        "deepresearch.core.run_manager.LangfuseAdapter", return_value=mock_adapter
+    ):
         await RunManager(
             config,
             MockLLM(),
@@ -418,6 +420,13 @@ async def test_run_manager_records_prompt_metadata_in_langfuse_context(tmp_path)
     ctx_metadata = mock_adapter.context.call_args[0][2]
     assert "prompt_provider" in ctx_metadata
     assert "prompt_planner_hash" in ctx_metadata
+    assert "prompts" in ctx_metadata
+    assert "researcher" in ctx_metadata["prompts"]
+    assert "synthesizer" in ctx_metadata["prompts"]
+    assert (
+        ctx_metadata["prompts"]["planner"]["hash"]
+        == ctx_metadata["prompt_planner_hash"]
+    )
     assert ctx_metadata["prompt_provider"] == "local"
     # prompt_label from config takes precedence when provider label is empty
     assert ctx_metadata["prompt_label"] == "staging"

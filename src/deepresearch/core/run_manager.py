@@ -38,7 +38,7 @@ from deepresearch.llm.base import LLMClient
 from deepresearch.memory.milvus_store import export_snapshot
 from deepresearch.memory.store import MemoryStore
 from deepresearch.prompts.factory import build_prompt_provider
-from deepresearch.prompts.provider import PromptProvider
+from deepresearch.prompts.provider import LocalPromptProvider, PromptProvider
 from deepresearch.rerankers.base import RerankerClient
 from deepresearch.retrieval.base import Retriever
 from deepresearch.retrieval.fetcher import WebFetcher
@@ -103,21 +103,7 @@ class RunManager:
 
         prompt_provider = self._prompt_provider or self._build_prompt_provider()
 
-        # Collect prompt metadata for traceability
-        prompt_meta: dict[str, str] = {}
-        try:
-            from deepresearch.prompts.provider import LocalPromptProvider
-
-            meta_source = prompt_provider or LocalPromptProvider()
-            _, meta = meta_source.get_with_metadata("planner")
-            prompt_meta["prompt_provider"] = meta.provider_type
-            if meta.label:
-                prompt_meta["prompt_label"] = meta.label
-            if meta.version:
-                prompt_meta["prompt_version"] = meta.version
-            prompt_meta["prompt_planner_hash"] = meta.content_hash
-        except Exception:
-            pass
+        prompt_meta = self._collect_prompt_metadata(prompt_provider)
 
         langfuse = LangfuseAdapter(
             enabled=self._config.langfuse.enabled,
@@ -570,6 +556,44 @@ class RunManager:
 
     def _build_prompt_provider(self) -> PromptProvider | None:
         return build_prompt_provider(self._config.langfuse)
+
+    def _collect_prompt_metadata(
+        self,
+        prompt_provider: PromptProvider | None,
+    ) -> dict[str, Any]:
+        provider = prompt_provider or LocalPromptProvider()
+        prompt_names = [
+            "planner",
+            "researcher",
+            "synthesizer",
+            "red_agent",
+            "blue_agent",
+            "judge_eval",
+            "fact_judge",
+        ]
+        prompts: dict[str, dict[str, str]] = {}
+        result: dict[str, Any] = {"prompts": prompts}
+
+        for name in prompt_names:
+            try:
+                _, meta = provider.get_with_metadata(name)
+            except Exception as exc:
+                prompts[name] = {"error": str(exc)}
+                continue
+            prompts[name] = {
+                "provider": meta.provider_type,
+                "label": meta.label,
+                "version": meta.version,
+                "hash": meta.content_hash,
+            }
+            result.setdefault("prompt_provider", meta.provider_type)
+            if meta.label:
+                result.setdefault("prompt_label", meta.label)
+
+        planner = prompts.get("planner", {})
+        if "hash" in planner:
+            result["prompt_planner_hash"] = planner["hash"]
+        return result
 
     def _configure_lexical_policy(self) -> None:
         configure_lexical_policy(

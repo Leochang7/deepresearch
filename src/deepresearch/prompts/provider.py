@@ -8,6 +8,18 @@ from typing import Protocol, runtime_checkable
 _DEFAULT_PROMPTS_DIR = Path(__file__).parent
 
 
+def _content_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12] if text else ""
+
+
+def _prompt_version(prompt: object) -> str:
+    for attr in ("version", "version_id", "id"):
+        value = getattr(prompt, attr, "")
+        if isinstance(value, str | int):
+            return str(value)
+    return ""
+
+
 @dataclass(frozen=True)
 class PromptMetadata:
     """Metadata about a loaded prompt for traceability."""
@@ -58,13 +70,12 @@ class LocalPromptProvider:
 
     def get_with_metadata(self, name: str) -> tuple[str, PromptMetadata]:
         text = self.get(name)
-        content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12] if text else ""
         return text, PromptMetadata(
             name=name,
             provider_type="local",
             label="",
             version="",
-            content_hash=content_hash,
+            content_hash=_content_hash(text),
         )
 
     def list_names(self) -> list[str]:
@@ -81,6 +92,10 @@ class LangfusePromptProvider:
         self._label = label
 
     def get(self, name: str) -> str:
+        text, _ = self.get_with_metadata(name)
+        return text
+
+    def get_with_metadata(self, name: str) -> tuple[str, PromptMetadata]:
         try:
             prompt_name = f"deepresearch/{name}"
             prompt = self._client.get_prompt(
@@ -94,21 +109,16 @@ class LangfusePromptProvider:
                 f"Failed to load Langfuse prompt deepresearch/{name} "
                 f"with label {self._label}: {exc}"
             ) from exc
-        if not result:
+        if not isinstance(result, str) or not result:
             raise PromptProviderError(
                 f"Langfuse prompt deepresearch/{name} with label {self._label} is empty"
             )
-        return result
-
-    def get_with_metadata(self, name: str) -> tuple[str, PromptMetadata]:
-        text = self.get(name)
-        content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12] if text else ""
-        return text, PromptMetadata(
+        return result, PromptMetadata(
             name=name,
             provider_type="langfuse",
             label=self._label,
-            version="",
-            content_hash=content_hash,
+            version=_prompt_version(prompt),
+            content_hash=_content_hash(result),
         )
 
     def list_names(self) -> list[str]:
@@ -140,13 +150,12 @@ class LangfuseWithFallbackProvider:
         except PromptProviderError:
             pass
         text = self._local.get(name)
-        content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12] if text else ""
         return text, PromptMetadata(
             name=name,
-            provider_type="langfuse_with_local_fallback",
+            provider_type="local_fallback",
             label=self._langfuse._label,
             version="",
-            content_hash=content_hash,
+            content_hash=_content_hash(text),
         )
 
     def list_names(self) -> list[str]:

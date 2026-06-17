@@ -5,7 +5,6 @@ Flag benchmark results that need human review based on configurable thresholds.
 
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
 from pathlib import Path
@@ -24,6 +23,7 @@ def select_annotation_candidates(
     min_factual_hit_rate: float = 0.5,
     flag_hallucination: bool = True,
     min_judge_divergence: float = 0.3,
+    include_run_errors: bool = True,
 ) -> list[dict[str, Any]]:
     """Select benchmark results that need human review.
 
@@ -33,12 +33,22 @@ def select_annotation_candidates(
     - hallucination_flag is True (when flag_hallucination)
     - judge score divergence > min_judge_divergence (max - min across dimensions)
 
-    Missing fields default to 0 / False, making them more likely to be flagged.
+    Missing metric fields default to 0 / False, making incomplete successful
+    evaluations more likely to be flagged. Run failures are labeled explicitly
+    as run_error instead of mixed with report-quality reasons.
     """
     candidates: list[dict[str, Any]] = []
     for r in results:
         evaluation = r.get("evaluation", {})
         reasons: list[str] = []
+
+        if "error" in evaluation:
+            if include_run_errors:
+                stage = evaluation.get("stage", "unknown")
+                reasons.append(f"run_error={stage}")
+            if reasons:
+                candidates.append({**r, "annotation_reasons": reasons})
+            continue
 
         cc = evaluation.get("citation_coverage", 0)
         if cc < min_citation_coverage:
@@ -78,6 +88,8 @@ def push_annotations(
 def import_annotations(
     annotations_path: Path,
     summary: dict[str, Any],
+    *,
+    strict: bool = False,
 ) -> dict[str, Any]:
     """Merge human annotations into a benchmark summary.
 
@@ -89,18 +101,51 @@ def import_annotations(
         return summary
 
     annotations: dict[str, dict[str, Any]] = {}
-    for line in annotations_path.read_text(encoding="utf-8").splitlines():
+    errors: list[dict[str, Any]] = []
+    duplicates: list[str] = []
+    for line_no, line in enumerate(
+        annotations_path.read_text(encoding="utf-8").splitlines(),
+        start=1,
+    ):
         line = line.strip()
         if not line:
             continue
-        with contextlib.suppress(Exception):
+        try:
             entry = json.loads(line)
-            case_id = entry.get("case_id", "")
-            if case_id:
-                annotations[case_id] = entry
+        except json.JSONDecodeError as exc:
+            if strict:
+                raise ValueError(
+                    f"Invalid annotation JSONL at line {line_no}: {exc}"
+                ) from exc
+            errors.append({"line": line_no, "error": str(exc)})
+            continue
+        if not isinstance(entry, dict):
+            message = "annotation line must be a JSON object"
+            if strict:
+                raise ValueError(
+                    f"Invalid annotation JSONL at line {line_no}: {message}"
+                )
+            errors.append({"line": line_no, "error": message})
+            continue
+        case_id = entry.get("case_id", "")
+        if not case_id:
+            message = "missing case_id"
+            if strict:
+                raise ValueError(
+                    f"Invalid annotation JSONL at line {line_no}: {message}"
+                )
+            errors.append({"line": line_no, "error": message})
+            continue
+        if case_id in annotations:
+            duplicates.append(case_id)
+            logger.warning("Duplicate annotation for case_id=%s; using latest", case_id)
+        annotations[case_id] = entry
 
+    result = dict(summary)
     if annotations:
-        result = dict(summary)
         result["human_annotations"] = annotations
-        return result
-    return summary
+    if errors:
+        result["human_annotation_errors"] = errors
+    if duplicates:
+        result["human_annotation_duplicate_case_ids"] = duplicates
+    return result

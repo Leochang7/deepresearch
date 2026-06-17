@@ -495,24 +495,33 @@ class LangfuseAdapter:
         queue_name: str = "deepresearch_review",
         items: list[dict[str, Any]],
     ) -> int:
-        """Push annotation items to a Langfuse annotation queue. Returns count pushed."""
+        """Mark traces as annotation candidates in Langfuse. Returns count pushed.
+
+        The current Langfuse SDK exposes scores and metadata, but not a stable
+        annotation-queue item API. We use a trace-level score as the durable
+        SDK-supported handoff and include the queue name in score metadata.
+        """
         if not self._enabled or not self._client:
             return 0
         count = 0
         for item in items:
+            trace_id = item.get("trace_id") or item.get("run_id") or ""
+            if not trace_id:
+                logger.warning(
+                    "Skipping annotation candidate without trace_id/run_id: %s",
+                    item.get("case_id", ""),
+                )
+                continue
             try:
-                self._client.create_annotation_queue_item(
-                    queue_name=queue_name,
-                    object_id=item.get("trace_id", item.get("run_id", "")),
-                    object_type="TRACE",
-                    content=json.dumps(
-                        {
-                            "case_id": item.get("case_id", ""),
-                            "reasons": item.get("annotation_reasons", []),
-                            "evaluation": item.get("evaluation", {}),
-                        },
+                self._client.create_score(
+                    trace_id=trace_id,
+                    name="annotation_candidate",
+                    value=1.0,
+                    comment=json.dumps(
+                        _annotation_payload(item),
                         ensure_ascii=False,
                     ),
+                    metadata={"queue_name": queue_name},
                 )
                 count += 1
             except Exception:
@@ -567,3 +576,11 @@ class LangfuseAdapter:
         except Exception:
             logger.warning("Failed to create Langfuse context", exc_info=True)
             return None
+
+
+def _annotation_payload(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "case_id": item.get("case_id", ""),
+        "reasons": item.get("annotation_reasons", []),
+        "evaluation": item.get("evaluation", {}),
+    }

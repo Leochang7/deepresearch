@@ -13,6 +13,11 @@
 
 ### Current Bugfix
 
+- [x] BF004 修复 PM24/PM25 review 问题
+  - Files: `src/deepresearch/prompts/provider.py`, `src/deepresearch/core/run_manager.py`, `src/deepresearch/evaluation/judge_eval.py`, `src/deepresearch/evaluation/benchmark.py`, `src/deepresearch/evaluation/langfuse.py`, `src/deepresearch/evaluation/annotation.py`, tests
+  - Done when: Langfuse annotation 不再调用当前 SDK 不存在的 queue API；`judge_prompt_name` 真实传入 fact judge；runtime prompt metadata 覆盖完整 prompt set 并记录 Langfuse version；annotation candidate/import 区分 run error、坏行和重复 case。
+  - Verify: `uv run pytest tests\prompts tests\core\test_run_manager.py tests\evaluation\test_annotation.py tests\evaluation\test_langfuse.py`; `uv run pytest tests\evaluation\test_benchmark.py`; `uv run ruff check .`; `uv run pytest`
+
 - [x] BF001 修复真实 benchmark 中 MiMo JSON array 响应导致任务失败的问题
   - Files: `src/deepresearch/agents/researcher.py`, `tests/agents/test_researcher.py`
   - Done when: query/evidence 提取兼容 JSON object 和 JSON array，避免 `'list' object has no attribute 'get'`。

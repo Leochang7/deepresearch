@@ -18,7 +18,11 @@ from deepresearch.llm.mock import MockLLM
 from deepresearch.memory.store import MockMemoryStore
 from deepresearch.rerankers.mock import MockRerankerClient
 from deepresearch.retrieval.mock import MockRetriever
-from deepresearch.schemas.evaluation import EvaluationResult, ExpectedFact, FactHitResult
+from deepresearch.schemas.evaluation import (
+    EvaluationResult,
+    ExpectedFact,
+    FactHitResult,
+)
 from deepresearch.schemas.report import ReportSection, ResearchReport
 from deepresearch.schemas.task import TaskNode, TaskState
 
@@ -1314,19 +1318,22 @@ async def test_run_benchmark_wires_judge_prompt_provider(tmp_path):
                 judge_rounds=[],
             )
 
-    with patch(
-        "deepresearch.evaluation.benchmark.judge_facts",
-        new_callable=AsyncMock,
-    ) as mock_judge_facts, patch(
-        "deepresearch.prompts.factory.build_prompt_provider",
-        return_value=MagicMock(),
-    ) as mock_build_pp:
+    with (
+        patch(
+            "deepresearch.evaluation.benchmark.judge_facts",
+            new_callable=AsyncMock,
+        ) as mock_judge_facts,
+        patch(
+            "deepresearch.prompts.factory.build_prompt_provider",
+            return_value=MagicMock(),
+        ) as mock_build_pp,
+    ):
         mock_judge_facts.return_value = [
             FactHitResult(
                 fact="semantic fact", matched=True, reason="ok", source="rule"
             )
         ]
-        results, _ = await run_benchmark(
+        _results, _ = await run_benchmark(
             [case],
             lambda: FakeManager(),
             output_dir=tmp_path / "bench",
@@ -1340,6 +1347,7 @@ async def test_run_benchmark_wires_judge_prompt_provider(tmp_path):
     # judge_facts received the prompt_provider
     mock_judge_facts.assert_called_once()
     assert mock_judge_facts.call_args[1].get("prompt_provider") is not None
+    assert mock_judge_facts.call_args[1].get("prompt_name") == "custom_fact_judge"
 
 
 @pytest.mark.asyncio
@@ -1366,11 +1374,15 @@ async def test_run_benchmark_no_judge_prompt_provider_when_unconfigured(tmp_path
         "confidence": 0.9,
     }
     task = TaskNode(
-        task_id="t1", description="t", status=TaskState.SUCCEEDED,
+        task_id="t1",
+        description="t",
+        status=TaskState.SUCCEEDED,
         result={"evidence": [evidence]},
     )
     report = ResearchReport(
-        run_id="r1", question="Q?", summary="S [E1].",
+        run_id="r1",
+        question="Q?",
+        summary="S [E1].",
         sections=[ReportSection(title="A", content="C [E1].")],
     )
 
@@ -1380,14 +1392,25 @@ async def test_run_benchmark_no_judge_prompt_provider_when_unconfigured(tmp_path
             # judge_prompt_name is "" by default
             self._config = cfg
             self._llm = MockLLM(
-                [json.dumps({"verdict": "miss", "supporting_evidence_ids": [], "reason": "no"})]
+                [
+                    json.dumps(
+                        {
+                            "verdict": "miss",
+                            "supporting_evidence_ids": [],
+                            "reason": "no",
+                        }
+                    )
+                ]
             )
 
         async def run(self, question, *, output_dir, **kwargs):
             output_dir.mkdir(parents=True)
             return SimpleNamespace(
-                run_id="run-nopp", plan_tasks=[task], report=report,
-                evaluation=EvaluationResult(run_id="run-nopp"), budget=None,
+                run_id="run-nopp",
+                plan_tasks=[task],
+                report=report,
+                evaluation=EvaluationResult(run_id="run-nopp"),
+                budget=None,
                 judge_rounds=[],
             )
 
@@ -1399,12 +1422,15 @@ async def test_run_benchmark_no_judge_prompt_provider_when_unconfigured(tmp_path
             FactHitResult(fact="fact", matched=False, reason="no", source="rule")
         ]
         await run_benchmark(
-            [case], lambda: FakeManager(), output_dir=tmp_path / "bench",
+            [case],
+            lambda: FakeManager(),
+            output_dir=tmp_path / "bench",
         )
 
     # judge_facts called with prompt_provider=None
     mock_judge_facts.assert_called_once()
     assert mock_judge_facts.call_args[1].get("prompt_provider") is None
+    assert mock_judge_facts.call_args[1].get("prompt_name") == "fact_judge"
 
 
 def test_benchmark_pushes_annotation_candidates(monkeypatch):

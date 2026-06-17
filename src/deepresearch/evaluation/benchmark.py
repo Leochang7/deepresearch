@@ -131,10 +131,12 @@ async def _run_case(
 
         # Build judge-specific prompt provider if configured
         judge_prompt_provider = None
+        judge_prompt_name = "fact_judge"
         langfuse_cfg = getattr(getattr(manager, "_config", None), "langfuse", None)
         if langfuse_cfg and langfuse_cfg.judge_prompt_name:
             from deepresearch.prompts.factory import build_prompt_provider
 
+            judge_prompt_name = langfuse_cfg.judge_prompt_name
             judge_cfg = langfuse_cfg.model_copy()
             if judge_cfg.judge_prompt_label:
                 judge_cfg.prompt_label = judge_cfg.judge_prompt_label
@@ -152,6 +154,7 @@ async def _run_case(
                     evidence,
                     evaluation.fact_details,
                     prompt_provider=judge_prompt_provider,
+                    prompt_name=judge_prompt_name,
                 )
                 evaluation.fact_details = updated_details
                 judge_hits = sum(1 for d in updated_details if d.matched)
