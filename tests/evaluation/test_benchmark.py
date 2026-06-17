@@ -311,6 +311,89 @@ async def test_run_benchmark_recomputes_case_aware_metrics(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_run_benchmark_reports_case_aware_scores_to_langfuse(tmp_path):
+    case = BenchmarkCase(
+        id="case-linked",
+        domain="test",
+        difficulty="easy",
+        question="What is tested?",
+        expected_facts=["alpha fact"],
+        required_citations=1,
+        source_dataset="researchbench_full",
+    )
+    task = TaskNode(
+        task_id="t1",
+        description="task",
+        status=TaskState.SUCCEEDED,
+        result={
+            "evidence": [
+                {
+                    "evidence_id": "E1",
+                    "task_id": "t1",
+                    "claim": "alpha fact",
+                    "quote": "alpha fact quote",
+                    "citation": "source",
+                    "confidence": 0.9,
+                }
+            ]
+        },
+    )
+    report = ResearchReport(
+        run_id="r1",
+        question=case.question,
+        summary="alpha fact is covered [E1].",
+        sections=[ReportSection(title="Analysis", content="alpha fact [E1].")],
+    )
+
+    class FakeLangfuse:
+        is_enabled = True
+        last_trace_id = "trace-1"
+
+        def __init__(self) -> None:
+            self.scores: list[dict] = []
+            self.links: list[dict] = []
+
+        def report_benchmark_scores(self, **kwargs):
+            self.scores.append(kwargs)
+
+        def link_run_to_dataset(self, **kwargs):
+            self.links.append(kwargs)
+
+    fake_langfuse = FakeLangfuse()
+
+    class FakeManager:
+        def __init__(self) -> None:
+            self._langfuse = fake_langfuse
+
+        async def run(self, question, *, output_dir, **kwargs):
+            output_dir.mkdir(parents=True)
+            return SimpleNamespace(
+                run_id="run-linked",
+                plan_tasks=[task],
+                report=report,
+                evaluation=EvaluationResult(run_id="run-linked"),
+                budget=None,
+                judge_rounds=[],
+            )
+
+    results, _summary = await run_benchmark(
+        [case],
+        lambda: FakeManager(),
+        output_dir=tmp_path / "bench",
+    )
+
+    assert results[0].evaluation["factual_hit_rate"] == 1.0
+    assert fake_langfuse.scores[0]["trace_id"] == "trace-1"
+    assert fake_langfuse.scores[0]["evaluation"]["factual_hit_rate"] == 1.0
+    assert fake_langfuse.links[0] == {
+        "dataset_name": "researchbench_full",
+        "case_id": "case-linked",
+        "run_id": "run-linked",
+        "trace_id": "trace-1",
+    }
+
+
+@pytest.mark.asyncio
 async def test_run_benchmark_uses_manager_llm_for_fact_judge(tmp_path):
     case = BenchmarkCase(
         id="case-judge",

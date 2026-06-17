@@ -133,7 +133,7 @@ PM8 验收结果：
 ### 离线测试
 
 ```bash
-uv run pytest           # 全量离线测试（584 passed, 1 skipped）
+uv run pytest           # 全量离线测试（603 passed, 1 skipped）
 uv run ruff check .     # lint
 ```
 
@@ -155,6 +155,7 @@ uv run ruff check .     # lint
 - 跑一次真实 local-corpus full suite，确认 `suite_summary.json`、`comparison.json`、Langfuse traces/scores 和本地产物一致。
 - 清理文档和 release notes，准备 push/PR/tag。
 - 如果继续优化质量，优先分析 `multilingual_large20` 和 `researchbench_full` 的低 citation coverage case，而不是新增 UI。
+- 如果继续增强 Langfuse，按 PM22-PM25 顺序做 Dataset/Experiment 绑定、DAG/Agent nested observations、managed evaluator/prompt versioning 和 human annotation loop。
 
 ## 仓库结构
 
@@ -174,7 +175,7 @@ src/deepresearch/
 ├── config.py
 └── doctor.py
 
-tests/               # 584 passed, 1 skipped, 100% 离线可跑
+tests/               # 603 passed, 1 skipped, 100% 离线可跑
 examples/
 ├── bench/           # researchbench_mini.jsonl, researchbench_smoke5.jsonl, multilingual_large20.jsonl
 └── corpus/          # 本地资料集示例

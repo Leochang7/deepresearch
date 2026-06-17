@@ -104,16 +104,8 @@ async def _run_case(
             },
         )
         elapsed = time.monotonic() - run_start
-
-        # Link trace to dataset item in Langfuse (no-op if disabled)
         langfuse: LangfuseAdapter | None = getattr(manager, "_langfuse", None)
-        if langfuse is not None and langfuse.is_enabled and case.source_dataset:
-            langfuse.link_run_to_dataset(
-                dataset_name=case.source_dataset,
-                case_id=case.id,
-                run_id=run_result.run_id,
-                trace_id=langfuse.last_trace_id,
-            )
+        langfuse_trace_id = langfuse.last_trace_id if langfuse is not None else ""
 
         evidence = RunManager._collect_evidence(run_result.plan_tasks)
         evaluation = evaluate(
@@ -156,6 +148,18 @@ async def _run_case(
                     )
 
         evaluation_dict = evaluation.to_layers().to_compatible_dict()
+        if langfuse is not None and langfuse.is_enabled and langfuse_trace_id:
+            langfuse.report_benchmark_scores(
+                trace_id=langfuse_trace_id,
+                evaluation=evaluation_dict,
+            )
+            if case.source_dataset:
+                langfuse.link_run_to_dataset(
+                    dataset_name=case.source_dataset,
+                    case_id=case.id,
+                    run_id=run_result.run_id,
+                    trace_id=langfuse_trace_id,
+                )
         return BenchmarkResult(
             case_id=case.id,
             run_id=run_result.run_id,

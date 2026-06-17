@@ -202,17 +202,30 @@ def test_push_dataset_creates_langfuse_dataset():
     mock_langfuse_cls.return_value = mock_client
 
     with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse_cls)}):
-        adapter = LangfuseAdapter(
-            enabled=True, public_key="pk", secret_key="sk"
-        )
+        adapter = LangfuseAdapter(enabled=True, public_key="pk", secret_key="sk")
         cases = [
-            {"id": "c1", "question": "Q1", "expected_facts": ["F1"], "domain": "d", "difficulty": "easy"},
-            {"id": "c2", "question": "Q2", "expected_facts": ["F2"], "domain": "d", "difficulty": "hard"},
+            {
+                "id": "c1",
+                "question": "Q1",
+                "expected_facts": ["F1"],
+                "domain": "d",
+                "difficulty": "easy",
+            },
+            {
+                "id": "c2",
+                "question": "Q2",
+                "expected_facts": ["F2"],
+                "domain": "d",
+                "difficulty": "hard",
+            },
         ]
         count = adapter.push_dataset(dataset_name="test_ds", cases=cases)
         assert count == 2
         mock_client.create_dataset.assert_called_once_with(name="test_ds")
         assert mock_client.create_dataset_item.call_count == 2
+        first_item = mock_client.create_dataset_item.call_args_list[0].kwargs
+        assert first_item["id"] == "c1"
+        assert first_item["input"]["case_id"] == "c1"
 
 
 def test_push_dataset_noop_when_disabled():
@@ -222,30 +235,61 @@ def test_push_dataset_noop_when_disabled():
     assert count == 0
 
 
-def test_link_run_to_dataset():
-    """link_run_to_dataset should call client.create_dataset_run_item."""
+def test_report_benchmark_scores_uses_prefixed_scores():
     mock_langfuse_cls = MagicMock()
     mock_client = MagicMock()
     mock_langfuse_cls.return_value = mock_client
 
     with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse_cls)}):
         adapter = LangfuseAdapter(enabled=True, public_key="pk", secret_key="sk")
-        adapter.link_run_to_dataset(
-            dataset_name="researchbench_full",
-            case_id="rbf-001",
-            run_id="run-1",
+        adapter.report_benchmark_scores(
             trace_id="trace-1",
+            evaluation={
+                "task_success_rate": 1.0,
+                "citation_coverage": 0.75,
+                "report_section_completeness": 1.0,
+                "factual_hit_rate": 0.8,
+                "hallucination_flag": False,
+                "judge_scores": {"factuality": 0.9},
+            },
         )
-        mock_client.create_dataset_run_item.assert_called_once()
-        call_kwargs = mock_client.create_dataset_run_item.call_args.kwargs
-        assert call_kwargs["dataset_name"] == "researchbench_full"
-        assert call_kwargs["run_name"] == "run-1"
+
+    score_names = [
+        c.kwargs.get("name") for c in mock_client.create_score.call_args_list
+    ]
+    assert "benchmark_task_success_rate" in score_names
+    assert "benchmark_factual_hit_rate" in score_names
+    assert "benchmark_judge_factuality" in score_names
+    mock_client.flush.assert_called_once()
+
+
+def test_link_run_to_dataset_logs_current_sdk_metadata(caplog):
+    mock_langfuse_cls = MagicMock()
+    mock_client = MagicMock()
+    mock_langfuse_cls.return_value = mock_client
+
+    with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse_cls)}):
+        adapter = LangfuseAdapter(enabled=True, public_key="pk", secret_key="sk")
+        with caplog.at_level(logging.INFO):
+            adapter.link_run_to_dataset(
+                dataset_name="researchbench_full",
+                case_id="rbf-001",
+                run_id="run-1",
+                trace_id="trace-1",
+            )
+
+    assert "researchbench_full" in caplog.text
+    assert "rbf-001" in caplog.text
+    assert not mock_client.method_calls
 
 
 def test_link_run_to_dataset_noop_when_disabled():
     """link_run_to_dataset should be a no-op when adapter is disabled."""
     adapter = LangfuseAdapter(enabled=False)
     adapter.link_run_to_dataset(
-        dataset_name="test", case_id="c1", run_id="r1", trace_id="t1",
+        dataset_name="test",
+        case_id="c1",
+        run_id="r1",
+        trace_id="t1",
     )
     # No error, no call

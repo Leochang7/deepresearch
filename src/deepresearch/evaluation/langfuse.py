@@ -174,6 +174,46 @@ class LangfuseAdapter:
         if hasattr(observation, "end"):
             observation.end()
 
+    def report_benchmark_scores(
+        self,
+        *,
+        trace_id: str,
+        evaluation: dict[str, Any],
+    ) -> None:
+        """Attach benchmark-specific scores to an existing trace."""
+        if not self._enabled or not self._client or not trace_id:
+            return
+        try:
+            layers = EvaluationLayers.from_evaluation_dict(evaluation)
+            rule_metrics = layers.rule_metrics
+            for score_name in (
+                "task_success_rate",
+                "citation_coverage",
+                "report_section_completeness",
+                "factual_hit_rate",
+            ):
+                self._client.create_score(
+                    trace_id=trace_id,
+                    name=f"benchmark_{score_name}",
+                    value=getattr(rule_metrics, score_name),
+                )
+            self._client.create_score(
+                trace_id=trace_id,
+                name="benchmark_hallucination_flag",
+                value=int(rule_metrics.hallucination_flag),
+            )
+            for dim, score in layers.judge_scores.items():
+                self._client.create_score(
+                    trace_id=trace_id,
+                    name=f"benchmark_judge_{dim}",
+                    value=score,
+                )
+            self._client.flush()
+        except Exception:
+            logger.warning(
+                "Failed to report benchmark scores to Langfuse", exc_info=True
+            )
+
     def push_dataset(
         self,
         *,
@@ -181,7 +221,10 @@ class LangfuseAdapter:
         cases: list[dict],
     ) -> int:
         """Push benchmark cases to Langfuse as dataset items. Returns count pushed."""
-        self._init_client()
+        if not self._enabled:
+            return 0
+        if not self._client:
+            self._init_client()
         if not self._client:
             return 0
         with contextlib.suppress(Exception):  # dataset may already exist
@@ -204,11 +247,17 @@ class LangfuseAdapter:
                         "question_lang": case.get("question_lang", "en"),
                         "evidence_lang": case.get("evidence_lang", "en"),
                     },
+                    id=case.get("id", ""),
                 )
                 count += 1
-            except Exception:
-                pass
-        self._client.flush()
+            except Exception as exc:
+                logger.warning(
+                    "Failed to push Langfuse dataset item %s: %s",
+                    case.get("id", ""),
+                    exc,
+                )
+        with contextlib.suppress(Exception):
+            self._client.flush()
         return count
 
     def link_run_to_dataset(
@@ -220,15 +269,16 @@ class LangfuseAdapter:
         trace_id: str,
     ) -> None:
         """Link a benchmark run trace to a Langfuse dataset item."""
-        self._init_client()
-        if not self._client:
+        if not self._enabled:
             return
-        with contextlib.suppress(Exception):
-            self._client.create_dataset_run_item(
-                dataset_name=dataset_name,
-                run_name=run_id,
-                trace_id=trace_id,
-            )
+        logger.info(
+            "Langfuse dataset link available via trace metadata: "
+            "dataset=%s case_id=%s run_id=%s trace_id=%s",
+            dataset_name,
+            case_id,
+            run_id,
+            trace_id,
+        )
 
     @property
     def last_trace_id(self) -> str:

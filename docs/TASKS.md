@@ -771,3 +771,51 @@
   - Files: `src/deepresearch/evaluation/fact_matching.py`, `src/deepresearch/evaluation/metrics.py`, `src/deepresearch/evaluation/judge_eval.py`, `src/deepresearch/evaluation/langfuse.py`, tests
   - Done when: fact matching 从 `metrics.py` 拆出；`judge_facts()` 接收/返回 `FactHitResult`；Langfuse adapter 读取 canonical `EvaluationLayers`，不再依赖 flat alias 作为事实源。
   - Verify: `uv run pytest tests/evaluation tests/schemas/test_schemas.py`; `uv run ruff check .`
+
+### PM22 Langfuse Dataset & Experiment Binding
+
+- [x] PM220 将本地 benchmark dataset bootstrap 到 Langfuse Datasets
+  - Files: `src/deepresearch/evaluation/langfuse.py`, `src/deepresearch/cli.py`, tests
+  - Done when: `LangfuseAdapter.push_dataset()` 可将 JSONL cases push 为 Langfuse dataset items，并用 `case.id` 作为稳定 item id；`datasets push` CLI 命令可用；无 Langfuse key 时返回 0 不报错。
+  - Verify: `uv run pytest tests/evaluation/test_langfuse.py`
+
+- [x] PM221 benchmark run 关联 Langfuse dataset item 与 experiment run
+  - Files: `src/deepresearch/evaluation/benchmark.py`, `src/deepresearch/evaluation/langfuse.py`, `src/deepresearch/core/run_manager.py`, tests
+  - Done when: benchmark `_run_case` 在有 `source_dataset` 时通过 trace metadata、`last_trace_id` 和 `benchmark_*` scores 关联本地 case 与 Langfuse trace；当前 Langfuse SDK 无 `create_dataset_run_item`，原生 experiment run 绑定留给 PM23/PM24 基于 `run_experiment()` 实现。
+  - Verify: `uv run pytest tests/evaluation`
+
+### PM23 Fine-grained Langfuse DAG/Agent Observations
+
+- [ ] PM230 增加 Planner/DAG/Research/Synthesizer/Red-Blue/Judge/Evaluator 细粒度 observations
+  - Files: `src/deepresearch/core/run_manager.py`, `src/deepresearch/core/trace.py`, `src/deepresearch/evaluation/langfuse.py`, tests
+  - Done when: Langfuse trace 中可看到 nested observations，覆盖 Planner、每个 DAG task、retrieval query、memory search、synthesis、red/blue/judge 和 evaluator；本地 trace JSONL 仍保持完整。
+  - Verify: `uv run pytest tests/core tests/evaluation`
+
+- [ ] PM231 将 RunBudget、latency、token usage 和检索数量标准化进 Langfuse metadata/scores
+  - Files: `src/deepresearch/core/budget.py`, `src/deepresearch/evaluation/langfuse.py`, tests
+  - Done when: Langfuse dashboard 可按 run/model/prompt label 查看成本、延迟、LLM calls、search/fetch/chunk/embedding/rerank 数量。
+  - Verify: `uv run pytest tests/core tests/evaluation/test_langfuse.py`
+
+### PM24 Langfuse-managed Evaluator & Prompt Versioning
+
+- [ ] PM240 记录 runtime prompt name/version/hash 到 trace metadata
+  - Files: `src/deepresearch/prompts/`, `src/deepresearch/core/run_manager.py`, `src/deepresearch/evaluation/langfuse.py`, tests
+  - Done when: 每次 run 可追溯实际使用的 prompt provider、label、prompt name 和版本/hash；Langfuse 侧可按 prompt version 分析质量、成本和延迟。
+  - Verify: `uv run pytest tests/prompts tests/core tests/evaluation`
+
+- [ ] PM241 支持 Langfuse-managed evaluator 配置
+  - Files: `src/deepresearch/evaluation/judge_eval.py`, `src/deepresearch/prompts/`, `src/deepresearch/config.py`, tests, docs
+  - Done when: LLM-as-Judge 的 prompt/model/label 可由 Langfuse 配置管理；本地 `judge_eval.md` 和 `fact_judge.md` 继续作为离线 fallback 和测试基线。
+  - Verify: `uv run pytest tests/evaluation tests/prompts tests/test_config.py`
+
+### PM25 Human Annotation Queue & Review Loop
+
+- [ ] PM250 将低分或争议 benchmark traces 推入人工标注队列
+  - Files: `src/deepresearch/evaluation/langfuse.py`, `src/deepresearch/evaluation/benchmark.py`, docs
+  - Done when: 可按阈值选择低 `citation_coverage`、低 `factual_hit_rate`、高 hallucination 或 judge 分歧 case，写入 Langfuse annotation workflow；无 Langfuse 时离线 benchmark 不受影响。
+  - Verify: `uv run pytest tests/evaluation`
+
+- [ ] PM251 导入人工标注结果并回流到本地 evaluation summary
+  - Files: `src/deepresearch/evaluation/`, `scripts/experiments/`, tests, docs
+  - Done when: 人工标注结果可导出/同步为本地 summary 附加层，用于校准规则指标和 LLM-as-Judge；不会覆盖原始自动评测结果。
+  - Verify: `uv run pytest tests/evaluation`
