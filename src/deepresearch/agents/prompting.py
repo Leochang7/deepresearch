@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from deepresearch.prompts.provider import LocalPromptProvider, PromptProvider
+from deepresearch.prompts.provider import (
+    LocalPromptProvider,
+    PromptMetadata,
+    PromptProvider,
+)
 
 
 def load_agent_prompt(
@@ -9,3 +13,11 @@ def load_agent_prompt(
 ) -> str:
     provider = prompt_provider or LocalPromptProvider()
     return provider.get(name)
+
+
+def load_agent_prompt_metadata(
+    prompt_provider: PromptProvider | None,
+    name: str,
+) -> tuple[str, PromptMetadata]:
+    provider = prompt_provider or LocalPromptProvider()
+    return provider.get_with_metadata(name)

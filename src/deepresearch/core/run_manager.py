@@ -103,6 +103,22 @@ class RunManager:
 
         prompt_provider = self._prompt_provider or self._build_prompt_provider()
 
+        # Collect prompt metadata for traceability
+        prompt_meta: dict[str, str] = {}
+        try:
+            from deepresearch.prompts.provider import LocalPromptProvider
+
+            meta_source = prompt_provider or LocalPromptProvider()
+            _, meta = meta_source.get_with_metadata("planner")
+            prompt_meta["prompt_provider"] = meta.provider_type
+            if meta.label:
+                prompt_meta["prompt_label"] = meta.label
+            if meta.version:
+                prompt_meta["prompt_version"] = meta.version
+            prompt_meta["prompt_planner_hash"] = meta.content_hash
+        except Exception:
+            pass
+
         langfuse = LangfuseAdapter(
             enabled=self._config.langfuse.enabled,
             host=self._config.langfuse.host,
@@ -121,6 +137,7 @@ class RunManager:
                 "retriever": self._config.retrieval.search_provider,
                 "report_profile": self._config.synthesizer.report_profile,
                 **langfuse_metadata,
+                **prompt_meta,
             },
         )
 

@@ -386,6 +386,44 @@ async def test_run_manager_replan_replaces_failed_task_and_resumes_downstream(tm
 
 
 @pytest.mark.asyncio
+async def test_run_manager_records_prompt_metadata_in_langfuse_context(tmp_path):
+    """Verify prompt metadata is included in Langfuse context metadata."""
+    mock_adapter = MagicMock()
+    mock_adapter.is_enabled = True
+    mock_ctx = MagicMock()
+    mock_ctx._parent_observation_id = "obs-run"
+
+    def make_phase_cm():
+        cm = MagicMock()
+        cm.__enter__ = MagicMock(return_value={"_observation_id": "obs-phase"})
+        cm.__exit__ = MagicMock(return_value=False)
+        return cm
+
+    mock_ctx.create_phase.side_effect = lambda *a, **kw: make_phase_cm()
+    mock_adapter.context.return_value = mock_ctx
+
+    config = DeepResearchConfig()
+    config.langfuse.prompt_label = "staging"
+
+    with patch("deepresearch.core.run_manager.LangfuseAdapter", return_value=mock_adapter):
+        await RunManager(
+            config,
+            MockLLM(),
+            MockRetriever(),
+            MockMemoryStore(),
+            MockEmbeddingClient(),
+            MockRerankerClient(),
+        ).run("test question", output_dir=tmp_path / "run")
+
+    ctx_metadata = mock_adapter.context.call_args[0][2]
+    assert "prompt_provider" in ctx_metadata
+    assert "prompt_planner_hash" in ctx_metadata
+    assert ctx_metadata["prompt_provider"] == "local"
+    # prompt_label from config takes precedence when provider label is empty
+    assert ctx_metadata["prompt_label"] == "staging"
+
+
+@pytest.mark.asyncio
 async def test_run_manager_creates_nested_langfuse_observations(tmp_path):
     """Verify RunManager creates Langfuse observations for each phase."""
     mock_langfuse_cls = MagicMock()
