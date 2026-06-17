@@ -26,6 +26,7 @@
 
 - `MVP_ACCEPTANCE.md`: MVP 验收指标、真实运行样例和复现命令。
 - `REAL_BENCHMARK_GUIDE.md`: 真实 benchmark、local corpus smoke、指标解释和复现方式。
+- `RELEASE_HARDENING.md`: 交付前真实环境检查、full suite 尝试、阻塞点和低 citation coverage 分析。
 - `EVALUATION_LANGFUSE_PLAN.md`: Langfuse adapter、benchmark runner、LLM-as-Judge 和评测闭环设计。
 - `archive/`: 历史 MVP 路线、Post-MVP 旧计划和早期实现计划。归档文档不再维护新任务状态。
 
@@ -41,6 +42,7 @@
 - 操作历史以 `WORKLOG.md` 为准。
 - 配置项以 `CONFIGURATION.md` 和 `.env.example` 为准。
 - 评测复现方式以 `REAL_BENCHMARK_GUIDE.md` 为准。
+- 交付前真实验收记录以 `RELEASE_HARDENING.md` 为准。
 - Langfuse 评测设计以 `EVALUATION_LANGFUSE_PLAN.md` 为准。
 
 如果多个文档内容冲突，先更新唯一事实源，再在其他文档保留摘要或链接。

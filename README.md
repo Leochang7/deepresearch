@@ -154,3 +154,4 @@ Planner → DAG Executor → Research Agent → Retriever → Memory → Synthes
 - [检索与资料获取设计](docs/RETRIEVAL_DESIGN.md)
 - [配置设计](docs/CONFIGURATION.md)
 - [真实 benchmark 指南](docs/REAL_BENCHMARK_GUIDE.md)
+- [Release hardening 记录](docs/RELEASE_HARDENING.md)

@@ -18,6 +18,11 @@
   - Done when: Langfuse annotation 不再调用当前 SDK 不存在的 queue API；`judge_prompt_name` 真实传入 fact judge；runtime prompt metadata 覆盖完整 prompt set 并记录 Langfuse version；annotation candidate/import 区分 run error、坏行和重复 case。
   - Verify: `uv run pytest tests\prompts tests\core\test_run_manager.py tests\evaluation\test_annotation.py tests\evaluation\test_langfuse.py`; `uv run pytest tests\evaluation\test_benchmark.py`; `uv run ruff check .`; `uv run pytest`
 
+- [x] BF005 同步 release hardening 状态并记录真实验收尝试
+  - Files: `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/RELEASE_HARDENING.md`, `docs/README.md`, `README.md`, `docs/WORKLOG.md`
+  - Done when: 状态文档更新到 PM25；最新测试数更新为 644 passed / 1 skipped；真实 doctor 和 real local-corpus smoke 尝试的结果、阻塞和 citation coverage 初步分析有单一记录入口。
+  - Verify: `uv run deepresearch doctor --real`; real benchmark partial output at `outputs/experiments/release-hardening-real/researchbench_smoke5/`; `uv run ruff check .`; `uv run pytest`
+
 - [x] BF001 修复真实 benchmark 中 MiMo JSON array 响应导致任务失败的问题
   - Files: `src/deepresearch/agents/researcher.py`, `tests/agents/test_researcher.py`
   - Done when: query/evidence 提取兼容 JSON object 和 JSON array，避免 `'list' object has no attribute 'get'`。

@@ -4,7 +4,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 
 ## 当前状态
 
-MVP、PM0-PM21 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management；PM11-PM15 完成并行 benchmark、中英跨语言检索/引用质量、multilingual benchmark 和 20-case large benchmark；PM16-PM19 完成 dataset suite、三层评测流水线、LLM backend matrix 和一键实验脚本；PM20 完成检索/记忆 hardening、可配置 LexicalPolicy + jieba tokenizer，以及模型后端装配收敛；PM21 完成评测输出、benchmark case、fact matching 和 Langfuse 上报的 schema hardening。
+MVP、PM0-PM25 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management；PM11-PM15 完成并行 benchmark、中英跨语言检索/引用质量、multilingual benchmark 和 20-case large benchmark；PM16-PM19 完成 dataset suite、三层评测流水线、LLM backend matrix 和一键实验脚本；PM20 完成检索/记忆 hardening、可配置 LexicalPolicy + jieba tokenizer，以及模型后端装配收敛；PM21 完成评测输出、benchmark case、fact matching 和 Langfuse 上报的 schema hardening；PM22-PM25 完成 Langfuse dataset/trace/score 绑定、DAG/Agent nested observations、prompt versioning 和人工标注回流。
 
 ## 已完成能力
 
@@ -77,6 +77,10 @@ MVP、PM0-PM21 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 | PM19 | ✅ 完成 | One-command Experiment Scripts：local mock、模型对比、prompt ablation、multilingual 和 full suite 汇总脚本 |
 | PM20 | ✅ 完成 | Retrieval/Memory/Model Hardening：公共词法/相似度/document key 收敛、LexicalPolicy+jieba、模型后端 factory 和 OpenAI-compatible client 收敛 |
 | PM21 | ✅ 完成 | Evaluation & Schema Hardening：typed EvaluationLayers/BenchmarkCase、fact matching 拆分、LLM fact judge 和 Langfuse 上报边界收敛 |
+| PM22 | ✅ 完成 | Langfuse Dataset & Experiment Binding：dataset push、case trace metadata、benchmark scores |
+| PM23 | ✅ 完成 | Fine-grained Langfuse DAG/Agent Observations：run/phase/task nested observations 和 budget scores |
+| PM24 | ✅ 完成 | Langfuse-managed Evaluator & Prompt Versioning：prompt name/version/hash metadata、judge prompt override |
+| PM25 | ✅ 完成 | Human Annotation Queue & Review Loop：annotation candidate 标记、人工标注 JSONL 回流 |
 
 ## 真实环境运行
 
@@ -133,7 +137,7 @@ PM8 验收结果：
 ### 离线测试
 
 ```bash
-uv run pytest           # 全量离线测试（610 passed, 1 skipped）
+uv run pytest           # 全量离线测试（644 passed, 1 skipped）
 uv run ruff check .     # lint
 ```
 
@@ -147,15 +151,16 @@ uv run ruff check .     # lint
 - **单轮执行**: 无交互式 refinement；pipeline 一次跑完
 - **真实 large benchmark 成本**: `multilingual_large20` 真实模式会调用真实 LLM/embedding/reranker/Milvus；默认测试只跑 mock sample
 - **Langfuse 可选**: 评测追踪默认 no-op；严格 prompt provider 需要 Langfuse SDK 和密钥，fallback provider 可回退本地 prompt
+- **Langfuse annotation queue**: 当前 SDK 无稳定 annotation queue item API，项目使用 trace-level `annotation_candidate` score 作为人工审阅 handoff
+- **真实 full suite 耗时**: real local-corpus case 单例约 200–250 秒，43-case full suite 需要后台终端或 CI runner；交互工具窗口内可能超时
 
 ## 下一阶段方向
 
 核心工程主线已经闭环。下一步不建议继续堆大功能，优先做 release hardening 和真实验收：
 
-- 跑一次真实 local-corpus full suite，确认 `suite_summary.json`、`comparison.json`、Langfuse traces/scores 和本地产物一致。
+- 跑一次后台真实 local-corpus full suite，确认 `suite_summary.json`、`comparison.json`、Langfuse traces/scores 和本地产物一致；当前交互窗口已完成 3 个 smoke case，详见 `docs/RELEASE_HARDENING.md`。
 - 清理文档和 release notes，准备 push/PR/tag。
-- 如果继续优化质量，优先分析 `multilingual_large20` 和 `researchbench_full` 的低 citation coverage case，而不是新增 UI。
-- 如果继续增强 Langfuse，按 PM22-PM25 顺序做 Dataset/Experiment 绑定、DAG/Agent nested observations、managed evaluator/prompt versioning 和 human annotation loop。
+- 如果继续优化质量，优先分析 `rb-006`、`multilingual_large20` 和 `researchbench_full` 的低 citation coverage case，而不是新增 UI。
 
 ## 仓库结构
 
@@ -175,7 +180,7 @@ src/deepresearch/
 ├── config.py
 └── doctor.py
 
-tests/               # 610 passed, 1 skipped, 100% 离线可跑
+tests/               # 644 passed, 1 skipped, 100% 离线可跑
 examples/
 ├── bench/           # researchbench_mini.jsonl, researchbench_smoke5.jsonl, multilingual_large20.jsonl
 └── corpus/          # 本地资料集示例
