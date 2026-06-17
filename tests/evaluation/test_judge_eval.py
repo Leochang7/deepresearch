@@ -363,3 +363,39 @@ async def test_llm_as_judge_uses_custom_prompt_provider():
     )
     assert isinstance(scores, dict)
     mock_provider.get.assert_called_once_with("judge_eval")
+
+
+@pytest.mark.asyncio
+async def test_judge_facts_uses_custom_prompt_provider():
+    """When judge_facts receives a prompt_provider, it loads from that provider."""
+    from deepresearch.schemas.evaluation import FactHitResult
+
+    mock_provider = MagicMock()
+    mock_provider.get.return_value = "Custom fact judge prompt"
+
+    llm = MockLLM(
+        [
+            json.dumps(
+                {
+                    "verdict": "hit",
+                    "supporting_evidence_ids": ["E1"],
+                    "reason": "Covered by custom provider",
+                }
+            )
+        ]
+    )
+    fact_details = [
+        FactHitResult(
+            fact="Some unmatched fact",
+            matched=False,
+            reason="No overlap",
+            source="rule",
+        )
+    ]
+
+    result = await judge_facts(
+        llm, "test", _report(), _evidence(), fact_details, prompt_provider=mock_provider
+    )
+    assert len(result) == 1
+    assert result[0].matched is True
+    mock_provider.get.assert_called_once_with("fact_judge")

@@ -18,7 +18,7 @@ from deepresearch.llm.mock import MockLLM
 from deepresearch.memory.store import MockMemoryStore
 from deepresearch.rerankers.mock import MockRerankerClient
 from deepresearch.retrieval.mock import MockRetriever
-from deepresearch.schemas.evaluation import EvaluationResult, ExpectedFact
+from deepresearch.schemas.evaluation import EvaluationResult, ExpectedFact, FactHitResult
 from deepresearch.schemas.report import ReportSection, ResearchReport
 from deepresearch.schemas.task import TaskNode, TaskState
 
@@ -1245,3 +1245,163 @@ async def test_multilingual_large20_benchmark_mock_sample(tmp_path):
     assert summary["total_cases"] == 3
     assert "en->en" in summary["per_language_scenario"]
     assert "zh->mixed" in summary["per_language_scenario"]
+
+
+@pytest.mark.asyncio
+async def test_run_benchmark_wires_judge_prompt_provider(tmp_path):
+    """When judge_prompt_name is set in config, judge_facts receives a prompt_provider."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from deepresearch.config import DeepResearchConfig
+
+    case = BenchmarkCase(
+        id="case-judge-pp",
+        domain="test",
+        difficulty="easy",
+        question="What is tested?",
+        expected_facts=["semantic fact"],
+        required_citations=1,
+    )
+    evidence = {
+        "evidence_id": "E1",
+        "task_id": "t1",
+        "claim": "semantic",
+        "quote": "semantic quote",
+        "citation": "source",
+        "confidence": 0.9,
+    }
+    task = TaskNode(
+        task_id="t1",
+        description="task",
+        status=TaskState.SUCCEEDED,
+        result={"evidence": [evidence]},
+    )
+    report = ResearchReport(
+        run_id="r1",
+        question=case.question,
+        summary="The report covers different terms [E1].",
+        sections=[ReportSection(title="Analysis", content="Different [E1].")],
+    )
+
+    cfg = DeepResearchConfig()
+    cfg.langfuse.judge_prompt_name = "custom_fact_judge"
+    cfg.langfuse.judge_prompt_label = "judge_v2"
+    cfg.langfuse.prompt_provider = "local"
+
+    class FakeManager:
+        def __init__(self) -> None:
+            self._config = cfg
+            self._llm = MockLLM(
+                [
+                    json.dumps(
+                        {
+                            "verdict": "hit",
+                            "supporting_evidence_ids": ["E1"],
+                            "reason": "Semantic match",
+                        }
+                    )
+                ]
+            )
+
+        async def run(self, question, *, output_dir, **kwargs):
+            output_dir.mkdir(parents=True)
+            return SimpleNamespace(
+                run_id="run-pp",
+                plan_tasks=[task],
+                report=report,
+                evaluation=EvaluationResult(run_id="run-pp"),
+                budget=None,
+                judge_rounds=[],
+            )
+
+    with patch(
+        "deepresearch.evaluation.benchmark.judge_facts",
+        new_callable=AsyncMock,
+    ) as mock_judge_facts, patch(
+        "deepresearch.prompts.factory.build_prompt_provider",
+        return_value=MagicMock(),
+    ) as mock_build_pp:
+        mock_judge_facts.return_value = [
+            FactHitResult(
+                fact="semantic fact", matched=True, reason="ok", source="rule"
+            )
+        ]
+        results, _ = await run_benchmark(
+            [case],
+            lambda: FakeManager(),
+            output_dir=tmp_path / "bench",
+        )
+
+    # build_prompt_provider was called with the modified config
+    mock_build_pp.assert_called_once()
+    call_cfg = mock_build_pp.call_args[0][0]
+    assert call_cfg.prompt_label == "judge_v2"
+
+    # judge_facts received the prompt_provider
+    mock_judge_facts.assert_called_once()
+    assert mock_judge_facts.call_args[1].get("prompt_provider") is not None
+
+
+@pytest.mark.asyncio
+async def test_run_benchmark_no_judge_prompt_provider_when_unconfigured(tmp_path):
+    """When judge_prompt_name is empty, no judge prompt provider is built."""
+    from unittest.mock import AsyncMock, patch
+
+    from deepresearch.config import DeepResearchConfig
+
+    case = BenchmarkCase(
+        id="case-no-pp",
+        domain="test",
+        difficulty="easy",
+        question="Q?",
+        expected_facts=["fact"],
+        required_citations=1,
+    )
+    evidence = {
+        "evidence_id": "E1",
+        "task_id": "t1",
+        "claim": "c",
+        "quote": "q",
+        "citation": "src",
+        "confidence": 0.9,
+    }
+    task = TaskNode(
+        task_id="t1", description="t", status=TaskState.SUCCEEDED,
+        result={"evidence": [evidence]},
+    )
+    report = ResearchReport(
+        run_id="r1", question="Q?", summary="S [E1].",
+        sections=[ReportSection(title="A", content="C [E1].")],
+    )
+
+    class FakeManager:
+        def __init__(self) -> None:
+            cfg = DeepResearchConfig()
+            # judge_prompt_name is "" by default
+            self._config = cfg
+            self._llm = MockLLM(
+                [json.dumps({"verdict": "miss", "supporting_evidence_ids": [], "reason": "no"})]
+            )
+
+        async def run(self, question, *, output_dir, **kwargs):
+            output_dir.mkdir(parents=True)
+            return SimpleNamespace(
+                run_id="run-nopp", plan_tasks=[task], report=report,
+                evaluation=EvaluationResult(run_id="run-nopp"), budget=None,
+                judge_rounds=[],
+            )
+
+    with patch(
+        "deepresearch.evaluation.benchmark.judge_facts",
+        new_callable=AsyncMock,
+    ) as mock_judge_facts:
+        mock_judge_facts.return_value = [
+            FactHitResult(fact="fact", matched=False, reason="no", source="rule")
+        ]
+        await run_benchmark(
+            [case], lambda: FakeManager(), output_dir=tmp_path / "bench",
+        )
+
+    # judge_facts called with prompt_provider=None
+    mock_judge_facts.assert_called_once()
+    assert mock_judge_facts.call_args[1].get("prompt_provider") is None

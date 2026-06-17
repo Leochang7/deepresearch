@@ -128,6 +128,17 @@ async def _run_case(
         )
         evaluation.judge_scores = run_result.evaluation.judge_scores
 
+        # Build judge-specific prompt provider if configured
+        judge_prompt_provider = None
+        langfuse_cfg = getattr(getattr(manager, "_config", None), "langfuse", None)
+        if langfuse_cfg and langfuse_cfg.judge_prompt_name:
+            from deepresearch.prompts.factory import build_prompt_provider
+
+            judge_cfg = langfuse_cfg.model_copy()
+            if judge_cfg.judge_prompt_label:
+                judge_cfg.prompt_label = judge_cfg.judge_prompt_label
+            judge_prompt_provider = build_prompt_provider(judge_cfg)
+
         # Run fact-level semantic judge if LLM available
         judge_llm = llm or getattr(manager, "_llm", None)
         if judge_llm is not None and evaluation.fact_details:
@@ -139,6 +150,7 @@ async def _run_case(
                     run_result.report,
                     evidence,
                     evaluation.fact_details,
+                    prompt_provider=judge_prompt_provider,
                 )
                 evaluation.fact_details = updated_details
                 judge_hits = sum(1 for d in updated_details if d.matched)
