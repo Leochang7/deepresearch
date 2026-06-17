@@ -130,7 +130,7 @@ async def test_index_corpus_chunks_embeds_and_upserts(tmp_path):
     entries = store.upsert.await_args.args[0]
     assert entries[0].source_type == "chunk"
     assert entries[0].run_id == "corpus"
-    assert len(entries[0].embedding) == 1024
+    assert len(entries[0].embedding) == 2560
     assert store_cls.call_args.kwargs["embedding_model"] == "Qwen3-Embedding-4B"
 
 
@@ -172,6 +172,16 @@ def test_config_accepts_explicit_file(tmp_path):
 
     assert result.exit_code == 0
     assert "LLM provider: deepseek" in result.output
+
+
+def test_config_missing_explicit_file_fails_cleanly(tmp_path):
+    missing = tmp_path / "missing.toml"
+
+    result = runner.invoke(app, ["config", "--config", str(missing)])
+
+    assert result.exit_code == 1
+    assert "Configuration file not found" in result.output
+    assert "Traceback" not in result.output
 
 
 def test_inspect_timeline_shows_task_stats(tmp_path):

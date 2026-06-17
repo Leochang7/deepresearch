@@ -27,7 +27,7 @@ class LLMConfig(BaseModel):
 class EmbeddingConfig(BaseModel):
     provider: str = "openai_compatible"
     model: str = "Qwen3-Embedding-4B"
-    dim: int = 1024
+    dim: int = 2560
     base_url: str = ""
     api_key_env: str = "DEEPRESEARCH_EMBEDDING_API_KEY"
     batch_size: int = 32
@@ -39,7 +39,7 @@ class EmbeddingConfig(BaseModel):
 
 class RerankerConfig(BaseModel):
     provider: str = "openai_compatible"
-    model: str = "bge-reranker-v2-m32"
+    model: str = "bge-reranker-v2-m3"
     base_url: str = ""
     api_key_env: str = "DEEPRESEARCH_RERANKER_API_KEY"
     batch_size: int = 16
@@ -271,14 +271,16 @@ def _resolve_config_path(explicit: str | None, cwd: Path | None) -> Path | None:
         p = Path(explicit)
         if p.is_file():
             return p
-        return None
+        raise FileNotFoundError(f"Configuration file not found: {explicit}")
 
     env_path = os.environ.get("DEEPRESEARCH_CONFIG_PATH")
     if env_path:
         p = Path(env_path)
         if p.is_file():
             return p
-        return None
+        raise FileNotFoundError(
+            f"Configuration file not found from DEEPRESEARCH_CONFIG_PATH: {env_path}"
+        )
 
     if cwd:
         p = cwd / "config.toml"

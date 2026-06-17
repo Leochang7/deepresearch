@@ -4,7 +4,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 
 ## 当前状态
 
-MVP、PM0-PM15 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management；PM11-PM15 完成并行 benchmark、中英跨语言检索/引用质量、multilingual benchmark 和 20-case large benchmark。
+MVP、PM0-PM19 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management；PM11-PM15 完成并行 benchmark、中英跨语言检索/引用质量、multilingual benchmark 和 20-case large benchmark；PM16-PM19 完成 dataset suite、三层评测流水线、LLM backend matrix 和一键实验脚本。
 
 ## 已完成能力
 
@@ -37,11 +37,14 @@ MVP、PM0-PM15 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 
 ### 评测闭环
 - ResearchBench mini: 12 个 benchmark case，覆盖 10 个领域
+- ResearchBench full: 32 个 case，覆盖 12 个领域
+- HotpotQA deep-research variant: 8 个 multi-hop case
 - Benchmark runner: `deepresearch benchmark <dataset> --mode mock|real`
 - Multilingual large benchmark: `examples/bench/multilingual_large20.jsonl`，20 个中英/跨语言 case
 - Fact-level judge: 规则匹配 + 可选 LLM semantic verdict，输出每条事实命中/遗漏/幻觉原因
 - 统计分析: per-domain/difficulty/language/language-scenario 分组、Bootstrap 95% CI、Cohen's d
 - LLM-as-Judge 5 维评分: factuality, citation_support, completeness, reasoning_consistency, readability
+- Experiment scripts: local mock、model compare、prompt ablation、multilingual regression、full suite，输出 `suite_summary.json` 和 `comparison.json`
 - 冲突检测: same_source_different_claim, opposite_conclusion, contradictory_value
 
 ## MVP / PM 状态
@@ -65,6 +68,10 @@ MVP、PM0-PM15 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 | PM13 | ✅ 完成 | Multilingual Evidence & Citation Quality：CJK claim/quote/fact matching 与语言 failure reason |
 | PM14 | ✅ 完成 | Multilingual Benchmark：15-case 中英 local-corpus benchmark 和 summary comparison |
 | PM15 | ✅ 完成 | Larger Multilingual Benchmark：20-case 单文件数据集和 `per_language_scenario` breakdown |
+| PM16 | ✅ 完成 | Evaluation Dataset Suite：ResearchBench full、HotpotQA deep-research 变体、dataset manifest 和质量检查 |
+| PM17 | ✅ 完成 | Three-layer Evaluation Pipeline：规则指标、LLM-as-Judge、统计上下文和 Langfuse score/metadata 对齐 |
+| PM18 | ✅ 完成 | LLM Backend Matrix：MiMo、DeepSeek、OpenAI-compatible/vLLM 热切换和模型分组汇总 |
+| PM19 | ✅ 完成 | One-command Experiment Scripts：local mock、模型对比、prompt ablation、multilingual 和 full suite 汇总脚本 |
 
 ## 真实环境运行
 
@@ -121,13 +128,13 @@ PM8 验收结果：
 ### 离线测试
 
 ```bash
-uv run pytest           # 全量离线测试（482 passed, 1 skipped）
+uv run pytest           # 全量离线测试（579 passed, 1 skipped）
 uv run ruff check .     # lint
 ```
 
 ## 已知限制
 
-- **检索质量**: Tavily 结果偏向英文；中文查询效果较差
+- **检索质量**: Tavily 结果偏向英文；中文查询已通过本地跨语言资料集优化，但联网搜索质量仍受 provider 影响
 - **联网搜索成本/额度**: MiMo 原生搜索计费，Tavily 免费额度有限且可能返回 HTTP 432；benchmark 主路径改为 Local Corpus
 - **LLM 幻觉**: Synthesizer 可能生成"通过引用检查但过度解读 evidence"的 claim
 - **Milvus Standalone 必需**: 不支持 Milvus Lite（嵌入式）；需要 Docker 或 standalone 部署
@@ -138,10 +145,11 @@ uv run ruff check .     # lint
 
 ## 下一阶段方向
 
-- **PM16 Evaluation Dataset Suite**: ResearchBench full、HotpotQA deep-research 变体、dataset manifest 和质量检查。
-- **PM17 Three-layer Evaluation Pipeline**: 规则指标、LLM-as-Judge 5 维评分、Bootstrap 95% CI、Cohen's d，并与 Langfuse scores/metadata 对齐。
-- **PM18 LLM Backend Matrix**: DeepSeek、MiMo、vLLM、OpenAI-compatible 后端热切换和按模型分组的 benchmark summary。
-- **PM19 One-command Experiment Scripts**: local mock、真实 local-corpus、模型对比、prompt label 对比、multilingual 回归和 full suite 汇总脚本。
+核心工程主线已经闭环。下一步不建议继续堆大功能，优先做 release hardening 和真实验收：
+
+- 跑一次真实 local-corpus full suite，确认 `suite_summary.json`、`comparison.json`、Langfuse traces/scores 和本地产物一致。
+- 清理文档和 release notes，准备 push/PR/tag。
+- 如果继续优化质量，优先分析 `multilingual_large20` 和 `researchbench_full` 的低 citation coverage case，而不是新增 UI。
 
 ## 仓库结构
 
@@ -161,7 +169,7 @@ src/deepresearch/
 ├── config.py
 └── doctor.py
 
-tests/               # 482 passed, 1 skipped, 100% 离线可跑
+tests/               # 579 passed, 1 skipped, 100% 离线可跑
 examples/
 ├── bench/           # researchbench_mini.jsonl, researchbench_smoke5.jsonl, multilingual_large20.jsonl
 └── corpus/          # 本地资料集示例

@@ -37,6 +37,14 @@ def _optional_env(name: str) -> str:
     return os.environ.get(name, "").strip() if name else ""
 
 
+def _load_config_or_exit(config_path: str | None = None) -> DeepResearchConfig:
+    try:
+        return load_config(config_path=config_path)
+    except FileNotFoundError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+
 def _build_runtime(
     cfg: DeepResearchConfig,
     *,
@@ -230,7 +238,7 @@ def run(
     """Run a deep research task."""
     from deepresearch.core.run_manager import RunManager
 
-    cfg = load_config(config_path=config_path)
+    cfg = _load_config_or_exit(config_path=config_path)
     if llm_provider:
         cfg.llm.provider = llm_provider
     if llm_model:
@@ -365,7 +373,7 @@ def index_corpus(
         typer.echo(f"Error: {path} is not a directory", err=True)
         raise typer.Exit(1)
     documents, chunks = asyncio.run(
-        _index_corpus(corpus, load_config(config_path=config_path), mode=mode)
+        _index_corpus(corpus, _load_config_or_exit(config_path=config_path), mode=mode)
     )
     typer.echo(f"Indexed {documents} documents and {chunks} chunks.")
 
@@ -530,7 +538,7 @@ def config_cmd(
     config_path: str | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Show current configuration."""
-    cfg = load_config(config_path=config_path)
+    cfg = _load_config_or_exit(config_path=config_path)
     typer.echo(f"LLM provider: {cfg.llm.provider}")
     typer.echo(f"LLM model: {cfg.llm.model}")
     typer.echo(f"Embedding model: {cfg.embedding.model}")
@@ -551,7 +559,7 @@ def doctor(
     """Check environment and dependencies for real-mode readiness."""
     from deepresearch.doctor import run_doctor
 
-    cfg = load_config(config_path=config_path)
+    cfg = _load_config_or_exit(config_path=config_path)
     report = run_doctor(cfg, real=real)
 
     for check in report.checks:
@@ -576,7 +584,7 @@ def prompts_cmd(
         typer.echo(f"Unknown action: {action}. Use 'push'.", err=True)
         raise typer.Exit(1)
 
-    cfg = load_config(config_path=config_path)
+    cfg = _load_config_or_exit(config_path=config_path)
     if not cfg.langfuse.enabled:
         typer.echo(
             "Langfuse is not enabled. Set DEEPRESEARCH_LANGFUSE_ENABLED=1.", err=True
@@ -612,21 +620,13 @@ def prompts_cmd(
         content = local.get(name)
         prompt_name = f"deepresearch/{name}"
         try:
-            if hasattr(client, "create_prompt"):
-                client.create_prompt(
-                    name=prompt_name,
-                    prompt=content,
-                    labels=[label],
-                    type="text",
-                    config={"source": "local bootstrap"},
-                )
-            else:
-                client.prompt.create(
-                    name=prompt_name,
-                    prompt=content,
-                    label=label,
-                    config={"type": "text"},
-                )
+            client.create_prompt(
+                name=prompt_name,
+                prompt=content,
+                labels=[label],
+                type="text",
+                config={"source": "local bootstrap"},
+            )
             typer.echo(f"  pushed: {prompt_name} (label={label})")
             succeeded += 1
         except Exception as exc:
@@ -695,7 +695,7 @@ def benchmark_cmd(
         cases = cases[:limit]
     typer.echo(f"Loaded {len(cases)} benchmark cases from {dataset}")
 
-    cfg = load_config(config_path=config_path)
+    cfg = _load_config_or_exit(config_path=config_path)
     if llm_provider:
         cfg.llm.provider = llm_provider
     if llm_model:

@@ -11,7 +11,8 @@ class TestDeepResearchConfig:
         assert cfg.llm.api_key_prefix == ""
         assert cfg.llm.api_key_required is True
         assert cfg.llm.max_tokens_field == "max_completion_tokens"
-        assert cfg.embedding.dim == 1024
+        assert cfg.embedding.dim == 2560
+        assert cfg.reranker.model == "bge-reranker-v2-m3"
         assert cfg.chunking.chunk_size_chars == 1200
         assert cfg.executor.max_concurrency == 4
 
@@ -58,7 +59,7 @@ max_concurrency = 8
         assert cfg.llm.model == "deepseek-chat"
         assert cfg.executor.max_concurrency == 8
         # Other fields keep defaults
-        assert cfg.embedding.dim == 1024
+        assert cfg.embedding.dim == 2560
 
     def test_partial_config_uses_defaults(self, tmp_path):
         toml_content = """
@@ -169,6 +170,16 @@ provider = "test_provider"
         cfg = load_config(config_path=str(cfg_path))
         assert cfg.llm.provider == "test_provider"
 
+    def test_missing_explicit_config_path_fails(self, tmp_path):
+        missing = tmp_path / "missing.toml"
+
+        try:
+            load_config(config_path=str(missing))
+        except FileNotFoundError as exc:
+            assert str(missing) in str(exc)
+        else:
+            raise AssertionError("missing explicit config path should fail")
+
     def test_env_path_overrides_cwd(self, tmp_path, monkeypatch):
         toml_content = """
 [llm]
@@ -180,6 +191,18 @@ provider = "env_provider"
 
         cfg = load_config(config_path=None, cwd=Path("/nonexistent"))
         assert cfg.llm.provider == "env_provider"
+
+    def test_missing_env_config_path_fails(self, tmp_path, monkeypatch):
+        missing = tmp_path / "missing-env.toml"
+        monkeypatch.setenv("DEEPRESEARCH_CONFIG_PATH", str(missing))
+
+        try:
+            load_config(config_path=None, cwd=Path("/nonexistent"))
+        except FileNotFoundError as exc:
+            assert "DEEPRESEARCH_CONFIG_PATH" in str(exc)
+            assert str(missing) in str(exc)
+        else:
+            raise AssertionError("missing env config path should fail")
 
     def test_cwd_config_toml(self, tmp_path):
         toml_content = """
