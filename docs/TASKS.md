@@ -786,12 +786,12 @@
 
 ### PM23 Fine-grained Langfuse DAG/Agent Observations
 
-- [ ] PM230 增加 Planner/DAG/Research/Synthesizer/Red-Blue/Judge/Evaluator 细粒度 observations
+- [x] PM230 增加 Planner/DAG/Research/Synthesizer/Red-Blue/Judge/Evaluator 细粒度 observations
   - Files: `src/deepresearch/core/run_manager.py`, `src/deepresearch/core/trace.py`, `src/deepresearch/evaluation/langfuse.py`, tests
   - Done when: Langfuse trace 中可看到 nested observations，覆盖 Planner、每个 DAG task、retrieval query、memory search、synthesis、red/blue/judge 和 evaluator；本地 trace JSONL 仍保持完整。
   - Verify: `uv run pytest tests/core tests/evaluation`
 
-- [ ] PM231 将 RunBudget、latency、token usage 和检索数量标准化进 Langfuse metadata/scores
+- [x] PM231 将 RunBudget、latency、token usage 和检索数量标准化进 Langfuse metadata/scores
   - Files: `src/deepresearch/core/budget.py`, `src/deepresearch/evaluation/langfuse.py`, tests
   - Done when: Langfuse dashboard 可按 run/model/prompt label 查看成本、延迟、LLM calls、search/fetch/chunk/embedding/rerank 数量。
   - Verify: `uv run pytest tests/core tests/evaluation/test_langfuse.py`
