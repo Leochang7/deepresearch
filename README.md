@@ -1,157 +1,254 @@
 # DeepResearch Agent
 
-面向复杂深度研究任务的多智能体协作系统。
+<div align="center">
+  <h1>DeepResearch Agent</h1>
+  <p>
+    <strong>A multi-agent deep research system for complex research tasks.</strong><br />
+    Plan tasks, retrieve evidence, share memory, repair reports, evaluate quality, and trace experiments.
+  </p>
+  <p>
+    <a href="README.md">English</a> |
+    <a href="README.zh-CN.md">简体中文</a>
+  </p>
+  <p>
+    <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-3776AB" />
+    <img alt="Package manager" src="https://img.shields.io/badge/package-uv-6E56CF" />
+    <img alt="Vector store" src="https://img.shields.io/badge/vector%20store-Milvus-00A1EA" />
+    <img alt="Evaluation" src="https://img.shields.io/badge/evaluation-ResearchBench-2E7D32" />
+    <img alt="Observability" src="https://img.shields.io/badge/observability-Langfuse-111827" />
+  </p>
+</div>
 
-## 安装
+DeepResearch Agent is a self-built multi-agent system for long-form research. It combines DAG-based planning, parallel task execution, cross-lingual RAG, shared memory, Red-Blue adversarial repair, rule-based evaluation, LLM-as-Judge, benchmark datasets, and Langfuse observability.
+
+The project is not a chatbot wrapper or a simple RAG demo. Its core workflow is:
+
+```text
+Planner -> DAG Executor -> Research Agent -> Retriever -> Memory -> Synthesizer -> Red/Blue/Judge -> Evaluator
+```
+
+## Start Here
+
+| Goal | Go to |
+| --- | --- |
+| Install and run an offline demo | [Quick Start](#quick-start) |
+| Configure real LLM, embedding, reranker, Milvus, and Langfuse | [Configuration](#configuration) |
+| Understand the system capabilities | [Feature Surface](#feature-surface) |
+| Find the main code directories | [Architecture Map](#architecture-map) |
+| Run benchmarks and experiment scripts | [Benchmarks](#benchmarks) |
+| Run tests and quality checks | [Validation](#validation) |
+| Understand known limits | [Notes](#notes) |
+
+## Feature Surface
+
+| Module | Capability |
+| --- | --- |
+| Planning | Planner Agent decomposes complex questions into DAG task graphs and supports bounded replan. |
+| Execution | Async DAG Executor runs ready tasks in parallel with timeout, retry, cancellation, and failure isolation. |
+| Retrieval | Local corpus, Tavily, MiMo Search, query expansion, BM25/keyword recall, Milvus vector recall, RRF fusion, reranker, and MMR selection. |
+| Memory | Run-level shared memory backed by Milvus, supporting vector recall, keyword recall, snapshot export, deduplication, and lightweight conflict detection. |
+| Report generation | Synthesizer produces structured Markdown reports with traceable evidence and limitations. |
+| Red-Blue review | Red Agent attacks factuality, reasoning, and evidence quality; Blue Agent applies ADD/DELETE/MODIFY/VERIFY fixes; Judge controls convergence. |
+| Evaluation | Rule metrics, fact-level matching, hallucination flags, LLM-as-Judge five-dimensional scoring, Bootstrap 95% CI, and Cohen's d. |
+| Benchmark suite | ResearchBench mini/full, multilingual benchmarks, and a HotpotQA-style deep-research variant. |
+| Observability | Langfuse prompt management, dataset binding, nested observations, score reporting, and human annotation handoff. |
+
+## Architecture Map
+
+| Path | Responsibility |
+| --- | --- |
+| `src/deepresearch/agents/` | Planner, Researcher, Synthesizer, Red/Blue agents, Judge, and shared agent prompting helpers. |
+| `src/deepresearch/core/` | DAG, executor, state machine, run manager, budget tracking, trace logging, and JSON repair. |
+| `src/deepresearch/retrieval/` | Retriever interface, local dataset retrieval, search adapters, chunking, deduplication, lexical policy, fusion, and scoring. |
+| `src/deepresearch/memory/` | Milvus memory store, mock memory, memory snapshot, and conflict detection. |
+| `src/deepresearch/llm/` | LLM client abstraction and MiMo, DeepSeek, OpenAI-compatible, vLLM-compatible, and mock clients. |
+| `src/deepresearch/embeddings/` | Embedding client abstraction and OpenAI-compatible/mock embeddings. |
+| `src/deepresearch/rerankers/` | Reranker client abstraction and OpenAI-compatible/mock rerankers. |
+| `src/deepresearch/evaluation/` | Metrics, benchmark runner, datasets, statistics, comparison tools, Langfuse adapter, annotation workflow, and retrieval ablation. |
+| `src/deepresearch/prompts/` | Local prompt templates and PromptProvider implementations. |
+| `src/deepresearch/schemas/` | Pydantic schemas for tasks, evidence, reports, and evaluation outputs. |
+| `examples/bench/` | Benchmark JSONL datasets and manifest. |
+| `examples/corpus/` | Local corpus documents for reproducible benchmark runs. |
+| `docs/` | Product, configuration, benchmark, Langfuse, roadmap, task, and worklog documents. |
+
+## Requirements
+
+- Python 3.11+
+- `uv`
+- Docker Milvus Standalone for real vector-store runs
+- Optional: Langfuse for prompt management, trace, scores, datasets, and annotation workflow
+
+## Quick Start
+
+Install dependencies:
 
 ```bash
-git clone https://github.com/Leochang7/deepresearch.git
-cd deepresearch
 uv sync
 ```
 
-## 快速开始
-
-### Mock 运行（无需 API key）
+Run an offline mock research task. This does not require API keys, internet, Milvus, or Langfuse:
 
 ```bash
-uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋势"
+uv run deepresearch run "Analyze the development trend of open-source LLM agent frameworks from 2024 to 2026"
 ```
 
-输出保存在 `outputs/<run_id>/`：
-- `report.md` — 结构化研究报告
-- `evaluation.json` — 评测指标
-- `trace.jsonl` — 执行 trace
-- `memory_snapshot.jsonl` — 本次运行的 chunk、证据和元数据快照
+Outputs are written to `outputs/<run_id>/`:
 
-### 配置
+| File | Description |
+| --- | --- |
+| `report.md` | Final structured research report. |
+| `evaluation.json` | Rule metrics, judge scores, and evaluation layers. |
+| `trace.jsonl` | Full execution trace. |
+| `memory_snapshot.jsonl` | Retrieved chunks, evidence, and memory metadata snapshot. |
+
+Inspect a run:
 
 ```bash
-# 查看当前配置
-uv run deepresearch config
+uv run deepresearch inspect <run_id>
+uv run deepresearch inspect <run_id> --timeline
+uv run deepresearch eval <run_id>
+```
 
-# 使用自定义配置文件
-uv run deepresearch run "问题" --config ./config.toml
+## Configuration
 
-# 复制示例配置
+Create local config files:
+
+```bash
 cp .env.example .env
 cp config.example.toml config.toml
 ```
 
-### 真实运行
+Common real-run variables:
 
-真实模式不会静默回退到 Mock。先设置 API key 和 OpenAI-compatible
-embedding/reranker endpoint：
-
-```env
+```dotenv
 MIMO_API_KEY=your-key
 TAVILY_API_KEY=your-key
+DEEPRESEARCH_MILVUS_URI=http://localhost:19530
 DEEPRESEARCH_EMBEDDING_BASE_URL=https://your-endpoint/v1
 DEEPRESEARCH_EMBEDDING_API_KEY=your-key
 DEEPRESEARCH_RERANKER_BASE_URL=https://your-endpoint/v1
 DEEPRESEARCH_RERANKER_API_KEY=your-key
 ```
 
-如果 endpoint 的 `/models` 返回 `Qwen3-Embedding-4B` 为 2560 维，需同步设置：
+Optional Langfuse variables:
 
-```env
-DEEPRESEARCH_EMBEDDING_DIM=2560
-DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m3
+```dotenv
+DEEPRESEARCH_LANGFUSE_ENABLED=true
+DEEPRESEARCH_PROMPT_PROVIDER=langfuse_with_local_fallback
+DEEPRESEARCH_PROMPT_LABEL=production
+LANGFUSE_PUBLIC_KEY=pk-...
+LANGFUSE_SECRET_KEY=sk-...
+LANGFUSE_HOST=http://localhost:3000
 ```
+
+Check real environment readiness:
 
 ```bash
-# Tavily 搜索
-uv run deepresearch run "研究问题" --mode real --retriever tavily
-
-# MiMo 原生搜索
-uv run deepresearch run "研究问题" --mode real --retriever mimo
-
-# 本地语料检索，LLM/embedding/reranker 仍使用真实后端
-uv run deepresearch run "研究问题" --mode real --retriever local \
-  --corpus ./examples/corpus
+uv run deepresearch doctor --real
 ```
 
-### CLI 命令
-
-```bash
-uv run deepresearch run "研究问题" --mode mock
-uv run deepresearch init --output config.toml
-uv run deepresearch index-corpus ./examples/corpus --mode mock
-uv run deepresearch eval <run_id>         # 查看评测结果
-uv run deepresearch inspect <run_id>      # 查看 trace
-uv run deepresearch inspect <run_id> --timeline
-uv run deepresearch config                # 查看当前配置
-```
-
-`index-corpus` 会切片、生成 embedding，并写入配置中的 Milvus。
-使用自定义运行根目录时，`eval` 和 `inspect` 可传
-`--output-root <directory>`。
-
-真实环境的复现配置、验收指标和已知限制见
-[`docs/MVP_ACCEPTANCE.md`](docs/MVP_ACCEPTANCE.md)。
-
-### Milvus Standalone
-
-真实模式默认连接本机 Milvus Standalone：
+Start Milvus Standalone:
 
 ```bash
 docker compose -f docker-compose.milvus.yml up -d
 ```
 
-默认地址为 `http://localhost:19530`，可通过
-`DEEPRESEARCH_MILVUS_URI` 或 `config.toml` 覆盖。
+## Real Runs
 
-## 测试
+Run with Tavily web search:
 
 ```bash
-# 运行全部测试（离线，无需 API key）
-uv run pytest
+uv run deepresearch run "Research question" --mode real --retriever tavily
+```
 
-# 代码格式检查
-uv run ruff check .
+Run with MiMo native search:
+
+```bash
+uv run deepresearch run "Research question" --mode real --retriever mimo
+```
+
+Run against a local corpus while still using real LLM, embedding, reranker, and Milvus:
+
+```bash
+uv run deepresearch run "Research question" --mode real --retriever local \
+  --corpus ./examples/corpus
+```
+
+Real mode does not silently fall back to mock clients. Missing keys or unavailable services should fail early through `doctor` or runtime errors.
+
+## Benchmarks
+
+Run the default smoke benchmark offline:
+
+```bash
+uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl --mode mock
+```
+
+Run a reproducible real local-corpus benchmark:
+
+```bash
+uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl \
+  --mode real \
+  --retriever local \
+  --corpus examples/corpus \
+  --config examples/configs/benchmark_smoke.toml \
+  --output outputs/bench-local \
+  --experiment local-corpus-smoke
+```
+
+Run benchmark cases in parallel:
+
+```bash
+uv run deepresearch benchmark examples/bench/multilingual_large20.jsonl \
+  --mode mock \
+  --max-concurrency 4
+```
+
+Push local prompts or datasets to Langfuse:
+
+```bash
+uv run deepresearch prompts push --label staging
+uv run deepresearch datasets push examples/bench/researchbench_mini.jsonl --name researchbench_mini
+```
+
+Experiment scripts live in `scripts/experiments/` and cover local mock smoke, model comparison, prompt ablation, multilingual regression, and full-suite summary generation.
+
+## Validation
+
+Default tests are offline and should not require API keys, internet, Milvus, or Langfuse:
+
+```bash
 uv run ruff format .
+uv run ruff check .
+uv run pytest
+```
 
-# 集成测试（需要外部服务）
+Integration and real-service checks are opt-in:
+
+```bash
+uv run pytest -m integration
 uv run pytest -m milvus
-uv run pytest -m llm
 uv run pytest -m network
+uv run pytest -m llm
 ```
 
-## 核心架构
+## Documentation
 
-```
-Planner → DAG Executor → Research Agent → Retriever → Memory → Synthesizer → Red/Blue/Judge → Evaluator
-```
-
-- **Planner**：将复杂问题拆解为 DAG 子任务
-- **DAG Executor**：基于 asyncio 异步并发执行，支持 timeout/retry/replan
-- **Research Agent**：query 生成 → retrieve → chunk → evidence 抽取
-- **Memory**：Milvus 向量存储，支持语义召回
-- **Synthesizer**：生成带 `[E12]` 引用的 Markdown 报告
-- **Red/Blue**：Red 审查 issues，Blue 修复报告，Judge 驱动循环
-- **Evaluator**：6 项规则指标；Red Agent 复审分数由 Judge 单独记录
-
-## 技术栈
-
-- Python 3.11+，`uv` 管理依赖
-- Pydantic v2，asyncio
-- MiMo v2.5 Pro / DeepSeek（LLM）
-- Qwen3-Embedding-4B（embedding）
-- bge-reranker-v2-m32（reranker）
-- Milvus Standalone（向量存储）
-- Tavily（Web 搜索）
-- httpx + trafilatura（正文抓取）
-
-## 文档
-
-- [文档入口与维护规范](docs/README.md)
-- [当前项目状态](docs/PROJECT_STATUS.md)
+- [中文 README](README.zh-CN.md)
+- [Documentation index](docs/README.md)
+- [Project status](docs/PROJECT_STATUS.md)
 - [Roadmap](docs/ROADMAP.md)
-- [任务状态](docs/TASKS.md)
-- [工作日志](docs/WORKLOG.md)
-- [PRD：产品需求文档](docs/PRD.md)
-- [技术栈与工程选型](docs/TECH_STACK.md)
-- [检索与资料获取设计](docs/RETRIEVAL_DESIGN.md)
-- [配置设计](docs/CONFIGURATION.md)
-- [真实 benchmark 指南](docs/REAL_BENCHMARK_GUIDE.md)
-- [Release hardening 记录](docs/RELEASE_HARDENING.md)
+- [Tasks](docs/TASKS.md)
+- [Worklog](docs/WORKLOG.md)
+- [Configuration](docs/CONFIGURATION.md)
+- [Real benchmark guide](docs/REAL_BENCHMARK_GUIDE.md)
+- [Langfuse evaluation plan](docs/EVALUATION_LANGFUSE_PLAN.md)
+- [Quantitative claims](docs/QUANTITATIVE_CLAIMS.md)
+
+## Notes
+
+- Do not commit `.env`, API keys, `outputs/`, caches, temporary experiment files, or local databases.
+- The stable benchmark path uses local corpus datasets. Real-time web search is useful for demos but is not deterministic enough for baseline evaluation.
+- Langfuse is optional. Local prompts remain the offline fallback and test baseline.
+- Milvus Standalone is the supported vector-store target for real runs; unit tests use mocks.
+- Full real benchmark suites can be slow and consume real LLM, embedding, reranker, and search credits.

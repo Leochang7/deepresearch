@@ -13,6 +13,11 @@
 
 ### Current Bugfix
 
+- [x] BF006 重写 README 双语入口并同步简历仓库地址
+  - Files: `README.md`, `README.zh-CN.md`, `../resume/resume-zh_CN.tex`, `docs/TASKS.md`, `docs/WORKLOG.md`
+  - Done when: README 参考 521wolf 风格提供英文/中文双语入口、功能面、架构地图、快速开始、配置、benchmark、验证和注意事项；简历 DeepResearch `[GitHub]` 指向真实仓库地址。
+  - Verify: `uv run ruff format .`; `uv run ruff check .`; `uv run pytest`
+
 - [x] BF004 修复 PM24/PM25 review 问题
   - Files: `src/deepresearch/prompts/provider.py`, `src/deepresearch/core/run_manager.py`, `src/deepresearch/evaluation/judge_eval.py`, `src/deepresearch/evaluation/benchmark.py`, `src/deepresearch/evaluation/langfuse.py`, `src/deepresearch/evaluation/annotation.py`, tests
   - Done when: Langfuse annotation 不再调用当前 SDK 不存在的 queue API；`judge_prompt_name` 真实传入 fact judge；runtime prompt metadata 覆盖完整 prompt set 并记录 Langfuse version；annotation candidate/import 区分 run error、坏行和重复 case。
@@ -829,3 +834,15 @@
   - Files: `src/deepresearch/evaluation/`, `scripts/experiments/`, tests, docs
   - Done when: 人工标注结果可导出/同步为本地 summary 附加层，用于校准规则指标和 LLM-as-Judge；不会覆盖原始自动评测结果。
   - Verify: `uv run pytest tests/evaluation`
+
+### PM26 Quantitative Claim Calibration
+
+- [x] PM260 建立简历量化数字的本地对照评测口径
+  - Files: `src/deepresearch/evaluation/quantification.py`, `tests/evaluation/test_quantification.py`, `docs/QUANTITATIVE_CLAIMS.md`
+  - Done when: 可复现输出 JSON fallback、RRF recall@5 和 MMR 证据保真数字；文档明确区分本地 fixture 与真实 benchmark，避免把样例数字写成生产结论。
+  - Verify: `uv run pytest tests/evaluation/test_quantification.py`; `uv run python -m deepresearch.evaluation.quantification --output outputs/experiments/quantification/summary.json`
+
+- [x] PM261 建立真实数据集 retrieval-only 对照评测
+  - Files: `src/deepresearch/evaluation/retrieval_ablation.py`, `tests/evaluation/test_retrieval_ablation.py`, `docs/QUANTITATIVE_CLAIMS.md`
+  - Done when: 可在真实 benchmark JSONL + `examples/corpus` 上跳过 LLM，使用真实 Qwen embedding 对比 pure vector、keyword、RRF hybrid 和 RRF+MMR 的 fact recall@5 与来源多样性；简历数字替换为真实 ResearchBench full 结果。
+  - Verify: `uv run pytest tests/evaluation/test_retrieval_ablation.py`; `uv run python -m deepresearch.evaluation.retrieval_ablation examples/bench/researchbench_full.jsonl --corpus examples/corpus --config examples/configs/benchmark_smoke.toml --embedding real --top-k 5 --output outputs/experiments/retrieval-ablation-researchbench-full-real/summary.json`
