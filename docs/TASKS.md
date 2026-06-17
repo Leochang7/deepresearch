@@ -759,3 +759,15 @@
   - Files: `src/deepresearch/models.py`, `src/deepresearch/llm/`, `src/deepresearch/embeddings/openai_compatible.py`, `src/deepresearch/rerankers/openai_compatible.py`, `src/deepresearch/cli.py`, `src/deepresearch/doctor.py`, tests, docs
   - Done when: MiMo/DeepSeek 作为 OpenAI-compatible 薄 wrapper 复用统一 chat client；CLI、doctor 和 index-corpus 复用模型 factory；doctor 按当前 LLM provider 检查真实 endpoint；移除未实现自动 fallback 的 `fallback_provider` 活跃配置；LLM usage 统一规范化。
   - Verify: `uv run pytest tests/llm tests/embeddings/test_openai_compatible.py tests/rerankers/test_openai_compatible.py tests/test_cli.py tests/test_doctor.py tests/test_config.py`; `uv run ruff check .`
+
+### PM21 Evaluation & Schema Hardening
+
+- [x] PM210 固化评测输出和 benchmark case schema
+  - Files: `src/deepresearch/schemas/evaluation.py`, `src/deepresearch/evaluation/benchmark.py`, `src/deepresearch/evaluation/datasets.py`, tests
+  - Done when: `ExpectedFact`、`FactHitResult`、`FactFailureReason`、`RuleMetrics`、`StatisticalContext`、`EvaluationLayers` 和 `BenchmarkCase` 成为评测与数据集解析的 typed schema；benchmark 输出保留三层结构和旧 flat alias 兼容。
+  - Verify: `uv run pytest tests/evaluation tests/schemas/test_schemas.py`; `uv run ruff check .`
+
+- [x] PM211 收敛 fact matching、LLM fact judge 和 Langfuse 评测上报边界
+  - Files: `src/deepresearch/evaluation/fact_matching.py`, `src/deepresearch/evaluation/metrics.py`, `src/deepresearch/evaluation/judge_eval.py`, `src/deepresearch/evaluation/langfuse.py`, tests
+  - Done when: fact matching 从 `metrics.py` 拆出；`judge_facts()` 接收/返回 `FactHitResult`；Langfuse adapter 读取 canonical `EvaluationLayers`，不再依赖 flat alias 作为事实源。
+  - Verify: `uv run pytest tests/evaluation tests/schemas/test_schemas.py`; `uv run ruff check .`

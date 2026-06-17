@@ -1,4 +1,11 @@
-from deepresearch.schemas.evaluation import EvaluationResult
+from deepresearch.schemas.evaluation import (
+    BenchmarkCase,
+    EvaluationLayers,
+    EvaluationResult,
+    ExpectedFact,
+    FactFailureReason,
+    FactHitResult,
+)
 from deepresearch.schemas.evidence import EvidenceItem, RetrievedDocument
 from deepresearch.schemas.report import ReportSection, ResearchReport
 from deepresearch.schemas.task import ResearchPlan, TaskNode, TaskState
@@ -120,3 +127,77 @@ class TestEvaluationResult:
         )
         assert result.task_success_rate == 0.9
         assert result.judge_scores["accuracy"] == 0.8
+
+    def test_typed_fact_details_keep_dict_style_access(self):
+        result = EvaluationResult(
+            run_id="r1",
+            fact_details=[
+                FactHitResult(fact="fact A", matched=True, reason="hit"),
+            ],
+            per_fact_failure_reasons=[
+                FactFailureReason(fact="fact B", reason="miss"),
+            ],
+        )
+
+        assert result.fact_details[0]["matched"] is True
+        assert "fact" in result.per_fact_failure_reasons[0]
+        assert result.model_dump(mode="json")["fact_details"][0]["fact"] == "fact A"
+
+    def test_evaluation_layers_keep_backward_compatible_aliases(self):
+        result = EvaluationResult(
+            run_id="r1",
+            task_success_rate=0.8,
+            citation_coverage=0.7,
+            factual_hit_rate=0.6,
+            red_issue_count=2,
+            judge_scores={"factuality": 0.9},
+            fact_details=[FactHitResult(fact="fact A", matched=True)],
+        )
+
+        compatible = result.to_layers().to_compatible_dict()
+
+        assert compatible["rule_metrics"]["task_success_rate"] == 0.8
+        assert compatible["statistical_context"]["red_issue_count"] == 2
+        assert compatible["task_success_rate"] == 0.8
+        assert compatible["judge_scores"]["factuality"] == 0.9
+        assert compatible["fact_details"][0]["matched"] is True
+
+    def test_evaluation_layers_parse_flat_dict(self):
+        layers = EvaluationLayers.from_evaluation_dict(
+            {
+                "task_success_rate": 0.8,
+                "citation_coverage": 0.7,
+                "judge_scores": {"readability": 0.9},
+                "fact_details": [{"fact": "fact A", "matched": True}],
+                "red_issue_count": 1,
+            }
+        )
+
+        assert layers.rule_metrics.task_success_rate == 0.8
+        assert layers.judge_scores["readability"] == 0.9
+        assert layers.statistical_context.fact_details[0].matched is True
+
+
+class TestBenchmarkCase:
+    def test_from_raw_parses_expected_fact_schema(self):
+        case = BenchmarkCase.from_raw(
+            {
+                "id": "c1",
+                "domain": "rag",
+                "difficulty": "easy",
+                "question": "q",
+                "expected_facts": [
+                    {
+                        "fact": "RAG combines retrieval and generation",
+                        "aliases": ["RAG"],
+                    },
+                    "plain fact",
+                ],
+                "required_citations": 1,
+                "tags": ["smoke"],
+            }
+        )
+
+        assert isinstance(case.expected_facts[0], ExpectedFact)
+        assert case.expected_facts[0]["aliases"] == ["RAG"]
+        assert case.question_lang == "en"

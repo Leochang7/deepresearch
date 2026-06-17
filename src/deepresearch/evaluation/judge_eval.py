@@ -7,6 +7,7 @@ from deepresearch.agents.report_formatting import format_report_for_review
 from deepresearch.core.json_repair import parse_json
 from deepresearch.llm.base import LLMClient, LLMMessage
 from deepresearch.prompts.provider import PromptProvider
+from deepresearch.schemas.evaluation import FactHitResult
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ResearchReport
 
@@ -78,9 +79,9 @@ async def judge_facts(
     question: str,
     report: ResearchReport,
     evidence: list[EvidenceItem],
-    fact_details: list[dict],
+    fact_details: list[FactHitResult | dict],
     prompt_provider: PromptProvider | None = None,
-) -> list[dict]:
+) -> list[FactHitResult]:
     """Evaluate unmatched facts using LLM semantic judge.
 
     Only facts with matched=False are sent to the LLM.
@@ -93,13 +94,18 @@ async def judge_facts(
     )
     valid_evidence_ids = {e.evidence_id for e in evidence}
 
-    updated: list[dict] = []
-    for detail in fact_details:
-        if detail.get("matched"):
+    updated: list[FactHitResult] = []
+    for raw_detail in fact_details:
+        detail = (
+            raw_detail
+            if isinstance(raw_detail, FactHitResult)
+            else FactHitResult.model_validate(raw_detail)
+        )
+        if detail.matched:
             updated.append(detail)
             continue
 
-        fact = detail.get("fact", "")
+        fact = detail.fact
         try:
             messages = [
                 LLMMessage(role="system", content=system_prompt),
@@ -144,12 +150,16 @@ async def judge_facts(
                 else []
             )
 
-            merged = dict(detail)
-            merged["source"] = "judge"
-            merged["matched"] = verdict == "hit"
-            merged["reason"] = f"[judge:{verdict}] {reason}"
-            merged["supporting_evidence_ids"] = valid_supporting_ids
-            updated.append(merged)
+            updated.append(
+                detail.model_copy(
+                    update={
+                        "source": "judge",
+                        "matched": verdict == "hit",
+                        "reason": f"[judge:{verdict}] {reason}",
+                        "supporting_evidence_ids": valid_supporting_ids,
+                    }
+                )
+            )
 
         except Exception:
             logger.warning(
@@ -157,6 +167,6 @@ async def judge_facts(
                 fact[:50],
                 exc_info=True,
             )
-            updated.append(dict(detail))
+            updated.append(detail)
 
     return updated

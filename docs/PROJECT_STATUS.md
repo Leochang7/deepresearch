@@ -4,7 +4,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 
 ## 当前状态
 
-MVP、PM0-PM20 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management；PM11-PM15 完成并行 benchmark、中英跨语言检索/引用质量、multilingual benchmark 和 20-case large benchmark；PM16-PM19 完成 dataset suite、三层评测流水线、LLM backend matrix 和一键实验脚本；PM20 完成检索/记忆 hardening、可配置 LexicalPolicy + jieba tokenizer，以及模型后端装配收敛。
+MVP、PM0-PM21 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management；PM11-PM15 完成并行 benchmark、中英跨语言检索/引用质量、multilingual benchmark 和 20-case large benchmark；PM16-PM19 完成 dataset suite、三层评测流水线、LLM backend matrix 和一键实验脚本；PM20 完成检索/记忆 hardening、可配置 LexicalPolicy + jieba tokenizer，以及模型后端装配收敛；PM21 完成评测输出、benchmark case、fact matching 和 Langfuse 上报的 schema hardening。
 
 ## 已完成能力
 
@@ -13,7 +13,7 @@ MVP、PM0-PM20 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 - **Research Agent**: per-query 检索 → fetch → chunk → embedding → Milvus → RRF 融合 → rerank → MMR 选择 → evidence 提取
 - **Synthesizer**: 将 evidence 合成为带引用的 Markdown 报告，支持 5 种 report profile
 - **Red-Blue Review**: Red Agent 发现问题 → Blue Agent 修复 → Judge 评分，最多 3 轮
-- **Evaluator**: 9 个核心指标（task_success_rate, citation_coverage, empty_citation_rate, report_section_completeness, factual_hit_rate, hallucination_flag, red/blue counts, judge_scores）+ fact-level 明细（fact_details, fact_coverage_distribution, per_fact_failure_reasons）
+- **Evaluator**: 9 个核心指标（task_success_rate, citation_coverage, empty_citation_rate, report_section_completeness, factual_hit_rate, hallucination_flag, red/blue counts, judge_scores）+ typed fact-level 明细（ExpectedFact, FactHitResult, FactFailureReason, EvaluationLayers）+ summary 分布（fact_coverage_distribution, per_fact_failure_reasons）
 
 ### 检索质量
 - 多 query 并行检索 + document-level RRF 融合（rrf_k=60）
@@ -76,6 +76,7 @@ MVP、PM0-PM20 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 | PM18 | ✅ 完成 | LLM Backend Matrix：MiMo、DeepSeek、OpenAI-compatible/vLLM 热切换和模型分组汇总 |
 | PM19 | ✅ 完成 | One-command Experiment Scripts：local mock、模型对比、prompt ablation、multilingual 和 full suite 汇总脚本 |
 | PM20 | ✅ 完成 | Retrieval/Memory/Model Hardening：公共词法/相似度/document key 收敛、LexicalPolicy+jieba、模型后端 factory 和 OpenAI-compatible client 收敛 |
+| PM21 | ✅ 完成 | Evaluation & Schema Hardening：typed EvaluationLayers/BenchmarkCase、fact matching 拆分、LLM fact judge 和 Langfuse 上报边界收敛 |
 
 ## 真实环境运行
 

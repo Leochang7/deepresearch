@@ -5,7 +5,7 @@ import json
 import time
 from collections import Counter, defaultdict
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -14,23 +14,18 @@ from deepresearch.evaluation.judge_eval import judge_facts
 from deepresearch.evaluation.metrics import evaluate
 from deepresearch.evaluation.statistics import bootstrap_ci, cohens_d
 from deepresearch.llm.base import LLMClient
+from deepresearch.schemas.evaluation import BenchmarkCase, EvaluationLayers
 
-
-@dataclass
-class BenchmarkCase:
-    id: str
-    domain: str
-    difficulty: str
-    question: str
-    expected_facts: list[str | dict] = field(default_factory=list)
-    required_citations: int = 0
-    tags: list[str] = field(default_factory=list)
-    question_lang: str = "en"  # "en", "zh", "mixed"
-    evidence_lang: str = "en"  # "en", "zh", "mixed"
-    source_dataset: str = ""
-    evaluation_focus: str = ""
-    model_backend: str = ""
-    model_name: str = ""
+SUMMARY_SCALAR_KEYS = (
+    "avg_task_success_rate",
+    "avg_citation_coverage",
+    "avg_factual_hit_rate",
+    "avg_report_section_completeness",
+    "avg_empty_citation_rate",
+    "hallucination_flag_count",
+    "avg_elapsed_seconds",
+    "cohens_d_easy_vs_hard",
+)
 
 
 @dataclass
@@ -49,59 +44,13 @@ def load_dataset(path: Path) -> list[BenchmarkCase]:
     lines = path.read_text(encoding="utf-8").strip().splitlines()
     cases: list[BenchmarkCase] = []
     for line in lines:
-        data = json.loads(line)
-        cases.append(
-            BenchmarkCase(
-                id=data["id"],
-                domain=data["domain"],
-                difficulty=data["difficulty"],
-                question=data["question"],
-                expected_facts=data.get("expected_facts", []),
-                required_citations=data.get("required_citations", 0),
-                tags=data.get("tags", []),
-                question_lang=data.get("question_lang", "en"),
-                evidence_lang=data.get("evidence_lang", "en"),
-                source_dataset=data.get("source_dataset", ""),
-                evaluation_focus=data.get("evaluation_focus", ""),
-                model_backend=data.get("model_backend", ""),
-                model_name=data.get("model_name", ""),
-            )
-        )
+        cases.append(BenchmarkCase.from_raw(json.loads(line)))
     return cases
 
 
 def _restructure_evaluation(evaluation: dict) -> dict:
     """Restructure flat evaluation dict into three layers while keeping backward compat."""
-    rule_keys = {
-        "task_success_rate",
-        "citation_coverage",
-        "empty_citation_rate",
-        "report_section_completeness",
-        "factual_hit_rate",
-        "hallucination_flag",
-        "hallucination_details",
-        "unsupported_citations",
-        "per_fact_failure_reasons",
-    }
-    rule_metrics = {k: v for k, v in evaluation.items() if k in rule_keys}
-    judge_scores = evaluation.get("judge_scores", {})
-    statistical_context = {
-        "fact_details": evaluation.get("fact_details", []),
-        "red_issue_count": evaluation.get("red_issue_count", 0),
-        "blue_fix_count": evaluation.get("blue_fix_count", 0),
-    }
-    structured = {
-        "rule_metrics": rule_metrics,
-        "judge_scores": judge_scores,
-        "statistical_context": statistical_context,
-    }
-    # Backward-compatible top-level aliases
-    structured.update(rule_metrics)
-    structured["judge_scores"] = judge_scores
-    structured["fact_details"] = statistical_context["fact_details"]
-    structured["red_issue_count"] = statistical_context["red_issue_count"]
-    structured["blue_fix_count"] = statistical_context["blue_fix_count"]
-    return structured
+    return EvaluationLayers.from_evaluation_dict(evaluation).to_compatible_dict()
 
 
 async def run_benchmark(
@@ -178,7 +127,7 @@ async def _run_case(
         # Run fact-level semantic judge if LLM available
         judge_llm = llm or getattr(manager, "_llm", None)
         if judge_llm is not None and evaluation.fact_details:
-            unmatched = [d for d in evaluation.fact_details if not d.get("matched")]
+            unmatched = [d for d in evaluation.fact_details if not d.matched]
             if unmatched:
                 updated_details = await judge_facts(
                     judge_llm,
@@ -188,13 +137,13 @@ async def _run_case(
                     evaluation.fact_details,
                 )
                 evaluation.fact_details = updated_details
-                judge_hits = sum(1 for d in updated_details if d.get("matched"))
+                judge_hits = sum(1 for d in updated_details if d.matched)
                 if updated_details:
                     evaluation.factual_hit_rate = round(
                         judge_hits / len(updated_details), 4
                     )
 
-        evaluation_dict = _restructure_evaluation(evaluation.model_dump(mode="json"))
+        evaluation_dict = evaluation.to_layers().to_compatible_dict()
         return BenchmarkResult(
             case_id=case.id,
             run_id=run_result.run_id,
@@ -431,17 +380,7 @@ def compare_summaries(
 ) -> dict[str, Any]:
     """Compare two benchmark summaries. Returns deltas for numeric metrics."""
     result: dict[str, Any] = {}
-    _SCALAR_KEYS = [
-        "avg_task_success_rate",
-        "avg_citation_coverage",
-        "avg_factual_hit_rate",
-        "avg_report_section_completeness",
-        "avg_empty_citation_rate",
-        "hallucination_flag_count",
-        "avg_elapsed_seconds",
-        "cohens_d_easy_vs_hard",
-    ]
-    for key in _SCALAR_KEYS:
+    for key in SUMMARY_SCALAR_KEYS:
         b = before.get(key, 0)
         a = after.get(key, 0)
         if isinstance(b, (int, float)) and isinstance(a, (int, float)):

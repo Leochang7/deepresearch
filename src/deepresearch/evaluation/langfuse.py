@@ -4,6 +4,8 @@ import logging
 import os
 from typing import Any
 
+from deepresearch.schemas.evaluation import EvaluationLayers
+
 logger = logging.getLogger(__name__)
 
 
@@ -132,29 +134,35 @@ class LangfuseAdapter:
             },
             metadata=full_metadata,
         )
+        layers = EvaluationLayers.from_evaluation_dict(evaluation)
+        rule_metrics = layers.rule_metrics
         for score_name in (
             "task_success_rate",
             "citation_coverage",
             "report_section_completeness",
-            "red_issue_count",
         ):
             self._client.create_score(
                 trace_id=trace_id,
                 name=score_name,
-                value=evaluation.get(score_name, 0),
+                value=getattr(rule_metrics, score_name),
             )
         # Additional evaluation scores
         self._client.create_score(
             trace_id=trace_id,
             name="factual_hit_rate",
-            value=evaluation.get("factual_hit_rate", 0),
+            value=rule_metrics.factual_hit_rate,
         )
         self._client.create_score(
             trace_id=trace_id,
             name="hallucination_flag",
-            value=int(evaluation.get("hallucination_flag", False)),
+            value=int(rule_metrics.hallucination_flag),
         )
-        for dim, score in evaluation.get("judge_scores", {}).items():
+        self._client.create_score(
+            trace_id=trace_id,
+            name="red_issue_count",
+            value=layers.statistical_context.red_issue_count,
+        )
+        for dim, score in layers.judge_scores.items():
             self._client.create_score(
                 trace_id=trace_id,
                 name=f"judge_{dim}",

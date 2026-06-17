@@ -3,16 +3,20 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from pydantic import ValidationError
+
+from deepresearch.schemas.evaluation import BenchmarkCase
+
 
 def load_manifest(bench_dir: Path) -> dict:
     """Build a manifest of all JSONL datasets in the bench directory."""
     datasets = []
     for path in sorted(bench_dir.glob("*.jsonl")):
-        cases = _load_raw(path)
+        cases = _load_cases(path)
         if not cases:
             continue
-        domains = {c.get("domain", "") for c in cases}
-        languages = {c.get("question_lang", "en") for c in cases}
+        domains = {c.domain for c in cases}
+        languages = {c.question_lang for c in cases}
         datasets.append(
             {
                 "name": path.stem,
@@ -28,34 +32,30 @@ def load_manifest(bench_dir: Path) -> dict:
 def validate_dataset(path: Path) -> list[str]:
     """Validate a benchmark dataset. Returns list of error strings (empty = valid)."""
     errors: list[str] = []
-    cases = _load_raw(path)
+    raw_cases = _load_raw(path)
+    cases: list[BenchmarkCase] = []
+    for i, raw_case in enumerate(raw_cases, 1):
+        try:
+            cases.append(BenchmarkCase.from_raw(raw_case))
+        except ValidationError as exc:
+            errors.append(f"Case {i}: {exc.errors()}")
     if not cases:
         errors.append(f"No cases found in {path.name}")
         return errors
-
-    required = {
-        "id",
-        "domain",
-        "difficulty",
-        "question",
-        "expected_facts",
-        "required_citations",
-        "tags",
-    }
     ids_seen: set[str] = set()
-    for i, case in enumerate(cases, 1):
-        missing = required - set(case.keys())
-        if missing:
-            errors.append(f"Case {i}: missing fields {missing}")
-        cid = case.get("id", "")
+    for case in cases:
+        cid = case.id
         if cid in ids_seen:
             errors.append(f"Duplicate id: {cid}")
         ids_seen.add(cid)
-        facts = case.get("expected_facts", [])
-        if not facts:
+        if not case.expected_facts:
             errors.append(f"Case {cid}: empty expected_facts")
 
     return errors
+
+
+def _load_cases(path: Path) -> list[BenchmarkCase]:
+    return [BenchmarkCase.from_raw(case) for case in _load_raw(path)]
 
 
 def _load_raw(path: Path) -> list[dict]:

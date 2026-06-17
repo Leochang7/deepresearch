@@ -18,7 +18,7 @@ from deepresearch.llm.mock import MockLLM
 from deepresearch.memory.store import MockMemoryStore
 from deepresearch.rerankers.mock import MockRerankerClient
 from deepresearch.retrieval.mock import MockRetriever
-from deepresearch.schemas.evaluation import EvaluationResult
+from deepresearch.schemas.evaluation import EvaluationResult, ExpectedFact
 from deepresearch.schemas.report import ReportSection, ResearchReport
 from deepresearch.schemas.task import TaskNode, TaskState
 
@@ -544,7 +544,7 @@ def test_load_dataset_with_dict_format_facts():
         cases = load_dataset(tmp_path)
         assert len(cases) == 1
         assert len(cases[0].expected_facts) == 2
-        assert isinstance(cases[0].expected_facts[0], dict)
+        assert isinstance(cases[0].expected_facts[0], ExpectedFact)
         assert cases[0].expected_facts[0]["fact"] == "fact A"
         assert isinstance(cases[0].expected_facts[1], str)
     finally:
