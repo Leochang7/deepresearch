@@ -1,4 +1,5 @@
 import json
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -328,3 +329,37 @@ async def test_judge_facts_fallback_on_invalid_verdict():
     assert result[0]["matched"] is False
     assert result[0]["source"] == "rule"
     assert result[0]["reason"] == "No overlap"
+
+
+@pytest.mark.asyncio
+async def test_llm_as_judge_uses_custom_prompt_provider():
+    """When a custom prompt_provider is given, it should be used to load the judge prompt."""
+    mock_provider = MagicMock()
+    mock_provider.get.return_value = json.dumps(
+        {
+            "factuality": 0.9,
+            "citation_support": 0.8,
+            "completeness": 0.85,
+            "reasoning_consistency": 0.7,
+            "readability": 0.95,
+        }
+    )
+
+    llm = MockLLM(
+        [
+            json.dumps(
+                {
+                    "factuality": 0.9,
+                    "citation_support": 0.8,
+                    "completeness": 0.85,
+                    "reasoning_consistency": 0.7,
+                    "readability": 0.95,
+                }
+            )
+        ]
+    )
+    scores = await llm_as_judge(
+        llm, "test question", _report(), _evidence(), prompt_provider=mock_provider
+    )
+    assert isinstance(scores, dict)
+    mock_provider.get.assert_called_once_with("judge_eval")

@@ -76,6 +76,12 @@ uri = "/custom/path.db"
         assert cfg.milvus.metric_type == "COSINE"
 
 
+def test_langfuse_config_judge_prompt_fields():
+    config = DeepResearchConfig()
+    assert config.langfuse.judge_prompt_name == ""
+    assert config.langfuse.judge_prompt_label == ""
+
+
 class TestEnvVarOverride:
     def test_langfuse_config_prompt_defaults(self):
         from deepresearch.config import LangfuseConfig

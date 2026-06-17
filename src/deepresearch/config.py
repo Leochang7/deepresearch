@@ -149,6 +149,8 @@ class LangfuseConfig(BaseModel):
     experiment_name: str = "deepresearch"
     prompt_provider: str = "local"
     prompt_label: str = "production"
+    judge_prompt_name: str = ""
+    judge_prompt_label: str = ""
 
 
 # Env var name -> (config section, field name)
