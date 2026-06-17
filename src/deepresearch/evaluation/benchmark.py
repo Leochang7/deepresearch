@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from deepresearch.core.run_manager import RunManager
+from deepresearch.evaluation.annotation import select_annotation_candidates
 from deepresearch.evaluation.judge_eval import judge_facts
 from deepresearch.evaluation.langfuse import LangfuseAdapter
 from deepresearch.evaluation.metrics import evaluate
@@ -332,6 +333,17 @@ def _build_summary(
             summary["per_model_backend"][backend] = _group_stats(backend_results)
         for model, model_results in by_model.items():
             summary["per_model_name"][model] = _group_stats(model_results)
+
+    # Annotation candidates for human review
+    result_dicts = [
+        {"case_id": r.case_id, "evaluation": r.evaluation, "run_id": r.run_id}
+        for r in results
+    ]
+    candidates = select_annotation_candidates(result_dicts)
+    summary["annotation_candidates"] = [
+        {"case_id": c["case_id"], "reasons": c.get("annotation_reasons", [])}
+        for c in candidates
+    ]
 
     return summary
 
