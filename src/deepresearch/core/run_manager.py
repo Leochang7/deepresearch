@@ -389,26 +389,27 @@ class RunManager:
             {**eval_result.model_dump(mode="json"), "budget": budget.to_dict()},
         )
 
-        # Langfuse reporting
+        # Langfuse reporting — always call report_run for backward compat
+        # (creates own trace when disabled); end_run adds budget scores and
+        # closes the nested observation tree when enabled.
+        langfuse.report_run(
+            run_id,
+            question,
+            judge_result.report.model_dump(mode="json"),
+            eval_result.model_dump(mode="json"),
+            budget.to_dict(),
+            {
+                "experiment": self._config.langfuse.experiment_name,
+                "llm": self._config.llm.model,
+                "embedding": self._config.embedding.model,
+                "retriever": self._config.retrieval.search_provider,
+                "report_profile": self._config.synthesizer.report_profile,
+            },
+            self._trace_summary(out / "trace.jsonl"),
+            **langfuse_metadata,
+        )
         if ctx is not None:
             ctx.end_run(eval_result.model_dump(mode="json"), budget.to_dict())
-        else:
-            langfuse.report_run(
-                run_id,
-                question,
-                judge_result.report.model_dump(mode="json"),
-                eval_result.model_dump(mode="json"),
-                budget.to_dict(),
-                {
-                    "experiment": self._config.langfuse.experiment_name,
-                    "llm": self._config.llm.model,
-                    "embedding": self._config.embedding.model,
-                    "retriever": self._config.retrieval.search_provider,
-                    "report_profile": self._config.synthesizer.report_profile,
-                },
-                self._trace_summary(out / "trace.jsonl"),
-                **langfuse_metadata,
-            )
 
         # Write outputs
         await self._write_outputs(

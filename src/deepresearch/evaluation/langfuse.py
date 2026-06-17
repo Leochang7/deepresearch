@@ -38,7 +38,6 @@ class LangfuseContext:
         self,
         name: str,
         input_data: dict[str, Any] | None = None,
-        output_data: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         *,
         as_type: str = "span",
