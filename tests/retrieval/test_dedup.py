@@ -45,6 +45,17 @@ class TestDedupDocuments:
     def test_empty_list(self):
         assert dedup_documents([]) == []
 
+    def test_canonicalizes_url_before_dedup(self):
+        docs = [
+            _doc("d1", "HTTPS://Example.COM/a/?utm_source=x#section", "same"),
+            _doc("d2", "https://example.com/a", "same"),
+        ]
+
+        result = dedup_documents(docs)
+
+        assert len(result) == 1
+        assert result[0].id == "d1"
+
 
 class TestDedupChunks:
     def test_removes_duplicate_chunks(self):

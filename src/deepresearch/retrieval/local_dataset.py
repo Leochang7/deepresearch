@@ -2,45 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from pathlib import Path
 
 from deepresearch.retrieval.base import Retriever
+from deepresearch.retrieval.lexical import lexical_tokens
 from deepresearch.schemas.evidence import RetrievedDocument
-
-_STOPWORDS = {
-    "about",
-    "after",
-    "also",
-    "and",
-    "are",
-    "been",
-    "being",
-    "can",
-    "does",
-    "from",
-    "have",
-    "how",
-    "into",
-    "main",
-    "models",
-    "that",
-    "the",
-    "their",
-    "these",
-    "this",
-    "through",
-    "what",
-    "when",
-    "where",
-    "which",
-    "with",
-}
 
 
 class LocalDatasetRetriever(Retriever):
     def __init__(self, corpus_dir: str | Path) -> None:
         self._corpus_dir = Path(corpus_dir)
+        self._docs: list[RetrievedDocument] | None = None
 
     async def retrieve(
         self,
@@ -50,19 +22,7 @@ class LocalDatasetRetriever(Retriever):
         task_id: str = "",
         top_k: int = 10,
     ) -> list[RetrievedDocument]:
-        if not self._corpus_dir.is_dir():
-            return []
-
-        docs: list[RetrievedDocument] = []
-        for f in sorted(self._corpus_dir.rglob("*")):
-            if not f.is_file():
-                continue
-            if f.suffix not in (".md", ".jsonl", ".txt"):
-                continue
-            if f.suffix == ".jsonl":
-                docs.extend(_load_jsonl(f))
-            else:
-                docs.append(_load_text_file(f))
+        docs = self._load_documents()
 
         query_tokens = _tokenize(" ".join(queries))
         scored: list[tuple[int, RetrievedDocument]] = []
@@ -74,6 +34,24 @@ class LocalDatasetRetriever(Retriever):
         if any(score > 0 for score, _ in scored):
             scored = [(score, doc) for score, doc in scored if score > 0]
         return [doc for _, doc in scored[:top_k]]
+
+    def _load_documents(self) -> list[RetrievedDocument]:
+        if self._docs is not None:
+            return self._docs
+        if not self._corpus_dir.is_dir():
+            self._docs = []
+            return self._docs
+
+        docs: list[RetrievedDocument] = []
+        for path in sorted(self._corpus_dir.rglob("*")):
+            if not path.is_file() or path.suffix not in (".md", ".jsonl", ".txt"):
+                continue
+            if path.suffix == ".jsonl":
+                docs.extend(_load_jsonl(path))
+            else:
+                docs.append(_load_text_file(path))
+        self._docs = docs
+        return self._docs
 
 
 def _load_text_file(path: Path) -> RetrievedDocument:
@@ -112,17 +90,7 @@ def _load_jsonl(path: Path) -> list[RetrievedDocument]:
 
 
 def _tokenize(text: str) -> set[str]:
-    normalized = text.lower()
-    # Latin tokens (3+ chars)
-    latin = set(re.findall(r"[a-z][a-z0-9_-]{2,}", normalized))
-    latin -= _STOPWORDS
-    # CJK unigrams + bigrams (same range as store.py:lexical_tokens)
-    cjk_runs = re.findall(r"[㐀-鿿]+", normalized)
-    cjk: set[str] = set()
-    for run in cjk_runs:
-        cjk.update(run)
-        cjk.update(run[i : i + 2] for i in range(len(run) - 1))
-    return latin | cjk
+    return lexical_tokens(text)
 
 
 def _score_document(query_tokens: set[str], doc: RetrievedDocument) -> int:

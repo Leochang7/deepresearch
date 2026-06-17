@@ -10,8 +10,8 @@ from deepresearch.memory.store import (
     MemoryEntry,
     MemoryStore,
     SearchResult,
-    lexical_score,
 )
+from deepresearch.retrieval.lexical import lexical_score
 
 _DIM = 1024
 _METRIC = "COSINE"
@@ -165,22 +165,7 @@ class MilvusStore(MemoryStore):
             by_collection.setdefault(col_name, []).append(entry)
 
         for col_name, col_entries in by_collection.items():
-            rows = [
-                {
-                    "id": e.id,
-                    "run_id": e.run_id,
-                    "task_id": e.task_id,
-                    "title": e.title,
-                    "source_url": e.source_url,
-                    "content": e.content,
-                    "source_type": e.source_type,
-                    "confidence": e.confidence,
-                    "created_at": e.created_at,
-                    "metadata_json": json.dumps(e.metadata, ensure_ascii=False),
-                    "embedding": e.embedding,
-                }
-                for e in col_entries
-            ]
+            rows = [_entry_to_row(entry) for entry in col_entries]
             self._client.upsert(collection_name=col_name, data=rows)
 
     async def search(
@@ -199,16 +184,12 @@ class MilvusStore(MemoryStore):
         col_name = self._col_name(source_type)
         self._client.load_collection(collection_name=col_name)
 
-        filter_parts: list[str] = []
-        if run_id:
-            filter_parts.append(f'run_id == "{run_id}"')
-        if task_id:
-            filter_parts.append(f'task_id == "{task_id}"')
-        if source_type:
-            filter_parts.append(f'source_type == "{source_type}"')
-        if min_confidence is not None:
-            filter_parts.append(f"confidence >= {min_confidence}")
-        filter_expr = " and ".join(filter_parts) if filter_parts else None
+        filter_expr = _build_filter_expr(
+            run_id=run_id,
+            task_id=task_id,
+            source_type=source_type,
+            min_confidence=min_confidence,
+        )
 
         results = self._client.search(
             collection_name=col_name,
@@ -234,20 +215,7 @@ class MilvusStore(MemoryStore):
         search_results: list[SearchResult] = []
         for hits in results:
             for hit in hits:
-                entity = hit.get("entity", {})
-                entry = MemoryEntry(
-                    id=hit.get("id", ""),
-                    run_id=entity.get("run_id", ""),
-                    task_id=entity.get("task_id", ""),
-                    title=entity.get("title", ""),
-                    source_url=entity.get("source_url", ""),
-                    content=entity.get("content", ""),
-                    source_type=entity.get("source_type", ""),
-                    confidence=entity.get("confidence", 0.0),
-                    created_at=entity.get("created_at", ""),
-                    embedding=entity.get("embedding", []),
-                    metadata=_loads_metadata(entity.get("metadata_json", "")),
-                )
+                entry = _entry_from_row(hit.get("entity", {}), id_=hit.get("id", ""))
                 search_results.append(
                     SearchResult(entry=entry, score=hit.get("distance", 0.0))
                 )
@@ -268,20 +236,16 @@ class MilvusStore(MemoryStore):
 
         col_name = self._col_name(source_type)
         self._client.load_collection(collection_name=col_name)
-        filter_parts: list[str] = []
-        if run_id:
-            filter_parts.append(f'run_id == "{run_id}"')
-        if task_id:
-            filter_parts.append(f'task_id == "{task_id}"')
-        if source_type:
-            filter_parts.append(f'source_type == "{source_type}"')
-        if min_confidence is not None:
-            filter_parts.append(f"confidence >= {min_confidence}")
-        filter_expr = " and ".join(filter_parts)
+        filter_expr = _build_filter_expr(
+            run_id=run_id,
+            task_id=task_id,
+            source_type=source_type,
+            min_confidence=min_confidence,
+        )
 
         rows = self._client.query(
             collection_name=col_name,
-            filter=filter_expr,
+            filter=filter_expr or "",
             limit=max(top_k * 20, 200),
             output_fields=[
                 "id",
@@ -299,19 +263,7 @@ class MilvusStore(MemoryStore):
         )
         results = [
             SearchResult(
-                entry=MemoryEntry(
-                    id=row.get("id", ""),
-                    run_id=row.get("run_id", ""),
-                    task_id=row.get("task_id", ""),
-                    title=row.get("title", ""),
-                    source_url=row.get("source_url", ""),
-                    content=row.get("content", ""),
-                    embedding=row.get("embedding", []),
-                    source_type=row.get("source_type", ""),
-                    confidence=row.get("confidence", 0.0),
-                    created_at=row.get("created_at", ""),
-                    metadata=_loads_metadata(row.get("metadata_json", "")),
-                ),
+                entry=_entry_from_row(row),
                 score=lexical_score(query, row.get("content", "")),
             )
             for row in rows
@@ -354,20 +306,7 @@ class MilvusStore(MemoryStore):
                 ],
             )
             for r in results:
-                entries.append(
-                    MemoryEntry(
-                        id=r.get("id", ""),
-                        run_id=r.get("run_id", ""),
-                        task_id=r.get("task_id", ""),
-                        title=r.get("title", ""),
-                        source_url=r.get("source_url", ""),
-                        content=r.get("content", ""),
-                        source_type=r.get("source_type", ""),
-                        confidence=r.get("confidence", 0.0),
-                        created_at=r.get("created_at", ""),
-                        metadata=_loads_metadata(r.get("metadata_json", "")),
-                    )
-                )
+                entries.append(_entry_from_row(r))
         return entries
 
 
@@ -410,6 +349,57 @@ def _loads_metadata(value: Any) -> dict[str, Any]:
     except (TypeError, json.JSONDecodeError):
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+def _entry_to_row(entry: MemoryEntry) -> dict[str, Any]:
+    return {
+        "id": entry.id,
+        "run_id": entry.run_id,
+        "task_id": entry.task_id,
+        "title": entry.title,
+        "source_url": entry.source_url,
+        "content": entry.content,
+        "source_type": entry.source_type,
+        "confidence": entry.confidence,
+        "created_at": entry.created_at,
+        "metadata_json": json.dumps(entry.metadata, ensure_ascii=False),
+        "embedding": entry.embedding,
+    }
+
+
+def _entry_from_row(row: dict[str, Any], *, id_: str | None = None) -> MemoryEntry:
+    return MemoryEntry(
+        id=id_ if id_ is not None else row.get("id", ""),
+        run_id=row.get("run_id", ""),
+        task_id=row.get("task_id", ""),
+        title=row.get("title", ""),
+        source_url=row.get("source_url", ""),
+        content=row.get("content", ""),
+        source_type=row.get("source_type", ""),
+        confidence=row.get("confidence", 0.0),
+        created_at=row.get("created_at", ""),
+        embedding=row.get("embedding", []),
+        metadata=_loads_metadata(row.get("metadata_json", "")),
+    )
+
+
+def _build_filter_expr(
+    *,
+    run_id: str = "",
+    task_id: str = "",
+    source_type: str = "",
+    min_confidence: float | None = None,
+) -> str | None:
+    filter_parts: list[str] = []
+    if run_id:
+        filter_parts.append(f'run_id == "{run_id}"')
+    if task_id:
+        filter_parts.append(f'task_id == "{task_id}"')
+    if source_type:
+        filter_parts.append(f'source_type == "{source_type}"')
+    if min_confidence is not None:
+        filter_parts.append(f"confidence >= {min_confidence}")
+    return " and ".join(filter_parts) if filter_parts else None
 
 
 def _embedding_dim_from_schema(schema: Any) -> int | None:

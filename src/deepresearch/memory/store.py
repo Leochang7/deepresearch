@@ -1,10 +1,19 @@
 from __future__ import annotations
 
-import math
-import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
+
+from deepresearch.retrieval.lexical import lexical_score, lexical_tokens
+from deepresearch.retrieval.scoring import cosine_similarity
+
+__all__ = [
+    "MemoryEntry",
+    "MemoryStore",
+    "MockMemoryStore",
+    "SearchResult",
+    "lexical_tokens",
+]
 
 
 @dataclass
@@ -99,7 +108,7 @@ class MockMemoryStore(MemoryStore):
         scored: list[SearchResult] = []
         for entry in candidates:
             if entry.embedding and query_embedding:
-                score = _cosine_similarity(query_embedding, entry.embedding)
+                score = cosine_similarity(query_embedding, entry.embedding)
             else:
                 score = 0.5
             scored.append(SearchResult(entry=entry, score=score))
@@ -141,33 +150,3 @@ class MockMemoryStore(MemoryStore):
         scored = [result for result in scored if result.score > 0]
         scored.sort(key=lambda result: result.score, reverse=True)
         return scored[:top_k]
-
-
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    if len(a) != len(b):
-        return 0.0
-    dot = sum(x * y for x, y in zip(a, b, strict=False))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(x * x for x in b))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
-
-
-def lexical_tokens(text: str) -> set[str]:
-    normalized = text.lower()
-    latin = set(re.findall(r"[a-z0-9]+", normalized))
-    cjk_runs = re.findall(r"[\u3400-\u9fff]+", normalized)
-    cjk: set[str] = set()
-    for run in cjk_runs:
-        cjk.update(run)
-        cjk.update(run[index : index + 2] for index in range(len(run) - 1))
-    return latin | cjk
-
-
-def lexical_score(query: str, content: str) -> float:
-    query_tokens = lexical_tokens(query)
-    if not query_tokens:
-        return 0.0
-    content_tokens = lexical_tokens(content)
-    return len(query_tokens & content_tokens) / len(query_tokens)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 
+from deepresearch.retrieval.identity import document_key
 from deepresearch.schemas.evidence import RetrievedDocument
 
 
@@ -34,6 +35,4 @@ def dedup_chunks(chunks: list[str]) -> list[str]:
 
 
 def _dedup_key(doc: RetrievedDocument) -> str:
-    url = doc.url or ""
-    content_hash = hashlib.sha256(doc.content.encode()).hexdigest()[:32]
-    return f"{url}:{content_hash}"
+    return document_key(doc, include_content_hash=True)

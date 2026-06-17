@@ -1,20 +1,18 @@
 from __future__ import annotations
 
-import hashlib
-import math
 from dataclasses import dataclass, field
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from deepresearch.retrieval.identity import canonicalize_url, document_key
+from deepresearch.retrieval.scoring import cosine_similarity
 from deepresearch.schemas.evidence import RetrievedDocument
 
-_TRACKING_QUERY_KEYS = {
-    "fbclid",
-    "gclid",
-    "mc_cid",
-    "mc_eid",
-    "ref",
-    "source",
-}
+__all__ = [
+    "RankedChunk",
+    "canonicalize_url",
+    "mmr_select",
+    "rrf_fuse",
+    "rrf_fuse_chunks",
+]
 
 
 @dataclass
@@ -29,30 +27,7 @@ class RankedChunk:
 
 
 def _doc_key(doc: RetrievedDocument) -> str:
-    if doc.url:
-        return f"url:{canonicalize_url(doc.url)}"
-    content_hash = hashlib.sha256(doc.content.encode()).hexdigest()[:32]
-    return f"title:{doc.title}:{content_hash}"
-
-
-def canonicalize_url(url: str) -> str:
-    parsed = urlsplit(url.strip())
-    scheme = parsed.scheme.lower()
-    hostname = (parsed.hostname or "").lower()
-    port = parsed.port
-    if port and not (
-        (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
-    ):
-        hostname = f"{hostname}:{port}"
-    path = parsed.path.rstrip("/") or "/"
-    query = [
-        (key, value)
-        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
-        if not key.lower().startswith("utm_")
-        and key.lower() not in _TRACKING_QUERY_KEYS
-    ]
-    query.sort()
-    return urlunsplit((scheme, hostname, path, urlencode(query), ""))
+    return document_key(doc)
 
 
 def rrf_fuse(
@@ -131,15 +106,6 @@ def rrf_fuse_chunks(
     return result
 
 
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b, strict=False))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(x * x for x in b))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
-
-
 def mmr_select(
     candidates: list[RankedChunk],
     query_embedding: list[float],
@@ -170,7 +136,7 @@ def mmr_select(
         c.score
         if "reranker_score" in c.metadata
         else (
-            _cosine_similarity(query_embedding, c.embedding) if c.embedding else c.score
+            cosine_similarity(query_embedding, c.embedding) if c.embedding else c.score
         )
         for c in candidates
     ]
@@ -183,7 +149,7 @@ def mmr_select(
             if selected:
                 max_sim = max(
                     (
-                        _cosine_similarity(candidates[idx].embedding, s.embedding)
+                        cosine_similarity(candidates[idx].embedding, s.embedding)
                         if candidates[idx].embedding and s.embedding
                         else 0.0
                     )

@@ -171,3 +171,15 @@ class TestLocalDatasetRetriever:
         retriever = LocalDatasetRetriever(tmp_path)
         results = await retriever.retrieve(["test"])
         assert results[0].id.startswith("local-")
+
+    @pytest.mark.asyncio
+    async def test_caches_loaded_documents_per_instance(self, tmp_path):
+        (tmp_path / "a.md").write_text("cached content")
+
+        retriever = LocalDatasetRetriever(tmp_path)
+        first = await retriever.retrieve(["cached"])
+        (tmp_path / "b.md").write_text("new content")
+        second = await retriever.retrieve(["new"])
+
+        assert [result.title for result in first] == ["a"]
+        assert [result.title for result in second] == ["a"]

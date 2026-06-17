@@ -742,3 +742,15 @@
   - Files: `scripts/experiments/exp_full_suite.*`, `src/deepresearch/evaluation/compare.py`, tests
   - Done when: 串行跑 4 个 dataset（smoke5/crosslingual/large20/hotpotqa）；失败 dataset 不阻塞后续运行；`compare.py` 生成 `suite_summary.json` 和 `comparison.json`，并记录 missing/failed datasets。
   - Verify: `uv run pytest tests/evaluation/test_compare.py`; `uv run pytest` (576 passed, 1 skipped)
+
+### PM20 Retrieval & Memory Hardening
+
+- [x] PM200 收敛检索和记忆的公共词法、相似度与文档 identity 规则
+  - Files: `src/deepresearch/retrieval/lexical.py`, `src/deepresearch/retrieval/scoring.py`, `src/deepresearch/retrieval/identity.py`, `src/deepresearch/retrieval/local_dataset.py`, `src/deepresearch/retrieval/fusion.py`, `src/deepresearch/retrieval/dedup.py`, `src/deepresearch/memory/store.py`, `src/deepresearch/memory/milvus_store.py`, tests
+  - Done when: LocalDatasetRetriever、Memory keyword search、RRF/MMR、dedup 和 Milvus adapter 复用同一套 lexical/cosine/document-key helper；本地 corpus retrieve 不再每次调用重扫文件；Milvus row/filter 转换集中到 helper。
+  - Verify: `uv run pytest tests/retrieval tests/memory`
+
+- [ ] PM201 接入可配置 LexicalPolicy 与 jieba 中文 tokenizer
+  - Files: `src/deepresearch/retrieval/lexical.py`, `src/deepresearch/config.py`, `.env.example`, `config.example.toml`, `docs/CONFIGURATION.md`, tests
+  - Done when: 支持 `builtin` 和 `jieba` 两种 tokenizer；默认仍为 builtin CJK unigram/bigram，保证离线测试稳定；`jieba` 可通过配置启用，并支持仓库内 userdict 覆盖项目术语（RAG、LLM-as-Judge、Qwen、MiMo、DeepResearch 等）；LocalDatasetRetriever、Memory keyword search、Evaluator token overlap 共享同一 LexicalPolicy。
+  - Verify: `uv run pytest tests/retrieval tests/memory tests/evaluation`; `uv run ruff check .`
