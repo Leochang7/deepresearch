@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import time
 import uuid
@@ -102,6 +103,27 @@ class RunManager:
 
         prompt_provider = self._prompt_provider or self._build_prompt_provider()
 
+        langfuse = LangfuseAdapter(
+            enabled=self._config.langfuse.enabled,
+            host=self._config.langfuse.host,
+        )
+        self._langfuse = langfuse
+        langfuse_metadata = dict(langfuse_metadata or {})
+        langfuse_metadata.setdefault("model_backend", self._config.llm.provider)
+        langfuse_metadata.setdefault("prompt_label", self._config.langfuse.prompt_label)
+        ctx = langfuse.context(
+            run_id,
+            question,
+            {
+                "experiment": self._config.langfuse.experiment_name,
+                "llm": self._config.llm.model,
+                "embedding": self._config.embedding.model,
+                "retriever": self._config.retrieval.search_provider,
+                "report_profile": self._config.synthesizer.report_profile,
+                **langfuse_metadata,
+            },
+        )
+
         planner = PlannerAgent(llm, prompt_provider=prompt_provider)
         synthesizer = Synthesizer(
             llm,
@@ -122,14 +144,20 @@ class RunManager:
         )
 
         # Phase 1: Plan
-        plan = await planner.plan(question)
-        trace.log(
-            TraceEventType.PLANNER_CREATED_PLAN,
-            {"plan_id": plan.plan_id, "task_count": len(plan.tasks)},
-        )
+        with (
+            ctx.create_phase("plan", {"question": question})
+            if ctx
+            else contextlib.nullcontext(None)
+        ):
+            plan = await planner.plan(question)
+            trace.log(
+                TraceEventType.PLANNER_CREATED_PLAN,
+                {"plan_id": plan.plan_id, "task_count": len(plan.tasks)},
+            )
 
         # Phase 2: Execute tasks
         dag = DAG(plan.tasks)
+        execute_phase_id = ""
 
         async def task_fn(task: TaskNode) -> dict:
             def report_progress(stage: str, metadata: dict) -> None:
@@ -151,34 +179,48 @@ class RunManager:
                 progress=report_progress,
                 prompt_provider=prompt_provider,
             )
-            trace.log(
-                TraceEventType.RETRIEVER_CALLED,
-                {"stage": "research_started"},
-                task_id=task.task_id,
+            task_ctx_mgr = (
+                ctx.create_task(task.task_id, task.description, execute_phase_id)
+                if ctx and execute_phase_id
+                else contextlib.nullcontext(None)
             )
-            result = await researcher.execute(task, run_id=run_id)
-            trace.log(
-                TraceEventType.MILVUS_UPSERTED,
-                {
-                    "chunk_count": result.get("chunk_count", 0),
-                    "evidence_count": result.get("evidence_count", 0),
-                },
-                task_id=task.task_id,
-            )
-            return result
+            with task_ctx_mgr:
+                trace.log(
+                    TraceEventType.RETRIEVER_CALLED,
+                    {"stage": "research_started"},
+                    task_id=task.task_id,
+                )
+                result = await researcher.execute(task, run_id=run_id)
+                trace.log(
+                    TraceEventType.MILVUS_UPSERTED,
+                    {
+                        "chunk_count": result.get("chunk_count", 0),
+                        "evidence_count": result.get("evidence_count", 0),
+                    },
+                    task_id=task.task_id,
+                )
+                return result
 
         executor_cfg = self._executor_config(deadline)
-        executor = DAGExecutor(dag, task_fn, config=executor_cfg, trace=trace)
-        try:
-            await executor.run()
-        except GlobalTimeoutError as error:
-            trace.log(
-                TraceEventType.TASK_STATE_CHANGED,
-                {
-                    "status": "global_timeout",
-                    "partial_result": error.partial_result,
-                },
-            )
+
+        with (
+            ctx.create_phase("execute", {"task_count": len(plan.tasks)})
+            if ctx
+            else contextlib.nullcontext(None)
+        ) as execute_phase:
+            if ctx and execute_phase is not None:
+                execute_phase_id = execute_phase.get("_observation_id", "")
+            executor = DAGExecutor(dag, task_fn, config=executor_cfg, trace=trace)
+            try:
+                await executor.run()
+            except GlobalTimeoutError as error:
+                trace.log(
+                    TraceEventType.TASK_STATE_CHANGED,
+                    {
+                        "status": "global_timeout",
+                        "partial_result": error.partial_result,
+                    },
+                )
 
         # Phase 2.5: Replan loop
         all_tasks = list(dag.tasks)
@@ -196,152 +238,177 @@ class RunManager:
                     "actions": request.actions,
                 },
             )
-            affected = [t for t in all_tasks if t.task_id in request.affected_tasks]
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                break
-            try:
-                replan_plan = await asyncio.wait_for(
-                    planner.replan(
-                        question,
-                        request.trigger,
-                        request.reason,
-                        affected,
-                        request.actions,
-                    ),
-                    timeout=remaining,
+            replan_phase_ctx = (
+                ctx.create_phase(
+                    f"replan-{replan_round + 1}",
+                    {"round": replan_round + 1, "trigger": request.trigger},
                 )
-            except TimeoutError:
+                if ctx
+                else contextlib.nullcontext(None)
+            )
+            with replan_phase_ctx:
+                affected = [t for t in all_tasks if t.task_id in request.affected_tasks]
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                try:
+                    replan_plan = await asyncio.wait_for(
+                        planner.replan(
+                            question,
+                            request.trigger,
+                            request.reason,
+                            affected,
+                            request.actions,
+                        ),
+                        timeout=remaining,
+                    )
+                except TimeoutError:
+                    trace.log(
+                        TraceEventType.TASK_STATE_CHANGED,
+                        {
+                            "status": "global_timeout",
+                            "stage": "replan",
+                            "round": replan_round + 1,
+                        },
+                    )
+                    break
+                replan_tasks, superseded = self._prepare_replan_tasks(
+                    replan_plan.tasks,
+                    all_tasks,
+                    set(request.affected_tasks),
+                    replan_round + 1,
+                )
+                for task in superseded:
+                    task.status = TaskState.REPLANNING
+                dag = DAG(replan_tasks)
+                all_tasks.extend(replan_tasks)
+                executor = DAGExecutor(
+                    dag,
+                    task_fn,
+                    config=self._executor_config(deadline),
+                    trace=trace,
+                )
+                try:
+                    await executor.run()
+                except GlobalTimeoutError as error:
+                    trace.log(
+                        TraceEventType.TASK_STATE_CHANGED,
+                        {
+                            "status": "global_timeout",
+                            "partial_result": error.partial_result,
+                        },
+                    )
                 trace.log(
-                    TraceEventType.TASK_STATE_CHANGED,
+                    TraceEventType.REPLAN_COMPLETED,
                     {
-                        "status": "global_timeout",
-                        "stage": "replan",
                         "round": replan_round + 1,
+                        "new_task_count": len(replan_tasks),
+                        "new_task_ids": [task.task_id for task in replan_tasks],
+                        "superseded_task_ids": [task.task_id for task in superseded],
                     },
                 )
-                break
-            replan_tasks, superseded = self._prepare_replan_tasks(
-                replan_plan.tasks,
-                all_tasks,
-                set(request.affected_tasks),
-                replan_round + 1,
-            )
-            for task in superseded:
-                task.status = TaskState.REPLANNING
-            dag = DAG(replan_tasks)
-            all_tasks.extend(replan_tasks)
-            executor = DAGExecutor(
-                dag,
-                task_fn,
-                config=self._executor_config(deadline),
-                trace=trace,
-            )
-            try:
-                await executor.run()
-            except GlobalTimeoutError as error:
-                trace.log(
-                    TraceEventType.TASK_STATE_CHANGED,
-                    {
-                        "status": "global_timeout",
-                        "partial_result": error.partial_result,
-                    },
-                )
-            trace.log(
-                TraceEventType.REPLAN_COMPLETED,
-                {
-                    "round": replan_round + 1,
-                    "new_task_count": len(replan_tasks),
-                    "new_task_ids": [task.task_id for task in replan_tasks],
-                    "superseded_task_ids": [task.task_id for task in superseded],
-                },
-            )
 
         # Phase 3: Collect evidence from memory
         evidence_collector = self._collect_evidence(all_tasks)
 
         # Phase 4: Synthesize report
-        report = await synthesizer.synthesize(
-            run_id, question, all_tasks, evidence_collector
-        )
-        trace.log(
-            TraceEventType.LLM_CALLED,
-            {"agent": "synthesizer", "section_count": len(report.sections)},
-        )
+        with (
+            ctx.create_phase(
+                "synthesize",
+                {"question": question, "evidence_count": len(evidence_collector)},
+            )
+            if ctx
+            else contextlib.nullcontext(None)
+        ):
+            report = await synthesizer.synthesize(
+                run_id, question, all_tasks, evidence_collector
+            )
+            trace.log(
+                TraceEventType.LLM_CALLED,
+                {"agent": "synthesizer", "section_count": len(report.sections)},
+            )
 
         # Phase 5: Red-Blue review loop
-        judge_result = await judge.run(report, evidence_collector)
-        for round_result in judge_result.rounds:
-            trace.log(
-                TraceEventType.RED_REVIEW_CREATED,
+        with (
+            ctx.create_phase(
+                "red-blue",
                 {
-                    "round": round_result.round_num,
-                    "score": round_result.post_fix_score,
-                    "issues": round_result.issues_count,
+                    "max_rounds": self._config.red_blue.max_rounds,
+                    "target_score": self._config.red_blue.target_score,
                 },
             )
-            trace.log(
-                TraceEventType.BLUE_FIX_APPLIED,
-                {
-                    "round": round_result.round_num,
-                    "actions": round_result.actions_count,
-                    "rejected_actions": round_result.rejected_actions,
-                },
-            )
+            if ctx
+            else contextlib.nullcontext(None)
+        ):
+            judge_result = await judge.run(report, evidence_collector)
+            for round_result in judge_result.rounds:
+                trace.log(
+                    TraceEventType.RED_REVIEW_CREATED,
+                    {
+                        "round": round_result.round_num,
+                        "score": round_result.post_fix_score,
+                        "issues": round_result.issues_count,
+                    },
+                )
+                trace.log(
+                    TraceEventType.BLUE_FIX_APPLIED,
+                    {
+                        "round": round_result.round_num,
+                        "actions": round_result.actions_count,
+                        "rejected_actions": round_result.rejected_actions,
+                    },
+                )
 
         # Phase 6: Evaluate
-        eval_result = evaluate(
-            run_id,
-            all_tasks,
-            judge_result.report,
-            evidence_collector,
-            red_issues=[
-                {"round": result.round_num, "index": index}
-                for result in judge_result.rounds
-                for index in range(result.issues_count)
-            ],
-            blue_actions=[
-                {"round": result.round_num, "index": index}
-                for result in judge_result.rounds
-                for index in range(result.actions_count)
-            ],
-        )
-        eval_result.judge_scores = {
-            "final_score": judge_result.final_score,
-            "rounds": float(len(judge_result.rounds)),
-        }
+        with (
+            ctx.create_phase("evaluate") if ctx else contextlib.nullcontext(None)
+        ):
+            eval_result = evaluate(
+                run_id,
+                all_tasks,
+                judge_result.report,
+                evidence_collector,
+                red_issues=[
+                    {"round": result.round_num, "index": index}
+                    for result in judge_result.rounds
+                    for index in range(result.issues_count)
+                ],
+                blue_actions=[
+                    {"round": result.round_num, "index": index}
+                    for result in judge_result.rounds
+                    for index in range(result.actions_count)
+                ],
+            )
+            eval_result.judge_scores = {
+                "final_score": judge_result.final_score,
+                "rounds": float(len(judge_result.rounds)),
+            }
         budget.finish()
         trace.log(
             TraceEventType.EVALUATION_COMPLETED,
             {**eval_result.model_dump(mode="json"), "budget": budget.to_dict()},
         )
 
-        # Langfuse reporting (no-op if disabled)
-        langfuse = LangfuseAdapter(
-            enabled=self._config.langfuse.enabled,
-            host=self._config.langfuse.host,
-        )
-        self._langfuse = langfuse
-        langfuse_metadata = dict(langfuse_metadata or {})
-        langfuse_metadata.setdefault("model_backend", self._config.llm.provider)
-        langfuse_metadata.setdefault("prompt_label", self._config.langfuse.prompt_label)
-
-        langfuse.report_run(
-            run_id,
-            question,
-            judge_result.report.model_dump(mode="json"),
-            eval_result.model_dump(mode="json"),
-            budget.to_dict(),
-            {
-                "experiment": self._config.langfuse.experiment_name,
-                "llm": self._config.llm.model,
-                "embedding": self._config.embedding.model,
-                "retriever": self._config.retrieval.search_provider,
-                "report_profile": self._config.synthesizer.report_profile,
-            },
-            self._trace_summary(out / "trace.jsonl"),
-            **langfuse_metadata,
-        )
+        # Langfuse reporting
+        if ctx is not None:
+            ctx.end_run(eval_result.model_dump(mode="json"), budget.to_dict())
+        else:
+            langfuse.report_run(
+                run_id,
+                question,
+                judge_result.report.model_dump(mode="json"),
+                eval_result.model_dump(mode="json"),
+                budget.to_dict(),
+                {
+                    "experiment": self._config.langfuse.experiment_name,
+                    "llm": self._config.llm.model,
+                    "embedding": self._config.embedding.model,
+                    "retriever": self._config.retrieval.search_provider,
+                    "report_profile": self._config.synthesizer.report_profile,
+                },
+                self._trace_summary(out / "trace.jsonl"),
+                **langfuse_metadata,
+            )
 
         # Write outputs
         await self._write_outputs(

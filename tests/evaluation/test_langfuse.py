@@ -468,6 +468,7 @@ def test_langfuse_context_end_run_emits_evaluation_and_budget_scores():
     mock_client.flush.assert_called_once()
 
 
-def test_langfuse_context_returns_none_when_disabled():
+def test_langfuse_context_returns_none_when_disabled(monkeypatch):
+    monkeypatch.delenv("DEEPRESEARCH_LANGFUSE_ENABLED", raising=False)
     adapter = LangfuseAdapter(enabled=False)
     assert adapter.context("run-1", "q", {}) is None

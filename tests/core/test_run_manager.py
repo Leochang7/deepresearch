@@ -159,7 +159,21 @@ async def test_run_manager_populates_langfuse_model_metadata(tmp_path):
     config.llm.provider = "mimo"
     config.langfuse.prompt_label = "staging"
 
-    with patch("deepresearch.core.run_manager.LangfuseAdapter") as adapter_cls:
+    mock_adapter = MagicMock()
+    mock_adapter.is_enabled = True
+    mock_ctx = MagicMock()
+    mock_ctx._parent_observation_id = "obs-run"
+
+    def make_phase_cm():
+        cm = MagicMock()
+        cm.__enter__ = MagicMock(return_value={"_observation_id": "obs-phase"})
+        cm.__exit__ = MagicMock(return_value=False)
+        return cm
+
+    mock_ctx.create_phase.side_effect = lambda *a, **kw: make_phase_cm()
+    mock_adapter.context.return_value = mock_ctx
+
+    with patch("deepresearch.core.run_manager.LangfuseAdapter", return_value=mock_adapter):
         await RunManager(
             config,
             MockLLM(),
@@ -169,9 +183,11 @@ async def test_run_manager_populates_langfuse_model_metadata(tmp_path):
             MockRerankerClient(),
         ).run("test question", output_dir=tmp_path / "run")
 
-    kwargs = adapter_cls.return_value.report_run.call_args.kwargs
-    assert kwargs["model_backend"] == "mimo"
-    assert kwargs["prompt_label"] == "staging"
+    # context() was called with metadata containing model_backend and prompt_label
+    ctx_call_args = mock_adapter.context.call_args
+    metadata = ctx_call_args[0][2] if len(ctx_call_args.args) > 2 else ctx_call_args.kwargs.get("metadata", {})
+    assert metadata.get("model_backend") == "mimo"
+    assert metadata.get("prompt_label") == "staging"
 
 
 @pytest.mark.asyncio
@@ -360,3 +376,61 @@ async def test_run_manager_replan_replaces_failed_task_and_resumes_downstream(tm
         "replan-1-t1",
         "replan-1-resume-t2",
     ]
+
+
+@pytest.mark.asyncio
+async def test_run_manager_creates_nested_langfuse_observations(tmp_path):
+    """Verify RunManager creates Langfuse observations for each phase."""
+    mock_langfuse_cls = MagicMock()
+    mock_adapter = MagicMock()
+    mock_langfuse_cls.return_value = mock_adapter
+    mock_adapter.is_enabled = True
+
+    mock_ctx = MagicMock()
+    mock_ctx.trace_id = "trace-1"
+    mock_ctx._parent_observation_id = "obs-run"
+
+    # create_phase returns a context manager yielding a dict
+    def make_phase_cm():
+        cm = MagicMock()
+        cm.__enter__ = MagicMock(return_value={"_observation_id": "obs-phase"})
+        cm.__exit__ = MagicMock(return_value=False)
+        return cm
+
+    mock_ctx.create_phase.side_effect = lambda *a, **kw: make_phase_cm()
+
+    # create_task returns a context manager yielding a dict
+    def make_task_cm():
+        cm = MagicMock()
+        cm.__enter__ = MagicMock(return_value={})
+        cm.__exit__ = MagicMock(return_value=False)
+        return cm
+
+    mock_ctx.create_task.side_effect = lambda *a, **kw: make_task_cm()
+
+    mock_adapter.context.return_value = mock_ctx
+
+    config = DeepResearchConfig()
+    with patch("deepresearch.core.run_manager.LangfuseAdapter", mock_langfuse_cls):
+        await RunManager(
+            config,
+            MockLLM(),
+            MockRetriever(),
+            MockMemoryStore(),
+            MockEmbeddingClient(),
+            MockRerankerClient(),
+        ).run("test question", output_dir=tmp_path / "run")
+
+    # context() was called
+    mock_adapter.context.assert_called_once()
+
+    # Verify phases were created
+    phase_names = [c.args[0] for c in mock_ctx.create_phase.call_args_list]
+    assert "plan" in phase_names
+    assert "execute" in phase_names
+    assert "synthesize" in phase_names
+    assert "red-blue" in phase_names
+    assert "evaluate" in phase_names
+
+    # end_run was called with evaluation and budget
+    mock_ctx.end_run.assert_called_once()
