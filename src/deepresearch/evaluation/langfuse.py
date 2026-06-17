@@ -26,11 +26,14 @@ class LangfuseContext:
         self.trace_id = trace_id
         self._parent_observation_id = parent_observation_id
         self._run_observation = run_observation
+        self._ended = False
 
     def __enter__(self) -> LangfuseContext:
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if exc_type is not None:
+            self.close(status_message=str(exc_val) if exc_val else "")
         return None
 
     @contextmanager
@@ -57,7 +60,9 @@ class LangfuseContext:
                 parent_observation_id=self._parent_observation_id,
             )
         except Exception:
-            logger.debug("Failed to create Langfuse phase span '%s'", name, exc_info=True)
+            logger.debug(
+                "Failed to create Langfuse phase span '%s'", name, exc_info=True
+            )
         obs_id = getattr(obs, "observation_id", "") if obs else ""
         result: dict[str, Any] = {"_observation_id": obs_id}
         try:
@@ -65,6 +70,9 @@ class LangfuseContext:
         finally:
             if obs is not None and hasattr(obs, "end"):
                 with contextlib.suppress(Exception):
+                    output = {k: v for k, v in result.items() if k != "_observation_id"}
+                    if output and hasattr(obs, "update"):
+                        obs.update(output=output)
                     obs.end()
 
     @contextmanager
@@ -95,14 +103,21 @@ class LangfuseContext:
         finally:
             if obs is not None and hasattr(obs, "end"):
                 with contextlib.suppress(Exception):
+                    if result and hasattr(obs, "update"):
+                        obs.update(output=result)
                     obs.end()
 
     def end_run(
         self,
         evaluation: dict[str, Any],
         budget: dict[str, Any],
+        *,
+        report: dict[str, Any] | None = None,
+        trace_summary: dict[str, Any] | None = None,
     ) -> None:
         """End the run-level observation and emit evaluation + budget scores."""
+        if self._ended:
+            return
         # Evaluation scores
         try:
             layers = EvaluationLayers.from_evaluation_dict(evaluation)
@@ -168,9 +183,37 @@ class LangfuseContext:
                     )
 
         # End the run-level observation
+        output = {
+            "evaluation": evaluation,
+            "budget": budget,
+        }
+        if report is not None:
+            output["report"] = report
+        metadata = (
+            {"trace_summary": trace_summary} if trace_summary is not None else None
+        )
         if self._run_observation is not None and hasattr(self._run_observation, "end"):
             with contextlib.suppress(Exception):
+                if hasattr(self._run_observation, "update"):
+                    self._run_observation.update(output=output, metadata=metadata)
                 self._run_observation.end()
+        self._ended = True
+        with contextlib.suppress(Exception):
+            self._client.flush()
+
+    def close(self, status_message: str = "") -> None:
+        """Close the run observation without emitting final scores."""
+        if self._ended:
+            return
+        if self._run_observation is not None and hasattr(self._run_observation, "end"):
+            with contextlib.suppress(Exception):
+                if status_message and hasattr(self._run_observation, "update"):
+                    self._run_observation.update(
+                        level="ERROR",
+                        status_message=status_message,
+                    )
+                self._run_observation.end()
+        self._ended = True
         with contextlib.suppress(Exception):
             self._client.flush()
 

@@ -173,7 +173,9 @@ async def test_run_manager_populates_langfuse_model_metadata(tmp_path):
     mock_ctx.create_phase.side_effect = lambda *a, **kw: make_phase_cm()
     mock_adapter.context.return_value = mock_ctx
 
-    with patch("deepresearch.core.run_manager.LangfuseAdapter", return_value=mock_adapter):
+    with patch(
+        "deepresearch.core.run_manager.LangfuseAdapter", return_value=mock_adapter
+    ):
         await RunManager(
             config,
             MockLLM(),
@@ -185,9 +187,14 @@ async def test_run_manager_populates_langfuse_model_metadata(tmp_path):
 
     # context() was called with metadata containing model_backend and prompt_label
     ctx_call_args = mock_adapter.context.call_args
-    metadata = ctx_call_args[0][2] if len(ctx_call_args.args) > 2 else ctx_call_args.kwargs.get("metadata", {})
+    metadata = (
+        ctx_call_args[0][2]
+        if len(ctx_call_args.args) > 2
+        else ctx_call_args.kwargs.get("metadata", {})
+    )
     assert metadata.get("model_backend") == "mimo"
     assert metadata.get("prompt_label") == "staging"
+    mock_adapter.report_run.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -434,3 +441,7 @@ async def test_run_manager_creates_nested_langfuse_observations(tmp_path):
 
     # end_run was called with evaluation and budget
     mock_ctx.end_run.assert_called_once()
+    end_kwargs = mock_ctx.end_run.call_args.kwargs
+    assert "report" in end_kwargs
+    assert "trace_summary" in end_kwargs
+    mock_adapter.report_run.assert_not_called()

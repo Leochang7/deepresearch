@@ -442,6 +442,8 @@ def test_langfuse_context_end_run_emits_evaluation_and_budget_scores():
                 "total_tokens": 6000,
                 "elapsed_seconds": 12.345,
             },
+            report={"summary": "report"},
+            trace_summary={"event_count": 3},
         )
 
     score_calls = mock_client.create_score.call_args_list
@@ -464,8 +466,35 @@ def test_langfuse_context_end_run_emits_evaluation_and_budget_scores():
     assert all(c.kwargs["trace_id"] == "trace-1" for c in score_calls)
 
     # Run observation was ended
+    mock_run_obs.update.assert_called_once()
+    update_kwargs = mock_run_obs.update.call_args.kwargs
+    assert update_kwargs["output"]["report"]["summary"] == "report"
+    assert update_kwargs["output"]["budget"]["llm_calls"] == 5
+    assert update_kwargs["metadata"]["trace_summary"]["event_count"] == 3
     mock_run_obs.end.assert_called_once()
     mock_client.flush.assert_called_once()
+
+
+def test_langfuse_context_exit_closes_run_on_exception():
+    mock_langfuse_cls = MagicMock()
+    mock_client = MagicMock()
+    mock_langfuse_cls.return_value = mock_client
+    mock_client.create_trace_id.return_value = "trace-1"
+    mock_run_obs = MagicMock()
+    mock_run_obs.observation_id = "obs-run"
+    mock_client.start_observation.return_value = mock_run_obs
+
+    with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse_cls)}):
+        adapter = LangfuseAdapter(enabled=True, public_key="pk", secret_key="sk")
+        with (
+            pytest.raises(RuntimeError, match="boom"),
+            adapter.context("run-1", "q", {}),
+        ):
+            raise RuntimeError("boom")
+
+    mock_run_obs.update.assert_called_once()
+    assert mock_run_obs.update.call_args.kwargs["level"] == "ERROR"
+    mock_run_obs.end.assert_called_once()
 
 
 def test_langfuse_context_returns_none_when_disabled(monkeypatch):

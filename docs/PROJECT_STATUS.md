@@ -133,7 +133,7 @@ PM8 验收结果：
 ### 离线测试
 
 ```bash
-uv run pytest           # 全量离线测试（603 passed, 1 skipped）
+uv run pytest           # 全量离线测试（610 passed, 1 skipped）
 uv run ruff check .     # lint
 ```
 
@@ -175,7 +175,7 @@ src/deepresearch/
 ├── config.py
 └── doctor.py
 
-tests/               # 603 passed, 1 skipped, 100% 离线可跑
+tests/               # 610 passed, 1 skipped, 100% 离线可跑
 examples/
 ├── bench/           # researchbench_mini.jsonl, researchbench_smoke5.jsonl, multilingual_large20.jsonl
 └── corpus/          # 本地资料集示例

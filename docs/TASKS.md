@@ -788,7 +788,7 @@
 
 - [x] PM230 增加 Planner/DAG/Research/Synthesizer/Red-Blue/Judge/Evaluator 细粒度 observations
   - Files: `src/deepresearch/core/run_manager.py`, `src/deepresearch/core/trace.py`, `src/deepresearch/evaluation/langfuse.py`, tests
-  - Done when: Langfuse trace 中可看到 nested observations，覆盖 Planner、每个 DAG task、retrieval query、memory search、synthesis、red/blue/judge 和 evaluator；本地 trace JSONL 仍保持完整。
+  - Done when: Langfuse trace 中可看到 nested observations，覆盖 Planner、每个 DAG task、retrieval query、memory search、synthesis、red/blue/judge 和 evaluator；root observation 写入 report/evaluation/budget/trace_summary；context 成功时不再创建第二个 legacy root observation；本地 trace JSONL 仍保持完整。
   - Verify: `uv run pytest tests/core tests/evaluation`
 
 - [x] PM231 将 RunBudget、latency、token usage 和检索数量标准化进 Langfuse metadata/scores

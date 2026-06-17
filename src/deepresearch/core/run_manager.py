@@ -360,9 +360,7 @@ class RunManager:
                 )
 
         # Phase 6: Evaluate
-        with (
-            ctx.create_phase("evaluate") if ctx else contextlib.nullcontext(None)
-        ):
+        with ctx.create_phase("evaluate") if ctx else contextlib.nullcontext(None):
             eval_result = evaluate(
                 run_id,
                 all_tasks,
@@ -389,27 +387,34 @@ class RunManager:
             {**eval_result.model_dump(mode="json"), "budget": budget.to_dict()},
         )
 
-        # Langfuse reporting — always call report_run for backward compat
-        # (creates own trace when disabled); end_run adds budget scores and
-        # closes the nested observation tree when enabled.
-        langfuse.report_run(
-            run_id,
-            question,
-            judge_result.report.model_dump(mode="json"),
-            eval_result.model_dump(mode="json"),
-            budget.to_dict(),
-            {
-                "experiment": self._config.langfuse.experiment_name,
-                "llm": self._config.llm.model,
-                "embedding": self._config.embedding.model,
-                "retriever": self._config.retrieval.search_provider,
-                "report_profile": self._config.synthesizer.report_profile,
-            },
-            self._trace_summary(out / "trace.jsonl"),
-            **langfuse_metadata,
-        )
+        report_payload = judge_result.report.model_dump(mode="json")
+        evaluation_payload = eval_result.model_dump(mode="json")
+        budget_payload = budget.to_dict()
+        trace_summary = self._trace_summary(out / "trace.jsonl")
         if ctx is not None:
-            ctx.end_run(eval_result.model_dump(mode="json"), budget.to_dict())
+            ctx.end_run(
+                evaluation_payload,
+                budget_payload,
+                report=report_payload,
+                trace_summary=trace_summary,
+            )
+        else:
+            langfuse.report_run(
+                run_id,
+                question,
+                report_payload,
+                evaluation_payload,
+                budget_payload,
+                {
+                    "experiment": self._config.langfuse.experiment_name,
+                    "llm": self._config.llm.model,
+                    "embedding": self._config.embedding.model,
+                    "retriever": self._config.retrieval.search_provider,
+                    "report_profile": self._config.synthesizer.report_profile,
+                },
+                trace_summary,
+                **langfuse_metadata,
+            )
 
         # Write outputs
         await self._write_outputs(
