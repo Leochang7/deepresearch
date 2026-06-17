@@ -750,7 +750,7 @@
   - Done when: LocalDatasetRetriever、Memory keyword search、RRF/MMR、dedup 和 Milvus adapter 复用同一套 lexical/cosine/document-key helper；本地 corpus retrieve 不再每次调用重扫文件；Milvus row/filter 转换集中到 helper。
   - Verify: `uv run pytest tests/retrieval tests/memory`
 
-- [ ] PM201 接入可配置 LexicalPolicy 与 jieba 中文 tokenizer
+- [x] PM201 接入可配置 LexicalPolicy 与 jieba 中文 tokenizer
   - Files: `src/deepresearch/retrieval/lexical.py`, `src/deepresearch/config.py`, `.env.example`, `config.example.toml`, `docs/CONFIGURATION.md`, tests
   - Done when: 支持 `builtin` 和 `jieba` 两种 tokenizer；默认仍为 builtin CJK unigram/bigram，保证离线测试稳定；`jieba` 可通过配置启用，并支持仓库内 userdict 覆盖项目术语（RAG、LLM-as-Judge、Qwen、MiMo、DeepResearch 等）；LocalDatasetRetriever、Memory keyword search、Evaluator token overlap 共享同一 LexicalPolicy。
   - Verify: `uv run pytest tests/retrieval tests/memory tests/evaluation`; `uv run ruff check .`

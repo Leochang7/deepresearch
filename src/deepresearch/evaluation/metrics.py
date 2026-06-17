@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from deepresearch.retrieval.lexical import lexical_tokens
 from deepresearch.schemas.evaluation import EvaluationResult, FactHitResult
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ResearchReport
@@ -58,13 +59,7 @@ def _detect_language(text: str) -> str:
 
 
 def _tokenize_for_match(text: str) -> set[str]:
-    latin = set(re.findall(r"[a-z][a-z0-9]{1,}", text))
-    cjk_runs = re.findall(r"[㐀-鿿]+", text)
-    cjk: set[str] = set()
-    for run in cjk_runs:
-        cjk.update(run)
-        cjk.update(run[i : i + 2] for i in range(len(run) - 1))
-    return latin | cjk
+    return lexical_tokens(text)
 
 
 def _expand_abbreviations(tokens: list[str]) -> set[str]:

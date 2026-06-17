@@ -41,6 +41,7 @@ from deepresearch.prompts.provider import PromptProvider
 from deepresearch.rerankers.base import RerankerClient
 from deepresearch.retrieval.base import Retriever
 from deepresearch.retrieval.fetcher import WebFetcher
+from deepresearch.retrieval.lexical import LexicalPolicy, configure_lexical_policy
 from deepresearch.schemas.evaluation import EvaluationResult
 from deepresearch.schemas.evidence import EvidenceItem
 from deepresearch.schemas.report import ResearchReport
@@ -77,6 +78,7 @@ class RunManager:
         self._embedding = embedding
         self._reranker = reranker
         self._prompt_provider = prompt_provider
+        self._configure_lexical_policy()
 
     async def run(
         self,
@@ -476,6 +478,17 @@ class RunManager:
 
     def _build_prompt_provider(self) -> PromptProvider | None:
         return build_prompt_provider(self._config.langfuse)
+
+    def _configure_lexical_policy(self) -> None:
+        configure_lexical_policy(
+            LexicalPolicy(
+                tokenizer=self._config.lexical.tokenizer,
+                latin_min_chars=self._config.lexical.latin_min_chars,
+                cjk_ngrams=tuple(self._config.lexical.cjk_ngrams),
+                cjk_ngram_fallback=self._config.lexical.cjk_ngram_fallback,
+                userdict_path=self._config.lexical.userdict_path,
+            )
+        )
 
     @staticmethod
     def _prepare_replan_tasks(

@@ -29,6 +29,7 @@ from deepresearch.retrieval.fusion import (
     rrf_fuse,
     rrf_fuse_chunks,
 )
+from deepresearch.retrieval.lexical import lexical_tokens
 from deepresearch.retrieval.query_expansion import expand_query
 from deepresearch.schemas.evidence import EvidenceItem, RetrievedDocument
 from deepresearch.schemas.task import TaskNode
@@ -615,10 +616,8 @@ class ResearchAgent:
 
     @staticmethod
     def _task_keywords(task: TaskNode) -> set[str]:
-        text = f"{task.description} {task.goal}".lower()
-        # Latin tokens
-        latin = set(re.findall(r"[a-z][a-z0-9_-]{3,}", text))
-        latin -= {
+        keywords = lexical_tokens(f"{task.description} {task.goal}")
+        return keywords - {
             "what",
             "when",
             "where",
@@ -633,13 +632,6 @@ class ResearchAgent:
             "analyze",
             "analysis",
         }
-        # CJK unigrams + bigrams
-        cjk_runs = re.findall(r"[㐀-鿿]+", text)
-        cjk: set[str] = set()
-        for run in cjk_runs:
-            cjk.update(run)
-            cjk.update(run[i : i + 2] for i in range(len(run) - 1))
-        return latin | cjk
 
     @staticmethod
     def _best_sentence(content: str, keywords: set[str]) -> str:

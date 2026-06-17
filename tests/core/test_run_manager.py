@@ -9,6 +9,7 @@ from deepresearch.embeddings.mock import MockEmbeddingClient
 from deepresearch.llm.mock import MockLLM
 from deepresearch.memory.store import MockMemoryStore
 from deepresearch.rerankers.mock import MockRerankerClient
+from deepresearch.retrieval.lexical import configure_lexical_policy, get_lexical_policy
 from deepresearch.retrieval.mock import MockRetriever
 from deepresearch.schemas.task import ResearchPlan, TaskNode, TaskState
 
@@ -38,6 +39,29 @@ def test_run_manager_accepts_injected_prompt_provider():
     )
 
     assert manager._prompt_provider is provider
+
+
+def test_run_manager_configures_lexical_policy():
+    original = get_lexical_policy()
+    config = DeepResearchConfig()
+    config.lexical.tokenizer = "jieba"
+    config.lexical.cjk_ngram_fallback = False
+
+    try:
+        RunManager(
+            config,
+            MockLLM(),
+            MockRetriever(),
+            MockMemoryStore(),
+            MockEmbeddingClient(),
+            MockRerankerClient(),
+        )
+
+        policy = get_lexical_policy()
+        assert policy.tokenizer == "jieba"
+        assert policy.cjk_ngram_fallback is False
+    finally:
+        configure_lexical_policy(original)
 
 
 def test_build_prompt_provider_fallback_constructs_local_provider(monkeypatch):

@@ -13,6 +13,7 @@ class TestDeepResearchConfig:
         assert cfg.llm.max_tokens_field == "max_completion_tokens"
         assert cfg.embedding.dim == 2560
         assert cfg.reranker.model == "bge-reranker-v2-m3"
+        assert cfg.lexical.tokenizer == "builtin"
         assert cfg.chunking.chunk_size_chars == 1200
         assert cfg.executor.max_concurrency == 4
 
@@ -28,6 +29,7 @@ class TestDeepResearchConfig:
         assert hasattr(cfg, "fetch")
         assert hasattr(cfg, "chunking")
         assert hasattr(cfg, "dedup")
+        assert hasattr(cfg, "lexical")
         assert hasattr(cfg, "executor")
         assert hasattr(cfg, "red_blue")
         assert hasattr(cfg, "synthesizer")
@@ -151,6 +153,19 @@ class TestEnvVarOverride:
         assert cfg.langfuse.enabled is True
         assert cfg.langfuse.host == "http://localhost:3000"
         assert cfg.langfuse.experiment_name == "pm6-test"
+
+    def test_lexical_env_overrides(self, monkeypatch):
+        monkeypatch.setenv("DEEPRESEARCH_LEXICAL_TOKENIZER", "jieba")
+        monkeypatch.setenv("DEEPRESEARCH_LEXICAL_LATIN_MIN_CHARS", "3")
+        monkeypatch.setenv("DEEPRESEARCH_LEXICAL_CJK_NGRAM_FALLBACK", "false")
+        monkeypatch.setenv("DEEPRESEARCH_LEXICAL_USERDICT_PATH", "custom.txt")
+
+        cfg = DeepResearchConfig.from_env()
+
+        assert cfg.lexical.tokenizer == "jieba"
+        assert cfg.lexical.latin_min_chars == 3
+        assert cfg.lexical.cjk_ngram_fallback is False
+        assert cfg.lexical.userdict_path == "custom.txt"
 
 
 class TestLoadConfig:

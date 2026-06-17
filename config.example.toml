@@ -80,6 +80,13 @@ min_chunk_chars = 300
 [dedup]
 strategy = "source_url_content_hash"
 
+[lexical]
+tokenizer = "builtin" # builtin | jieba
+latin_min_chars = 2
+cjk_ngrams = [1, 2]
+cjk_ngram_fallback = true
+userdict_path = ""
+
 [executor]
 max_concurrency = 4
 max_task_retries = 2

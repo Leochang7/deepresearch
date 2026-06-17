@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import re
 from typing import Protocol
 
+from deepresearch.retrieval.lexical import lexical_tokens
 from deepresearch.schemas.evidence import EvidenceItem
 
 
@@ -39,14 +39,7 @@ class DefaultEvidenceQualityChecker:
 
     @staticmethod
     def _tokenize_for_overlap(text: str) -> set[str]:
-        normalized = text.lower()
-        latin = set(re.findall(r"[a-z][a-z0-9]{1,}", normalized))
-        cjk_runs = re.findall(r"[㐀-鿿]+", normalized)
-        cjk: set[str] = set()
-        for run in cjk_runs:
-            cjk.update(run)
-            cjk.update(run[i : i + 2] for i in range(len(run) - 1))
-        return latin | cjk
+        return lexical_tokens(text)
 
     def _check_token_overlap(self, claim: str, quote: str) -> bool:
         claim_lower = claim.lower()

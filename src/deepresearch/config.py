@@ -99,6 +99,14 @@ class DedupConfig(BaseModel):
     strategy: str = "source_url_content_hash"
 
 
+class LexicalConfig(BaseModel):
+    tokenizer: str = "builtin"
+    latin_min_chars: int = Field(default=2, ge=1)
+    cjk_ngrams: list[int] = Field(default_factory=lambda: [1, 2])
+    cjk_ngram_fallback: bool = True
+    userdict_path: str = ""
+
+
 class FusionConfig(BaseModel):
     rrf_k: int = Field(default=60, ge=0)
     max_fused_docs: int = Field(default=20, ge=1)
@@ -181,6 +189,13 @@ _ENV_MAP: dict[str, tuple[str, str]] = {
     "DEEPRESEARCH_MAX_FUSED_CHUNKS": ("fusion", "max_fused_chunks"),
     "DEEPRESEARCH_MMR_LAMBDA": ("fusion", "mmr_lambda"),
     "DEEPRESEARCH_MAX_MMR_RESULTS": ("fusion", "max_mmr_results"),
+    "DEEPRESEARCH_LEXICAL_TOKENIZER": ("lexical", "tokenizer"),
+    "DEEPRESEARCH_LEXICAL_LATIN_MIN_CHARS": ("lexical", "latin_min_chars"),
+    "DEEPRESEARCH_LEXICAL_CJK_NGRAM_FALLBACK": (
+        "lexical",
+        "cjk_ngram_fallback",
+    ),
+    "DEEPRESEARCH_LEXICAL_USERDICT_PATH": ("lexical", "userdict_path"),
     "DEEPRESEARCH_LANGFUSE_ENABLED": ("langfuse", "enabled"),
     "LANGFUSE_HOST": ("langfuse", "host"),
     "DEEPRESEARCH_EXPERIMENT_NAME": ("langfuse", "experiment_name"),
@@ -201,6 +216,7 @@ class DeepResearchConfig(BaseModel):
     fetch: FetchConfig = Field(default_factory=FetchConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     dedup: DedupConfig = Field(default_factory=DedupConfig)
+    lexical: LexicalConfig = Field(default_factory=LexicalConfig)
     fusion: FusionConfig = Field(default_factory=FusionConfig)
     executor: ExecutorConfig = Field(default_factory=ExecutorConfig)
     red_blue: RedBlueConfig = Field(default_factory=RedBlueConfig)

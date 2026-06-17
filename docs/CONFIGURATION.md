@@ -105,6 +105,13 @@ min_chunk_chars = 300
 [dedup]
 strategy = "source_url_content_hash"
 
+[lexical]
+tokenizer = "builtin" # builtin | jieba
+latin_min_chars = 2
+cjk_ngrams = [1, 2]
+cjk_ngram_fallback = true
+userdict_path = ""
+
 [executor]
 max_concurrency = 4
 max_task_retries = 2
@@ -173,6 +180,10 @@ DEEPRESEARCH_MAX_FUSED_DOCS=20
 DEEPRESEARCH_MAX_FUSED_CHUNKS=30
 DEEPRESEARCH_MMR_LAMBDA=0.7
 DEEPRESEARCH_MAX_MMR_RESULTS=12
+DEEPRESEARCH_LEXICAL_TOKENIZER=builtin
+DEEPRESEARCH_LEXICAL_LATIN_MIN_CHARS=2
+DEEPRESEARCH_LEXICAL_CJK_NGRAM_FALLBACK=true
+DEEPRESEARCH_LEXICAL_USERDICT_PATH=
 DEEPRESEARCH_MILVUS_URI=http://localhost:19530
 DEEPRESEARCH_MILVUS_CHUNKS_COLLECTION=deepresearch_chunks
 DEEPRESEARCH_MILVUS_MEMORIES_COLLECTION=deepresearch_memories
@@ -233,6 +244,23 @@ Prompt 命名约定：
 `langfuse_with_local_fallback` 获取失败时回退本地文件。`run` 和
 `benchmark` 可用 `--prompt-provider` 临时覆盖 provider，非 local provider
 会自动开启 Langfuse 配置。
+
+Lexical tokenizer 控制 LocalDatasetRetriever、Memory keyword search、Evaluator
+fact matching 和 evidence token overlap 的共享词法规则。默认 `builtin`
+使用 Latin token + CJK unigram/bigram，保证离线测试和 benchmark 可复现。
+需要更干净的中文 BM25/keyword recall 时可启用 `jieba`：
+
+```toml
+[lexical]
+tokenizer = "jieba"
+cjk_ngram_fallback = true
+userdict_path = ""
+```
+
+内置 userdict 位于 `src/deepresearch/retrieval/jieba_userdict.txt`，覆盖
+RAG、LLM-as-Judge、Qwen、MiMo、DeepResearch 等项目术语。`userdict_path`
+为空时自动加载内置词典；设置为本地路径时会额外加载该词典。默认仍保留
+`cjk_ngram_fallback = true`，避免 jieba 未识别新术语时召回断崖下降。
 
 接入 Langfuse 的推荐本地配置：
 
