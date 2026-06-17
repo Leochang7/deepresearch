@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 from typing import Any
@@ -183,10 +184,8 @@ class LangfuseAdapter:
         self._init_client()
         if not self._client:
             return 0
-        try:
+        with contextlib.suppress(Exception):  # dataset may already exist
             self._client.create_dataset(name=dataset_name)
-        except Exception:
-            pass  # dataset may already exist
         count = 0
         for case in cases:
             try:
@@ -224,14 +223,12 @@ class LangfuseAdapter:
         self._init_client()
         if not self._client:
             return
-        try:
+        with contextlib.suppress(Exception):
             self._client.create_dataset_run_item(
                 dataset_name=dataset_name,
                 run_name=run_id,
                 trace_id=trace_id,
             )
-        except Exception:
-            pass
 
     @property
     def last_trace_id(self) -> str:
