@@ -11,6 +11,7 @@ from typing import Any
 
 from deepresearch.core.run_manager import RunManager
 from deepresearch.evaluation.judge_eval import judge_facts
+from deepresearch.evaluation.langfuse import LangfuseAdapter
 from deepresearch.evaluation.metrics import evaluate
 from deepresearch.evaluation.statistics import bootstrap_ci, cohens_d
 from deepresearch.llm.base import LLMClient
@@ -103,6 +104,17 @@ async def _run_case(
             },
         )
         elapsed = time.monotonic() - run_start
+
+        # Link trace to dataset item in Langfuse (no-op if disabled)
+        langfuse: LangfuseAdapter | None = getattr(manager, "_langfuse", None)
+        if langfuse is not None and langfuse.is_enabled and case.source_dataset:
+            langfuse.link_run_to_dataset(
+                dataset_name=case.source_dataset,
+                case_id=case.id,
+                run_id=run_result.run_id,
+                trace_id=langfuse.last_trace_id,
+            )
+
         evidence = RunManager._collect_evidence(run_result.plan_tasks)
         evaluation = evaluate(
             run_result.run_id,

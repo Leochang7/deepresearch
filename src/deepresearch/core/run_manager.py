@@ -78,6 +78,7 @@ class RunManager:
         self._embedding = embedding
         self._reranker = reranker
         self._prompt_provider = prompt_provider
+        self._langfuse: LangfuseAdapter | None = None
         self._configure_lexical_policy()
 
     async def run(
@@ -320,6 +321,7 @@ class RunManager:
             enabled=self._config.langfuse.enabled,
             host=self._config.langfuse.host,
         )
+        self._langfuse = langfuse
         langfuse_metadata = dict(langfuse_metadata or {})
         langfuse_metadata.setdefault("model_backend", self._config.llm.provider)
         langfuse_metadata.setdefault("prompt_label", self._config.langfuse.prompt_label)

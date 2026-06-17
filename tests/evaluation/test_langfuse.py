@@ -220,3 +220,32 @@ def test_push_dataset_noop_when_disabled():
     adapter = LangfuseAdapter(enabled=False)
     count = adapter.push_dataset(dataset_name="test", cases=[{"id": "c1"}])
     assert count == 0
+
+
+def test_link_run_to_dataset():
+    """link_run_to_dataset should call client.create_dataset_run_item."""
+    mock_langfuse_cls = MagicMock()
+    mock_client = MagicMock()
+    mock_langfuse_cls.return_value = mock_client
+
+    with patch.dict("sys.modules", {"langfuse": MagicMock(Langfuse=mock_langfuse_cls)}):
+        adapter = LangfuseAdapter(enabled=True, public_key="pk", secret_key="sk")
+        adapter.link_run_to_dataset(
+            dataset_name="researchbench_full",
+            case_id="rbf-001",
+            run_id="run-1",
+            trace_id="trace-1",
+        )
+        mock_client.create_dataset_run_item.assert_called_once()
+        call_kwargs = mock_client.create_dataset_run_item.call_args.kwargs
+        assert call_kwargs["dataset_name"] == "researchbench_full"
+        assert call_kwargs["run_name"] == "run-1"
+
+
+def test_link_run_to_dataset_noop_when_disabled():
+    """link_run_to_dataset should be a no-op when adapter is disabled."""
+    adapter = LangfuseAdapter(enabled=False)
+    adapter.link_run_to_dataset(
+        dataset_name="test", case_id="c1", run_id="r1", trace_id="t1",
+    )
+    # No error, no call

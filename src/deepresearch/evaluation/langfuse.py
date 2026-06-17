@@ -29,6 +29,7 @@ class LangfuseAdapter:
             "LANGFUSE_HOST", "https://cloud.langfuse.com"
         )
         self._client: Any = None
+        self._last_trace_id: str = ""
         if self._enabled:
             self._init_client()
 
@@ -117,6 +118,7 @@ class LangfuseAdapter:
         benchmark_metadata: dict[str, Any] | None = None,
     ) -> None:
         trace_id = self._client.create_trace_id(seed=run_id)
+        self._last_trace_id = trace_id
         full_metadata = {
             **config_summary,
             **(benchmark_metadata or {}),
@@ -209,6 +211,31 @@ class LangfuseAdapter:
                 pass
         self._client.flush()
         return count
+
+    def link_run_to_dataset(
+        self,
+        *,
+        dataset_name: str,
+        case_id: str,
+        run_id: str,
+        trace_id: str,
+    ) -> None:
+        """Link a benchmark run trace to a Langfuse dataset item."""
+        self._init_client()
+        if not self._client:
+            return
+        try:
+            self._client.create_dataset_run_item(
+                dataset_name=dataset_name,
+                run_name=run_id,
+                trace_id=trace_id,
+            )
+        except Exception:
+            pass
+
+    @property
+    def last_trace_id(self) -> str:
+        return self._last_trace_id
 
     @property
     def is_enabled(self) -> bool:
