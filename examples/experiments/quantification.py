@@ -260,7 +260,7 @@ def mmr_preservation_report() -> dict[str, Any]:
 def generate_quantification_report() -> dict[str, Any]:
     return {
         "version": 1,
-        "methodology": "local deterministic comparison fixtures for defensible resume claim calibration",
+        "methodology": "local deterministic comparison fixtures for exploratory reporting",
         "json_repair": json_repair_report(),
         "retrieval_ablation": retrieval_ablation_report(),
         "mmr_preservation": mmr_preservation_report(),
@@ -279,7 +279,7 @@ def write_quantification_report(output_path: Path) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Generate offline quantitative claim report"
+        description="Generate offline exploratory quantitative report"
     )
     parser.add_argument(
         "--output",
