@@ -81,7 +81,7 @@ MVP、PM0-PM26 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 | PM23 | ✅ 完成 | Fine-grained Langfuse DAG/Agent Observations：run/phase/task nested observations 和 budget scores |
 | PM24 | ✅ 完成 | Langfuse-managed Evaluator & Prompt Versioning：prompt name/version/hash metadata、judge prompt override |
 | PM25 | ✅ 完成 | Human Annotation Queue & Review Loop：annotation candidate 标记、人工标注 JSONL 回流 |
-| PM26 | ✅ 完成 | Quantitative Claim Calibration：公开量化指标口径、本地 fixture 和真实数据集 retrieval-only 对照评测 |
+| PM26 | ✅ 完成 | Quantitative Claim Calibration：公开量化指标口径和真实数据集 retrieval-only 对照评测 |
 
 ## 真实环境运行
 
@@ -138,7 +138,7 @@ PM8 验收结果：
 ### 离线测试
 
 ```bash
-uv run pytest           # 全量离线测试（656 passed, 1 skipped）
+uv run pytest           # 全量离线测试（651 passed, 1 skipped）
 uv run ruff check .     # lint
 ```
 
@@ -181,7 +181,7 @@ src/deepresearch/
 ├── config.py
 └── doctor.py
 
-tests/               # 656 passed, 1 skipped, 100% 离线可跑
+tests/               # 651 passed, 1 skipped, 100% 离线可跑
 examples/
 ├── bench/           # researchbench_mini.jsonl, researchbench_smoke5.jsonl, multilingual_large20.jsonl
 └── corpus/          # 本地资料集示例

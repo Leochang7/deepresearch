@@ -13,6 +13,11 @@
 
 ### Current Bugfix
 
+- [x] BF012 收敛过程文档、公开指标 fixture 和未实现未来能力说明
+  - Files: `docs/superpowers/plans/`, `examples/experiments/quantification.py`, `docs/archive/IDEAS.md`, `docs/PRD.md`, `docs/RETRIEVAL_DESIGN.md`, `docs/TECH_STACK.md`, `docs/QUANTITATIVE_CLAIMS.md`, `docs/TASKS.md`, `docs/WORKLOG.md`, tests
+  - Done when: 删除过程性计划文档；公开指标 fixture 不再位于核心包；主设计文档不再反复列出未实现 Browser/MCP/ModelNative/PostgreSQL/Qdrant/Web Demo 等未来能力，统一归档到 `docs/archive/IDEAS.md`。
+  - Verify: `uv run ruff check .`; `uv run pytest`; `uv run python examples/experiments/quantification.py --output outputs/experiments/quantification/summary.json`
+
 - [x] BF011 收敛公开文档中的非工程化措辞
   - Files: `docs/QUANTITATIVE_CLAIMS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/PRD.md`, `docs/TASKS.md`, `docs/WORKLOG.md`
   - Done when: 公开文档措辞统一为工程目标、公开指标、复现口径或对外陈述建议。
@@ -863,9 +868,9 @@
 ### PM26 Quantitative Claim Calibration
 
 - [x] PM260 建立公开量化指标的本地对照评测口径
-  - Files: `src/deepresearch/evaluation/quantification.py`, `tests/evaluation/test_quantification.py`, `docs/QUANTITATIVE_CLAIMS.md`
-  - Done when: 可复现输出 JSON fallback、RRF recall@5 和 MMR 证据保真数字；文档明确区分本地 fixture 与真实 benchmark，避免把样例数字写成生产结论。
-  - Verify: `uv run pytest tests/evaluation/test_quantification.py`; `uv run python -m deepresearch.evaluation.quantification --output outputs/experiments/quantification/summary.json`
+  - Files: `examples/experiments/quantification.py`, `docs/QUANTITATIVE_CLAIMS.md`
+  - Done when: 本地 fixture 仅作为实验示例保留在 `examples/`，公开指标文档以真实 benchmark 或明确标注的实验口径为准，避免把样例数字写成生产结论。
+  - Verify: `uv run python examples/experiments/quantification.py --output outputs/experiments/quantification/summary.json`
 
 - [x] PM261 建立真实数据集 retrieval-only 对照评测
   - Files: `src/deepresearch/evaluation/retrieval_ablation.py`, `tests/evaluation/test_retrieval_ablation.py`, `docs/QUANTITATIVE_CLAIMS.md`

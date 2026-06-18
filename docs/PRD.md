@@ -100,10 +100,7 @@ MVP 阶段不追求：
   - `WebSearchRetriever`：默认通过 Tavily 获取候选网页、标题、摘要和 URL。
   - `MiMoSearchRetriever`：调用 MiMo v2.5 Pro 原生搜索并转换为统一资料格式。
 - MVP 使用 `httpx + trafilatura` 对网页正文做轻量抓取和清洗。
-- 后续支持：
-  - `BrowserRetriever`：抓取网页正文并做正文清洗。
-  - `MCPRetriever`：通过 MCP 接入外部工具和知识源。
-  - `ModelNativeSearchRetriever`：接入模型厂商原生搜索能力，作为 fallback 或对比实验。
+- 未实现的检索扩展想法统一记录在 `archive/IDEAS.md`，不作为当前产品承诺。
 - Retriever 输出必须包含标题、URL、来源类型、正文、检索时间和元数据。
 
 ### 6.4 共享记忆
