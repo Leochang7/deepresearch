@@ -2,6 +2,7 @@ import tomllib
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 from typer.testing import CliRunner
 
@@ -51,6 +52,15 @@ def test_mock_run_writes_four_artifacts(tmp_path):
     }
 
 
+def test_run_defaults_to_real_and_fails_fast_when_credentials_are_missing(monkeypatch):
+    monkeypatch.delenv("MIMO_API_KEY", raising=False)
+
+    result = runner.invoke(app, ["run", "question"])
+
+    assert result.exit_code != 0
+    assert "MIMO_API_KEY" in result.output
+
+
 def test_real_run_fails_fast_when_required_credentials_are_missing(monkeypatch):
     monkeypatch.delenv("MIMO_API_KEY", raising=False)
 
@@ -89,6 +99,66 @@ def test_real_run_exits_nonzero_when_all_tasks_fail(tmp_path, monkeypatch):
 
     assert result.exit_code == 2
     assert "no research tasks succeeded" in result.output
+
+
+def test_real_run_reports_http_429_without_traceback(tmp_path):
+    request = httpx.Request(
+        "POST", "https://token-plan-cn.xiaomimimo.com/v1/chat/completions"
+    )
+    response = httpx.Response(429, request=request, text="rate limited")
+    error = httpx.HTTPStatusError("rate limited", request=request, response=response)
+
+    with (
+        patch("deepresearch.cli._build_runtime", return_value=(1, 2, 3, 4, 5)),
+        patch(
+            "deepresearch.core.run_manager.RunManager.run", new_callable=AsyncMock
+        ) as run,
+    ):
+        run.side_effect = error
+        result = runner.invoke(
+            app,
+            ["run", "question", "--output", str(tmp_path / "run")],
+        )
+
+    assert result.exit_code == 1
+    assert "HTTP 429 Too Many Requests" in result.output
+    assert "Retry later" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_run_accepts_concurrency_overrides(tmp_path):
+    output = tmp_path / "run"
+    result_obj = SimpleNamespace(
+        run_id="run-1",
+        output_dir=output,
+        evaluation=SimpleNamespace(task_success_rate=1),
+    )
+
+    with (
+        patch("deepresearch.cli._build_runtime", return_value=(1, 2, 3, 4, 5)) as build,
+        patch(
+            "deepresearch.core.run_manager.RunManager.run", new_callable=AsyncMock
+        ) as run,
+    ):
+        run.return_value = result_obj
+        result = runner.invoke(
+            app,
+            [
+                "run",
+                "question",
+                "--max-concurrency",
+                "2",
+                "--retrieval-concurrency",
+                "3",
+                "--output",
+                str(output),
+            ],
+        )
+
+    assert result.exit_code == 0
+    cfg = build.call_args.args[0]
+    assert cfg.executor.max_concurrency == 2
+    assert cfg.retrieval.request_concurrency == 3
 
 
 def test_index_corpus_invokes_real_indexing_workflow(tmp_path):

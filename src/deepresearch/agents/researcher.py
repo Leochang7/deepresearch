@@ -115,6 +115,7 @@ class ResearchAgent:
         max_fused_chunks: int = 30,
         mmr_lambda: float = 0.7,
         max_mmr_results: int = 12,
+        retrieval_concurrency: int = 1,
         fetch_concurrency: int = 5,
         progress: Callable[[str, dict[str, Any]], None] | None = None,
         prompt_provider: PromptProvider | None = None,
@@ -136,6 +137,7 @@ class ResearchAgent:
         self._max_fused_chunks = max_fused_chunks
         self._mmr_lambda = mmr_lambda
         self._max_mmr_results = max_mmr_results
+        self._retrieval_concurrency = max(1, retrieval_concurrency)
         self._fetch_concurrency = fetch_concurrency
         self._progress = progress
         self._system_prompt = load_agent_prompt(prompt_provider, "researcher")
@@ -232,16 +234,19 @@ class ResearchAgent:
         task: TaskNode,
         run_id: str,
     ) -> list[RetrievedDocument]:
-        per_query_results = await asyncio.gather(
-            *(
-                self._retriever.retrieve(
+        semaphore = asyncio.Semaphore(self._retrieval_concurrency)
+
+        async def retrieve_one(query: str) -> list[RetrievedDocument]:
+            async with semaphore:
+                return await self._retriever.retrieve(
                     [query],
                     run_id=run_id,
                     task_id=task.task_id,
                     top_k=self._max_documents,
                 )
-                for query in queries
-            )
+
+        per_query_results = await asyncio.gather(
+            *(retrieve_one(query) for query in queries)
         )
         pre_count = sum(len(results) for results in per_query_results)
         retrieved = rrf_fuse(

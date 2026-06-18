@@ -15,7 +15,8 @@ class TestDeepResearchConfig:
         assert cfg.reranker.model == "bge-reranker-v2-m3"
         assert cfg.lexical.tokenizer == "builtin"
         assert cfg.chunking.chunk_size_chars == 1200
-        assert cfg.executor.max_concurrency == 4
+        assert cfg.executor.max_concurrency == 1
+        assert cfg.retrieval.request_concurrency == 1
 
     def test_nested_sections_exist(self):
         cfg = DeepResearchConfig()

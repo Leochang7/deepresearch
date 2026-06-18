@@ -13,9 +13,34 @@
 
 ### Current Bugfix
 
-- [x] BF006 重写 README 双语入口并同步简历仓库地址
-  - Files: `README.md`, `README.zh-CN.md`, `../resume/resume-zh_CN.tex`, `docs/TASKS.md`, `docs/WORKLOG.md`
-  - Done when: README 参考 521wolf 风格提供英文/中文双语入口、功能面、架构地图、快速开始、配置、benchmark、验证和注意事项；简历 DeepResearch `[GitHub]` 指向真实仓库地址。
+- [x] BF011 收敛公开文档中的非工程化措辞
+  - Files: `docs/QUANTITATIVE_CLAIMS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/PRD.md`, `docs/TASKS.md`, `docs/WORKLOG.md`
+  - Done when: 公开文档措辞统一为工程目标、公开指标、复现口径或对外陈述建议。
+  - Verify: public-doc sanitization scan; `uv run ruff check .`; `uv run pytest`
+
+- [x] BF010 补充 rb-006 citation coverage 低分定位
+  - Files: `docs/RELEASE_HARDENING.md`, `docs/TASKS.md`, `docs/WORKLOG.md`
+  - Done when: release hardening 文档说明 `rb-006` 的已有产物分析结论，区分 Retriever/evidence 召回、Synthesizer 输出结构和 Evaluator/citation enforcement 责任边界。
+  - Verify: `uv run ruff check .`; `uv run pytest`
+
+- [x] BF009 收敛文档中的模型维度、reranker 名称和离线测试数
+  - Files: `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/TECH_STACK.md`, `docs/RETRIEVAL_DESIGN.md`, `docs/TASKS.md`, `docs/WORKLOG.md`
+  - Done when: agent 约束、稳定设计文档和状态文档都对齐当前真实验收环境（Qwen3-Embedding-4B 2560 维、bge-reranker-v2-m3）与最新离线测试数。
+  - Verify: `uv run ruff check .`; `uv run pytest`
+
+- [x] BF008 收敛真实 run 默认并发，避免低 QPS provider 被瞬时打满
+  - Files: `src/deepresearch/config.py`, `src/deepresearch/core/executor.py`, `src/deepresearch/agents/researcher.py`, `src/deepresearch/core/run_manager.py`, `src/deepresearch/cli.py`, `src/deepresearch/llm/http.py`, `config.example.toml`, `.env.example`, `README.md`, `README.zh-CN.md`, `docs/CONFIGURATION.md`, tests
+  - Done when: `deepresearch run` 默认 DAG task 并发为 1，单个 ResearchAgent 内 retriever request 并发为 1；CLI 支持 `--max-concurrency` 和 `--retrieval-concurrency` 显式调高；LLM HTTP 429 retry 支持 Retry-After/exponential backoff；MiMo 等低 QPS provider 不会被默认并发瞬时打满。
+  - Verify: `uv run pytest tests/test_cli.py tests/test_config.py tests/agents/test_researcher.py tests/agents/test_blue_agent.py tests/llm/test_http.py tests/e2e/test_mock_run.py tests/core/test_run_manager.py::test_run_manager_produces_grounded_report_and_metrics`; `uv run ruff check .`
+
+- [x] BF007 将 `deepresearch run` 默认模式切换为 real
+  - Files: `src/deepresearch/cli.py`, `src/deepresearch/llm/mock.py`, `tests/test_cli.py`, `README.md`, `README.zh-CN.md`, `docs/CONFIGURATION.md`, `docs/TASKS.md`, `docs/WORKLOG.md`
+  - Done when: `uv run deepresearch run "question"` 默认走真实运行路径；离线 demo 必须显式传 `--mode mock`；MockLLM 不再固定输出 LLM agent trends，而是根据用户问题生成离线占位报告。
+  - Verify: `uv run pytest tests/test_cli.py tests/e2e/test_mock_run.py tests/core/test_run_manager.py::test_run_manager_produces_grounded_report_and_metrics`; `uv run ruff check .`
+
+- [x] BF006 重写 README 双语入口并同步项目仓库地址
+  - Files: `README.md`, `README.zh-CN.md`, `docs/TASKS.md`, `docs/WORKLOG.md`
+  - Done when: README 参考 521wolf 风格提供英文/中文双语入口、功能面、架构地图、快速开始、配置、benchmark、验证和注意事项；外部 DeepResearch 项目链接指向真实仓库地址。
   - Verify: `uv run ruff format .`; `uv run ruff check .`; `uv run pytest`
 
 - [x] BF004 修复 PM24/PM25 review 问题
@@ -837,12 +862,12 @@
 
 ### PM26 Quantitative Claim Calibration
 
-- [x] PM260 建立简历量化数字的本地对照评测口径
+- [x] PM260 建立公开量化指标的本地对照评测口径
   - Files: `src/deepresearch/evaluation/quantification.py`, `tests/evaluation/test_quantification.py`, `docs/QUANTITATIVE_CLAIMS.md`
   - Done when: 可复现输出 JSON fallback、RRF recall@5 和 MMR 证据保真数字；文档明确区分本地 fixture 与真实 benchmark，避免把样例数字写成生产结论。
   - Verify: `uv run pytest tests/evaluation/test_quantification.py`; `uv run python -m deepresearch.evaluation.quantification --output outputs/experiments/quantification/summary.json`
 
 - [x] PM261 建立真实数据集 retrieval-only 对照评测
   - Files: `src/deepresearch/evaluation/retrieval_ablation.py`, `tests/evaluation/test_retrieval_ablation.py`, `docs/QUANTITATIVE_CLAIMS.md`
-  - Done when: 可在真实 benchmark JSONL + `examples/corpus` 上跳过 LLM，使用真实 Qwen embedding 对比 pure vector、keyword、RRF hybrid 和 RRF+MMR 的 fact recall@5 与来源多样性；简历数字替换为真实 ResearchBench full 结果。
+  - Done when: 可在真实 benchmark JSONL + `examples/corpus` 上跳过 LLM，使用真实 Qwen embedding 对比 pure vector、keyword、RRF hybrid 和 RRF+MMR 的 fact recall@5 与来源多样性；公开量化指标替换为真实 ResearchBench full 结果。
   - Verify: `uv run pytest tests/evaluation/test_retrieval_ablation.py`; `uv run python -m deepresearch.evaluation.retrieval_ablation examples/bench/researchbench_full.jsonl --corpus examples/corpus --config examples/configs/benchmark_smoke.toml --embedding real --top-k 5 --output outputs/experiments/retrieval-ablation-researchbench-full-real/summary.json`

@@ -52,6 +52,7 @@ search_provider = "tavily"
 max_queries_per_task = 5
 max_docs_per_task = 20
 max_chunks_per_task = 80
+request_concurrency = 1
 
 [web_search]
 provider = "tavily"
@@ -87,7 +88,7 @@ cjk_ngram_fallback = true
 userdict_path = ""
 
 [executor]
-max_concurrency = 4
+max_concurrency = 1
 max_task_retries = 2
 task_timeout_seconds = 180
 global_timeout_seconds = 1800

@@ -31,7 +31,7 @@ Planner -> DAG Executor -> Research Agent -> Retriever -> Memory -> Synthesizer 
 
 | Goal | Go to |
 | --- | --- |
-| Install and run an offline demo | [Quick Start](#quick-start) |
+| Install and run a real research task | [Quick Start](#quick-start) |
 | Configure real LLM, embedding, reranker, Milvus, and Langfuse | [Configuration](#configuration) |
 | Understand the system capabilities | [Feature Surface](#feature-surface) |
 | Find the main code directories | [Architecture Map](#architecture-map) |
@@ -86,10 +86,22 @@ Install dependencies:
 uv sync
 ```
 
-Run an offline mock research task. This does not require API keys, internet, Milvus, or Langfuse:
+By default, `deepresearch run` uses real mode. Make sure the real-run variables are configured before running:
 
 ```bash
 uv run deepresearch run "Analyze the development trend of open-source LLM agent frameworks from 2024 to 2026"
+```
+
+Real runs use conservative concurrency by default: one DAG task at a time and one retriever request per ResearchAgent task. Increase it explicitly only when the provider quota can handle it:
+
+```bash
+uv run deepresearch run "Analyze the development trend of open-source LLM agent frameworks from 2024 to 2026" --max-concurrency 2 --retrieval-concurrency 2
+```
+
+For an offline smoke demo that does not require API keys, internet, Milvus, or Langfuse, explicitly use mock mode:
+
+```bash
+uv run deepresearch run "Analyze the development trend of open-source LLM agent frameworks from 2024 to 2026" --mode mock
 ```
 
 Outputs are written to `outputs/<run_id>/`:
@@ -155,22 +167,22 @@ docker compose -f docker-compose.milvus.yml up -d
 
 ## Real Runs
 
-Run with Tavily web search:
+Run with Tavily web search. Since `run` defaults to real mode, `--mode real` is optional:
 
 ```bash
-uv run deepresearch run "Research question" --mode real --retriever tavily
+uv run deepresearch run "Research question" --retriever tavily
 ```
 
 Run with MiMo native search:
 
 ```bash
-uv run deepresearch run "Research question" --mode real --retriever mimo
+uv run deepresearch run "Research question" --retriever mimo
 ```
 
 Run against a local corpus while still using real LLM, embedding, reranker, and Milvus:
 
 ```bash
-uv run deepresearch run "Research question" --mode real --retriever local \
+uv run deepresearch run "Research question" --retriever local \
   --corpus ./examples/corpus
 ```
 

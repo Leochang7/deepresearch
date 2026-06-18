@@ -167,16 +167,16 @@ ruff check .
 
 ```env
 DEEPRESEARCH_LLM_PROVIDER=mimo
-DEEPRESEARCH_LLM_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
+DEEPRESEARCH_LLM_BASE_URL=https://api.xiaomimimo.com/v1
 MIMO_API_KEY=
 DEEPRESEARCH_LLM_MODEL=mimo-v2.5-pro
 DEEPRESEARCH_EMBEDDING_BASE_URL=
 DEEPRESEARCH_EMBEDDING_API_KEY=
 DEEPRESEARCH_EMBEDDING_MODEL=Qwen3-Embedding-4B
-DEEPRESEARCH_EMBEDDING_DIM=1024
+DEEPRESEARCH_EMBEDDING_DIM=2560
 DEEPRESEARCH_RERANKER_BASE_URL=
 DEEPRESEARCH_RERANKER_API_KEY=
-DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m32
+DEEPRESEARCH_RERANKER_MODEL=bge-reranker-v2-m3
 DEEPRESEARCH_MILVUS_URI=http://localhost:19530
 DEEPRESEARCH_SEARCH_PROVIDER=tavily
 TAVILY_API_KEY=
@@ -186,7 +186,7 @@ TAVILY_API_KEY=
 
 - 开发、demo 和真实运行默认使用 Docker Milvus Standalone。
 - MVP 使用 `deepresearch_chunks` 和 `deepresearch_memories` 两个 collection。
-- 向量字段为 `embedding: FloatVector(1024)`，metric type 为 `COSINE`，index type 为 `HNSW`。
+- 向量字段为 `embedding: FloatVector(2560)`，metric type 为 `COSINE`，index type 为 `HNSW`。
 - 单元测试不得依赖真实 Milvus，必须使用 `MockMemoryStore` 或等价测试替身。
 - 集成测试可以依赖 Milvus，但必须使用 marker 区分。
 - 没有 Milvus 服务时，基础测试仍必须能跑；真实运行前先启动 `docker-compose.milvus.yml`。
@@ -217,9 +217,9 @@ MVP 必须支持：
 - MiMo 原生搜索必须通过 `MiMoSearchRetriever` 接入。
 - MiMo API 使用 OpenAI-compatible `/chat/completions`，鉴权 header 为 `api-key`。
 - DeepSeek 仅作为 fallback chat 后端或对比实验后端。
-- embedding 使用 Qwen3-Embedding-4B，维度固定为 1024。
+- embedding 使用 Qwen3-Embedding-4B，当前真实验收环境维度为 2560。
 - Qwen3-Embedding-4B 默认 L2 归一化，系统层默认不重复 normalize。
-- reranker 使用 bge-reranker-v2-m32。
+- reranker 使用 bge-reranker-v2-m3。
 - 业务模块不得直接依赖具体模型 SDK，必须走 `LLMClient`、`EmbeddingClient`、`Reranker`、`Retriever` 等接口。
 
 ## 8.2 Chunk、去重与成本控制

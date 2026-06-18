@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import httpx
 import tomli_w
 import typer
 
@@ -139,6 +140,41 @@ def _apply_benchmark_model_metadata(cases: list[Any], cfg: DeepResearchConfig) -
             case.model_name = cfg.llm.model
 
 
+def _raise_runtime_http_error(exc: httpx.HTTPStatusError) -> None:
+    status = exc.response.status_code
+    reason = exc.response.reason_phrase
+    url = exc.request.url
+    if status == 429:
+        typer.echo(
+            "Run failed: provider rate limit exceeded "
+            f"(HTTP 429 Too Many Requests) for {url}.",
+            err=True,
+        )
+        typer.echo(
+            "Retry later, or lower concurrency/LLM calls with a small real-run config. "
+            "For a cheap smoke run, use: --config examples/configs/benchmark_smoke.toml",
+            err=True,
+        )
+    else:
+        body = exc.response.text.strip()
+        if len(body) > 500:
+            body = body[:500] + "..."
+        typer.echo(
+            f"Run failed: provider returned HTTP {status} {reason} for {url}.",
+            err=True,
+        )
+        if body:
+            typer.echo(f"Response body: {body}", err=True)
+    raise typer.Exit(1) from exc
+
+
+def _raise_runtime_request_error(exc: httpx.RequestError) -> None:
+    typer.echo(
+        f"Run failed: network request error for {exc.request.url}: {exc}", err=True
+    )
+    raise typer.Exit(1) from exc
+
+
 @app.command()
 def run(
     question: str = typer.Argument(help="Research question"),
@@ -146,7 +182,7 @@ def run(
         None, "--config", "-c", help="Path to config file"
     ),
     output: str | None = typer.Option(None, "--output", "-o", help="Output directory"),
-    mode: str = typer.Option("mock", help="Runtime mode: mock or real"),
+    mode: str = typer.Option("real", help="Runtime mode: real or mock"),
     retriever: str | None = typer.Option(
         None, help="Retriever for real mode: tavily, mimo, or local"
     ),
@@ -164,6 +200,14 @@ def run(
     llm_model: str | None = typer.Option(
         None, "--llm-model", help="Override LLM model name"
     ),
+    max_concurrency: int | None = typer.Option(
+        None, "--max-concurrency", help="Override DAG task concurrency for this run"
+    ),
+    retrieval_concurrency: int | None = typer.Option(
+        None,
+        "--retrieval-concurrency",
+        help="Override per-task retriever request concurrency for this run",
+    ),
 ) -> None:
     """Run a deep research task."""
     from deepresearch.core.run_manager import RunManager
@@ -173,6 +217,14 @@ def run(
         cfg.llm.provider = llm_provider
     if llm_model:
         cfg.llm.model = llm_model
+    if max_concurrency is not None:
+        if max_concurrency < 1:
+            raise typer.BadParameter("--max-concurrency must be >= 1")
+        cfg.executor.max_concurrency = max_concurrency
+    if retrieval_concurrency is not None:
+        if retrieval_concurrency < 1:
+            raise typer.BadParameter("--retrieval-concurrency must be >= 1")
+        cfg.retrieval.request_concurrency = retrieval_concurrency
     _apply_prompt_provider_override(cfg, prompt_provider)
     corpus_path = Path(corpus) if corpus else None
     components = _build_runtime(
@@ -182,9 +234,14 @@ def run(
         corpus=corpus_path,
     )
     manager = RunManager(cfg, *components)
-    result = asyncio.run(
-        manager.run(question, output_dir=Path(output) if output else None)
-    )
+    try:
+        result = asyncio.run(
+            manager.run(question, output_dir=Path(output) if output else None)
+        )
+    except httpx.HTTPStatusError as exc:
+        _raise_runtime_http_error(exc)
+    except httpx.RequestError as exc:
+        _raise_runtime_request_error(exc)
     if mode == "real" and result.evaluation.task_success_rate == 0:
         typer.echo(
             "Run failed: no research tasks succeeded. "

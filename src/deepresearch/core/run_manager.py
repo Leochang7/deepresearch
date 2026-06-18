@@ -546,6 +546,7 @@ class RunManager:
             max_fused_chunks=self._config.fusion.max_fused_chunks,
             mmr_lambda=self._config.fusion.mmr_lambda,
             max_mmr_results=self._config.fusion.max_mmr_results,
+            retrieval_concurrency=self._config.retrieval.request_concurrency,
             fetch_concurrency=min(
                 self._config.retrieval.max_docs_per_task,
                 10,

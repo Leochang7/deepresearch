@@ -1,89 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from deepresearch.llm.base import LLMClient, LLMMessage, LLMResponse
-
-_PLANNER_RESPONSE = json.dumps(
-    {
-        "plan_id": "p1",
-        "tasks": [
-            {
-                "task_id": "t1",
-                "description": "Research background and context",
-                "goal": "Gather foundational information",
-                "dependencies": [],
-                "priority": 1,
-            },
-            {
-                "task_id": "t2",
-                "description": "Analyze current trends",
-                "goal": "Identify key trends and patterns",
-                "dependencies": ["t1"],
-                "priority": 2,
-            },
-            {
-                "task_id": "t3",
-                "description": "Evaluate impact and implications",
-                "goal": "Assess significance",
-                "dependencies": ["t1", "t2"],
-                "priority": 3,
-            },
-        ],
-    }
-)
-
-_RESEARCH_RESPONSE = json.dumps(
-    {
-        "task_id": "t1",
-        "queries": ["LLM agent trends", "multi-agent systems"],
-        "summary": "Found several relevant sources on the topic.",
-        "evidence": [
-            {
-                "evidence_id": "E1",
-                "claim": "LLM agents have improved significantly in 2024-2025",
-                "quote": "Recent advances in LLM agents show 40% improvement in task completion rates.",
-                "citation": "AI Research Journal 2025",
-                "source_url": "https://example.com/paper1",
-                "source_id": "S1",
-                "confidence": 0.85,
-            },
-            {
-                "evidence_id": "E2",
-                "claim": "Multi-agent collaboration is a key trend",
-                "quote": "Multi-agent systems outperform single-agent approaches on complex tasks.",
-                "citation": "Agent Conference 2024",
-                "source_url": "https://example.com/paper2",
-                "source_id": "S1",
-                "confidence": 0.78,
-            },
-        ],
-    }
-)
-
-_SYNTHESIS_RESPONSE = """## Executive Summary
-
-This report analyzes recent developments in the field [E1].
-
-## Background
-
-Based on the evidence gathered, several key findings emerge [E1].
-
-## Analysis
-
-Multi-agent approaches show significant promise [E2].
-
-## Limitations
-
-- Limited coverage of non-English sources
-- Time window constrained to 2024-2025
-
-## References
-
-- [E1] AI Research Journal 2025
-- [E2] Agent Conference 2024
-"""
 
 _RED_RESPONSE = json.dumps(
     {
@@ -98,20 +19,6 @@ _RED_RESPONSE = json.dumps(
             }
         ],
         "score": 0.75,
-    }
-)
-
-_BLUE_RESPONSE = json.dumps(
-    {
-        "actions": [
-            {
-                "action_id": "B1",
-                "type": "ADD",
-                "target": "Background section",
-                "content": "Industry reports indicate growing adoption of LLM agents in enterprise settings.",
-                "evidence_id": "E1",
-            }
-        ]
     }
 )
 
@@ -183,13 +90,228 @@ class MockLLM(LLMClient):
 
         combined = " ".join(message.content.lower() for message in messages)
         if "research planner" in combined:
-            return _PLANNER_RESPONSE
+            return _planner_response(_extract_question(messages))
         if "research synthesizer" in combined:
-            return _SYNTHESIS_RESPONSE
+            return _synthesis_response(messages)
         if "blue agent" in combined or "blue fix" in combined:
-            return _BLUE_RESPONSE
+            return _blue_response(messages)
         if "red agent" in combined or "red review" in combined:
             return _RED_RESPONSE
         if "research agent" in combined:
-            return _RESEARCH_RESPONSE
+            return _research_response(messages)
         return self._default_response
+
+
+def _extract_question(messages: list[LLMMessage]) -> str:
+    text = "\n".join(message.content for message in messages)
+    match = re.search(r"Research question:\s*(.+)", text)
+    if match:
+        return _clean_topic(match.group(1))
+    return "the research topic"
+
+
+def _extract_task(messages: list[LLMMessage]) -> tuple[str, str]:
+    text = "\n".join(message.content for message in messages)
+    task_match = re.search(r"(?:Generate search queries for|Task):\s*(.+)", text)
+    goal_match = re.search(r"Goal:\s*(.+)", text)
+    task = (
+        _clean_topic(task_match.group(1)) if task_match else _extract_question(messages)
+    )
+    goal = _clean_topic(goal_match.group(1)) if goal_match else "research the topic"
+    return task, goal
+
+
+def _clean_topic(value: str) -> str:
+    value = value.splitlines()[0].strip()
+    value = value.strip("\"'`：: ")
+    return value or "the research topic"
+
+
+def _has_cjk(text: str) -> bool:
+    return bool(re.search(r"[\u3400-\u9fff]", text))
+
+
+def _planner_response(question: str) -> str:
+    if _has_cjk(question):
+        tasks = [
+            {
+                "task_id": "t1",
+                "description": f"梳理{question}的定义和背景",
+                "goal": f"说明{question}是什么以及为什么重要",
+                "dependencies": [],
+                "priority": 1,
+            },
+            {
+                "task_id": "t2",
+                "description": f"分析{question}的核心组成和工作方式",
+                "goal": f"总结{question}的关键机制",
+                "dependencies": ["t1"],
+                "priority": 2,
+            },
+            {
+                "task_id": "t3",
+                "description": f"评估{question}的应用场景和局限",
+                "goal": f"给出{question}的实践价值和注意事项",
+                "dependencies": ["t1", "t2"],
+                "priority": 3,
+            },
+        ]
+    else:
+        tasks = [
+            {
+                "task_id": "t1",
+                "description": f"Define and contextualize {question}",
+                "goal": f"Explain what {question} is and why it matters",
+                "dependencies": [],
+                "priority": 1,
+            },
+            {
+                "task_id": "t2",
+                "description": f"Analyze the core mechanisms of {question}",
+                "goal": f"Summarize the key components of {question}",
+                "dependencies": ["t1"],
+                "priority": 2,
+            },
+            {
+                "task_id": "t3",
+                "description": f"Evaluate applications and limitations of {question}",
+                "goal": f"Identify practical uses and caveats for {question}",
+                "dependencies": ["t1", "t2"],
+                "priority": 3,
+            },
+        ]
+    return json.dumps({"plan_id": "p1", "tasks": tasks}, ensure_ascii=False)
+
+
+def _research_response(messages: list[LLMMessage]) -> str:
+    text = "\n".join(message.content for message in messages)
+    task, goal = _extract_task(messages)
+    if "reranked source chunks" not in text.lower():
+        return json.dumps(
+            {
+                "task_id": "t1",
+                "queries": [task, goal, f"{task} evidence"],
+                "summary": f"Generated mock queries for {task}.",
+                "evidence": [],
+            },
+            ensure_ascii=False,
+        )
+
+    source_id_match = re.search(r"\[(S\d+)\]", text)
+    source_id = source_id_match.group(1) if source_id_match else "S1"
+    content_match = re.search(
+        r"Content:\s*(.+?)(?:\n\n\[S\d+\]|\n\nExtract evidence|\Z)", text, re.S
+    )
+    source_text = " ".join((content_match.group(1) if content_match else task).split())
+    quote = _first_sentence(source_text) or source_text[:160]
+    if _has_cjk(task):
+        claim = quote
+        summary = f"找到与{task}相关的离线模拟资料。"
+    else:
+        claim = quote
+        summary = f"Found offline mock evidence related to {task}."
+
+    return json.dumps(
+        {
+            "task_id": "t1",
+            "queries": [task, goal, f"{task} evidence"],
+            "summary": summary,
+            "evidence": [
+                {
+                    "evidence_id": "E1",
+                    "claim": claim,
+                    "quote": quote,
+                    "citation": f"Mock source for: {task}",
+                    "source_url": "",
+                    "source_id": source_id,
+                    "confidence": 0.85,
+                }
+            ],
+        },
+        ensure_ascii=False,
+    )
+
+
+def _first_sentence(text: str) -> str:
+    if not text:
+        return ""
+    match = re.match(r"(.+?[。.!?])(?:\s|$)", text)
+    return match.group(1).strip() if match else text[:160].strip()
+
+
+def _synthesis_response(messages: list[LLMMessage]) -> str:
+    question = _extract_question(messages)
+    text = "\n".join(message.content for message in messages if message.role == "user")
+    evidence_ids = re.findall(r"\[(E\d+)\]", text)
+    unique_ids = list(dict.fromkeys(evidence_ids)) or ["E1"]
+    citations = " ".join(f"[{evidence_id}]" for evidence_id in unique_ids)
+    first_id = f"[{unique_ids[0]}]"
+
+    if _has_cjk(question):
+        return f"""## Executive Summary
+
+本报告基于离线 mock 证据，对“{question}”进行简要说明 {first_id}。
+
+## Background
+
+从已收集的资料看，“{question}”可以先从定义、背景和使用动机理解 {first_id}。
+
+## Analysis
+
+围绕“{question}”的核心分析包括基本概念、关键机制、应用场景和潜在局限 {citations}。
+
+## Limitations
+
+- 当前为离线 mock 运行，只用于验证 pipeline，不代表真实检索结论
+- 如需真实资料，请使用 --mode real 并配置 retriever、LLM、embedding、reranker 和 Milvus
+
+## References
+
+- {citations} Mock source
+"""
+
+    return f"""## Executive Summary
+
+This report gives a concise offline mock overview of {question} {first_id}.
+
+## Background
+
+The gathered mock evidence frames {question} through its definition, context, and motivation {first_id}.
+
+## Analysis
+
+The core analysis of {question} covers its concepts, mechanisms, applications, and limitations {citations}.
+
+## Limitations
+
+- This is an offline mock run for pipeline validation, not a real retrieval result
+- Use --mode real with configured retriever, LLM, embedding, reranker, and Milvus for real evidence
+
+## References
+
+- {citations} Mock source
+"""
+
+
+def _blue_response(messages: list[LLMMessage]) -> str:
+    text = "\n".join(message.content for message in messages if message.role == "user")
+    is_zh = _has_cjk(text)
+    content = (
+        "离线 mock 修复仅验证 Red-Blue 流程，未新增真实事实。"
+        if is_zh
+        else "Offline mock repair only verifies the Red-Blue flow and adds no real-world facts."
+    )
+    return json.dumps(
+        {
+            "actions": [
+                {
+                    "action_id": "B1",
+                    "type": "VERIFY",
+                    "target": "Limitations",
+                    "content": content,
+                    "evidence_id": None,
+                }
+            ]
+        },
+        ensure_ascii=False,
+    )

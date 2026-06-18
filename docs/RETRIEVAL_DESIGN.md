@@ -191,10 +191,10 @@ MCP 是工具接入协议，适合连接外部知识源和工具，不作为 MVP
 3. 对 WebSearchRetriever 返回的 URL 使用 `httpx + trafilatura` 抓取和清洗正文。
 4. 按 1200 chars chunk、200 chars overlap 切片，丢弃小于 300 chars 的碎片。
 5. 使用 `source_url + content_hash` 去重。
-6. 使用 Qwen3-Embedding-4B 生成 1024 维 embedding。
+6. 使用 Qwen3-Embedding-4B 生成 2560 维 embedding。
 7. 写入 Milvus，附带 `run_id`、`task_id`、`source_type` 等 scalar fields。
 8. 从 Milvus 按向量相似度和标量过滤召回 top 30 证据片段。
-9. 使用 bge-reranker-v2-m32 rerank 到 top 8。
+9. 使用 bge-reranker-v2-m3 rerank 到 top 8。
 10. MiMo v2.5 Pro 从证据片段中抽取 claim、quote、citation 和 confidence。
 11. 将结构化证据交给 Synthesizer 和 Memory。
 

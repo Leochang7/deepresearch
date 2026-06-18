@@ -77,6 +77,7 @@ search_provider = "tavily"
 max_queries_per_task = 5
 max_docs_per_task = 20
 max_chunks_per_task = 80
+request_concurrency = 1
 
 [web_search]
 provider = "tavily"
@@ -112,7 +113,7 @@ cjk_ngram_fallback = true
 userdict_path = ""
 
 [executor]
-max_concurrency = 4
+max_concurrency = 1
 max_task_retries = 2
 task_timeout_seconds = 180
 global_timeout_seconds = 1800
@@ -186,6 +187,7 @@ DEEPRESEARCH_MILVUS_URI=http://localhost:19530
 DEEPRESEARCH_MILVUS_CHUNKS_COLLECTION=deepresearch_chunks
 DEEPRESEARCH_MILVUS_MEMORIES_COLLECTION=deepresearch_memories
 DEEPRESEARCH_SEARCH_PROVIDER=tavily
+DEEPRESEARCH_RETRIEVAL_REQUEST_CONCURRENCY=1
 TAVILY_API_KEY=
 
 # Langfuse 可选评测追踪
@@ -214,6 +216,15 @@ Milvus collection description 会保存 `schema_version`、`embedding_model` 和
 Langfuse 是可选评测追踪能力。默认关闭；开启时需要提供
 `LANGFUSE_PUBLIC_KEY` 和 `LANGFUSE_SECRET_KEY`。缺少密钥或未安装
 Langfuse SDK 时，系统只记录 warning 并继续本地 run，不影响默认离线测试。
+
+真实 `deepresearch run` 的默认并发是保守配置：`executor.max_concurrency=1`
+控制 DAG task 并发，`retrieval.request_concurrency=1` 控制单个 ResearchAgent
+内 query 检索请求并发。MiMo 等低 QPS provider 建议保持默认；需要压测或高配
+账号时再通过配置文件或 CLI 显式调高：
+
+```bash
+uv run deepresearch run "question" --max-concurrency 2 --retrieval-concurrency 2
+```
 
 PM10 已增加 Langfuse Prompt Management。runtime prompt 可由 Langfuse 管理，
 本地 `src/deepresearch/prompts/*.md` 保留为离线 fallback、测试基线和
@@ -294,7 +305,8 @@ uv run --env-file .env deepresearch doctor --real
 
 ```bash
 uv run deepresearch init
-uv run deepresearch run "question"
+uv run deepresearch run "question"          # default: real mode
+uv run deepresearch run "question" --mode mock
 uv run deepresearch run "question" --config ./config.toml
 uv run deepresearch index-corpus
 uv run deepresearch eval <run_id>

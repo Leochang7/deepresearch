@@ -33,8 +33,8 @@ MVP：
 - MiMo v2.5 Pro 作为默认 Chat/Planner/Research/Synthesis/Red-Blue/Judge 模型。
 - MiMo 原生搜索通过 `MiMoSearchRetriever` 接入。
 - DeepSeek 作为 fallback chat 后端保留。
-- Qwen3-Embedding-4B 作为 embedding 模型，向量维度固定为 1024。
-- bge-reranker-v2-m32 作为 reranker。
+- Qwen3-Embedding-4B 作为 embedding 模型，当前真实验收环境向量维度为 2560。
+- bge-reranker-v2-m3 作为 reranker。
 - OpenAI-compatible API 客户端。
 - Mock LLM，用于测试和离线 demo。
 
@@ -81,7 +81,7 @@ MVP：
 - Milvus 作为主向量数据库。
 - Docker 部署的 Milvus Standalone 用于开发、demo 和真实运行。
 - MVP 使用 `deepresearch_chunks` 和 `deepresearch_memories` 两个 collection。
-- 向量字段统一为 `embedding: FloatVector(1024)`。
+- 向量字段统一为 `embedding: FloatVector(2560)`。
 - metric type 使用 `COSINE`。
 - index type 使用 `HNSW`。
 - 基于向量相似度 + 标量过滤完成语义记忆召回。
@@ -254,8 +254,8 @@ dependencies = [
 - Python + asyncio + Milvus Standalone + Typer。
 - 单机执行，Milvus Standalone 作为本地向量服务。
 - MiMo v2.5 Pro + DeepSeek fallback + Mock LLM。
-- Qwen3-Embedding-4B 1024 维 embedding。
-- bge-reranker-v2-m32 reranker。
+- Qwen3-Embedding-4B 2560 维 embedding。
+- bge-reranker-v2-m3 reranker。
 - LocalDatasetRetriever + Tavily WebSearchRetriever + MiMoSearchRetriever + mock 搜索后端。
 - `httpx + trafilatura` 轻量正文抓取。
 

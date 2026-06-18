@@ -453,6 +453,50 @@ async def test_retriever_called_per_query():
 
 
 @pytest.mark.asyncio
+async def test_retriever_calls_respect_bounded_concurrency():
+    llm_responses = [
+        json.dumps({"queries": ["q1", "q2", "q3", "q4"]}),
+        json.dumps({"evidence": []}),
+    ]
+    retriever = AsyncMock()
+    active = 0
+    peak_active = 0
+
+    async def retrieve(*args, **kwargs):
+        nonlocal active, peak_active
+        active += 1
+        peak_active = max(peak_active, active)
+        await asyncio.sleep(0)
+        active -= 1
+        return [_document()]
+
+    retriever.retrieve.side_effect = retrieve
+    fetcher = AsyncMock()
+    fetcher.fetch.return_value = FetchResult(
+        url="https://example.com/source",
+        title="Fetched",
+        content="Some content for testing.",
+        success=True,
+    )
+    agent = ResearchAgent(
+        MockLLM(llm_responses),
+        retriever,
+        MockMemoryStore(),
+        MockEmbeddingClient(),
+        MockRerankerClient(),
+        fetcher=fetcher,
+        retrieval_concurrency=1,
+    )
+
+    await agent.execute(
+        TaskNode(task_id="t1", description="test", goal="test"),
+        run_id="run-1",
+    )
+
+    assert peak_active == 1
+
+
+@pytest.mark.asyncio
 async def test_query_expansion_reports_progress_and_dedupes_queries():
     progress_events = []
     llm = MockLLM(

@@ -65,6 +65,7 @@ class RetrievalConfig(BaseModel):
     max_queries_per_task: int = 5
     max_docs_per_task: int = 20
     max_chunks_per_task: int = 80
+    request_concurrency: int = Field(default=1, ge=1)
 
 
 class WebSearchConfig(BaseModel):
@@ -115,7 +116,7 @@ class FusionConfig(BaseModel):
 
 
 class ExecutorConfig(BaseModel):
-    max_concurrency: int = 4
+    max_concurrency: int = 1
     max_task_retries: int = 2
     task_timeout_seconds: int = 180
     global_timeout_seconds: int = 1800
@@ -189,6 +190,10 @@ _ENV_MAP: dict[str, tuple[str, str]] = {
     "DEEPRESEARCH_MAX_FUSED_CHUNKS": ("fusion", "max_fused_chunks"),
     "DEEPRESEARCH_MMR_LAMBDA": ("fusion", "mmr_lambda"),
     "DEEPRESEARCH_MAX_MMR_RESULTS": ("fusion", "max_mmr_results"),
+    "DEEPRESEARCH_RETRIEVAL_REQUEST_CONCURRENCY": (
+        "retrieval",
+        "request_concurrency",
+    ),
     "DEEPRESEARCH_LEXICAL_TOKENIZER": ("lexical", "tokenizer"),
     "DEEPRESEARCH_LEXICAL_LATIN_MIN_CHARS": ("lexical", "latin_min_chars"),
     "DEEPRESEARCH_LEXICAL_CJK_NGRAM_FALLBACK": (

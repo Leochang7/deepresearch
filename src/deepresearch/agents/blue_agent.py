@@ -101,6 +101,8 @@ class BlueAgent:
     ) -> bool:
         if action.type == "VERIFY":
             note = action.content.strip() or f"Verification required: {action.target}"
+            if note in report.limitations:
+                return False
             report.limitations.append(note)
             return True
 

@@ -4,7 +4,7 @@ DeepResearch Agent — 面向复杂深度研究任务的多智能体协作系统
 
 ## 当前状态
 
-MVP、PM0-PM25 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management；PM11-PM15 完成并行 benchmark、中英跨语言检索/引用质量、multilingual benchmark 和 20-case large benchmark；PM16-PM19 完成 dataset suite、三层评测流水线、LLM backend matrix 和一键实验脚本；PM20 完成检索/记忆 hardening、可配置 LexicalPolicy + jieba tokenizer，以及模型后端装配收敛；PM21 完成评测输出、benchmark case、fact matching 和 Langfuse 上报的 schema hardening；PM22-PM25 完成 Langfuse dataset/trace/score 绑定、DAG/Agent nested observations、prompt versioning 和人工标注回流。
+MVP、PM0-PM26 已完成。PM7 的事实级 benchmark 评测能力已完成；PM8 将稳定验收路径切换为 Local Corpus；PM9 完成 local-corpus smoke citation coverage 优化；PM10 完成 PromptProvider 与 Langfuse Prompt Management；PM11-PM15 完成并行 benchmark、中英跨语言检索/引用质量、multilingual benchmark 和 20-case large benchmark；PM16-PM19 完成 dataset suite、三层评测流水线、LLM backend matrix 和一键实验脚本；PM20 完成检索/记忆 hardening、可配置 LexicalPolicy + jieba tokenizer，以及模型后端装配收敛；PM21 完成评测输出、benchmark case、fact matching 和 Langfuse 上报的 schema hardening；PM22-PM25 完成 Langfuse dataset/trace/score 绑定、DAG/Agent nested observations、prompt versioning 和人工标注回流；PM26 完成量化 claims 校准和真实数据集 retrieval-only 对照评测。
 
 ## 已完成能力
 
@@ -81,6 +81,7 @@ MVP、PM0-PM25 已完成。PM7 的事实级 benchmark 评测能力已完成；PM
 | PM23 | ✅ 完成 | Fine-grained Langfuse DAG/Agent Observations：run/phase/task nested observations 和 budget scores |
 | PM24 | ✅ 完成 | Langfuse-managed Evaluator & Prompt Versioning：prompt name/version/hash metadata、judge prompt override |
 | PM25 | ✅ 完成 | Human Annotation Queue & Review Loop：annotation candidate 标记、人工标注 JSONL 回流 |
+| PM26 | ✅ 完成 | Quantitative Claim Calibration：公开量化指标口径、本地 fixture 和真实数据集 retrieval-only 对照评测 |
 
 ## 真实环境运行
 
@@ -137,7 +138,7 @@ PM8 验收结果：
 ### 离线测试
 
 ```bash
-uv run pytest           # 全量离线测试（644 passed, 1 skipped）
+uv run pytest           # 全量离线测试（656 passed, 1 skipped）
 uv run ruff check .     # lint
 ```
 
@@ -180,7 +181,7 @@ src/deepresearch/
 ├── config.py
 └── doctor.py
 
-tests/               # 644 passed, 1 skipped, 100% 离线可跑
+tests/               # 656 passed, 1 skipped, 100% 离线可跑
 examples/
 ├── bench/           # researchbench_mini.jsonl, researchbench_smoke5.jsonl, multilingual_large20.jsonl
 └── corpus/          # 本地资料集示例

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import httpx
@@ -35,8 +36,22 @@ async def post_json(
         except Exception as exc:
             last_error = exc
             if attempt < max_retries:
+                await asyncio.sleep(_retry_delay(exc, attempt))
                 continue
     raise last_error  # type: ignore[misc]
+
+
+def _retry_delay(exc: Exception, attempt: int) -> float:
+    if isinstance(exc, httpx.HTTPStatusError):
+        retry_after = exc.response.headers.get("Retry-After")
+        if retry_after:
+            try:
+                return min(float(retry_after), 30.0)
+            except ValueError:
+                pass
+        if exc.response.status_code == 429:
+            return min(2.0**attempt, 30.0)
+    return min(0.5 * (2.0**attempt), 5.0)
 
 
 def normalize_llm_usage(usage: dict[str, Any]) -> dict[str, int]:

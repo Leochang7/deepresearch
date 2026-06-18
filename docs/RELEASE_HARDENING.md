@@ -61,6 +61,16 @@ uv run deepresearch benchmark examples/bench/researchbench_smoke5.jsonl \
 该 case 仍然 task success 为 `1.0` 且无 hallucination flag，说明主要问题不是检索失败，
 而是生成报告中的部分分析句没有绑定 evidence citation。
 
+### rb-006 已有产物复盘
+
+基于 `outputs/experiments/release-hardening-real/researchbench_smoke5/rb-006/`
+中的 `report.md`、`evaluation.json`、`trace.jsonl` 和 `memory_snapshot.jsonl`：
+
+- Retriever 与 chunk recall 并非主要瓶颈：5 个 task 均完成 `chunk_rrf_fused`、`rerank_completed` 和 `mmr_selected`；每个 task 的 fused chunks 为 15，MMR selected 为 8。
+- Evidence 数量足够但质量分层不均：最终有 17 条 evidence，正文使用 9 条，未使用 8 条；其中 t1/t3/t5 多次触发 `evidence_fallback_used`，说明 LLM evidence extraction 部分失败后回退到 ranked chunk sentence。
+- Citation coverage 低的直接原因是 Synthesizer 输出结构与 citation enforcement 不匹配：报告里 `Executive Summary`、`Technical Analysis` 的定义段和整个 `Findings` 列表虽然带了 `[E*]`，但被记录为 `Uncited claim` 并移入 Limitations，导致正文只保留 Background 和部分 Technical Analysis。
+- 更准确的责任边界：优先排查 Synthesizer section parser / citation enforcement 对编号列表、粗体列表项和二级小标题的处理；其次优化 Synthesizer prompt，要求每个事实句独立成行并保留标准 `##` section；最后再看 evidence extraction fallback 的 claim 粒度。
+
 优先排查顺序：
 
 1. Synthesizer 是否在解释性/归纳性句子中遗漏引用。

@@ -31,7 +31,7 @@ Planner -> DAG Executor -> Research Agent -> Retriever -> Memory -> Synthesizer 
 
 | 你想做什么 | 去哪里 |
 | --- | --- |
-| 安装项目并跑离线演示 | [快速开始](#快速开始) |
+| 安装项目并跑真实研究任务 | [快速开始](#快速开始) |
 | 配置真实模型、向量库、Langfuse | [配置项](#配置项) |
 | 了解系统能力边界 | [功能面](#功能面) |
 | 找主要代码目录 | [架构地图](#架构地图) |
@@ -86,10 +86,22 @@ Planner -> DAG Executor -> Research Agent -> Retriever -> Memory -> Synthesizer 
 uv sync
 ```
 
-运行一个离线 mock 研究任务。该模式不需要 API key、互联网、Milvus 或 Langfuse：
+`deepresearch run` 默认使用真实模式。运行前请先配置真实模型、检索、embedding、reranker 和 Milvus：
 
 ```bash
 uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋势"
+```
+
+真实运行默认使用保守并发：一次只跑一个 DAG task，单个 ResearchAgent task 内一次只发一个检索请求。只有在 provider 额度允许时再显式调高：
+
+```bash
+uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋势" --max-concurrency 2 --retrieval-concurrency 2
+```
+
+如果只是想跑不依赖 API key、互联网、Milvus 或 Langfuse 的离线 smoke demo，需要显式指定 mock 模式：
+
+```bash
+uv run deepresearch run "分析 2024-2026 年开源 LLM Agent 框架的发展趋势" --mode mock
 ```
 
 输出保存在 `outputs/<run_id>/`：
@@ -155,22 +167,22 @@ docker compose -f docker-compose.milvus.yml up -d
 
 ## 真实运行
 
-使用 Tavily 搜索：
+使用 Tavily 搜索。因为 `run` 默认就是真实模式，`--mode real` 可以省略：
 
 ```bash
-uv run deepresearch run "研究问题" --mode real --retriever tavily
+uv run deepresearch run "研究问题" --retriever tavily
 ```
 
 使用 MiMo 原生搜索：
 
 ```bash
-uv run deepresearch run "研究问题" --mode real --retriever mimo
+uv run deepresearch run "研究问题" --retriever mimo
 ```
 
 使用本地语料，但 LLM、embedding、reranker 和 Milvus 仍走真实后端：
 
 ```bash
-uv run deepresearch run "研究问题" --mode real --retriever local \
+uv run deepresearch run "研究问题" --retriever local \
   --corpus ./examples/corpus
 ```
 

@@ -13,7 +13,7 @@ from deepresearch.schemas.task import TaskNode, TaskState
 
 @dataclass
 class ExecutorConfig:
-    max_concurrency: int = 4
+    max_concurrency: int = 1
     max_task_retries: int = 2
     task_timeout_seconds: float = 180.0
     global_timeout_seconds: float = 1800.0
